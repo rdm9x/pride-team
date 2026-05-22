@@ -38,7 +38,7 @@ You will need:
 Clone the repo and create a virtualenv:
 
 ```bash
-git clone https://github.com/devboard/devboard.git
+git clone https://github.com/rdm9x/devboard.git
 cd devboard
 
 python -m venv .venv
@@ -449,8 +449,8 @@ If your PR is a work-in-progress, open it as a **draft** and prefix the title wi
 
 ## Where to ask questions
 
-- **Bugs and feature requests** — [GitHub Issues](https://github.com/devboard/devboard/issues). Search first; reproduce in 3-5 lines.
-- **Design discussion** — [GitHub Discussions](https://github.com/devboard/devboard/discussions). Good for "should we…" questions before you write code.
+- **Bugs and feature requests** — [GitHub Issues](https://github.com/rdm9x/devboard/issues). Search first; reproduce in 3-5 lines.
+- **Design discussion** — [GitHub Discussions](https://github.com/rdm9x/devboard/discussions). Good for "should we…" questions before you write code.
 - **Security disclosures** — email **rudich@example.com**. Do not open a public issue for vulnerabilities.
 
 For larger changes (new role, new provider, refactor that crosses package boundaries), open a Discussion or a draft ADR under `docs/adr/` first. It saves everyone time.

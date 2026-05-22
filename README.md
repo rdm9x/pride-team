@@ -34,7 +34,7 @@ The launcher installs dependencies on first run, starts the Flask dashboard, and
 ### Option B — shell
 
 ```bash
-git clone https://github.com/devboard/devboard.git
+git clone https://github.com/rdm9x/devboard.git
 cd devboard
 python3 setup.py            # one-time: creates venvs, installs deps
 ./команды/devboard-start.sh

@@ -548,9 +548,17 @@ def _start_team_process(triggered_by: str = "user") -> dict[str, Any]:
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             bufsize=1,
             cwd=str(_REPO_ROOT),
-            env={**os.environ, "PRIDE_TASKS_DB": str(DB_PATH)},
+            env={
+                **os.environ,
+                "PRIDE_TASKS_DB": str(DB_PATH),
+                # UTF-8 для Python и Claude CLI на Windows (без этого RU становится иероглифами)
+                "PYTHONIOENCODING": "utf-8",
+                "PYTHONUTF8": "1",
+            },
         )
         _team_state["process"] = new_proc
         now = int(time.time())

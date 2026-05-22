@@ -3,6 +3,14 @@
 
 $ErrorActionPreference = "Stop"
 
+# UTF-8 для всего вывода (без этого кириллица в иероглифы)
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::InputEncoding  = [System.Text.Encoding]::UTF8
+$OutputEncoding           = [System.Text.Encoding]::UTF8
+$env:PYTHONIOENCODING     = "utf-8"
+$env:PYTHONUTF8           = "1"
+try { chcp 65001 > $null } catch {}
+
 $REPO_ROOT = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $ROLE_FILE = Join-Path $REPO_ROOT "roles\тимлид.md"
 

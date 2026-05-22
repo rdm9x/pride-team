@@ -7,6 +7,14 @@
 
 $ErrorActionPreference = "Stop"
 
+# UTF-8 для всего вывода (Windows: без этого кириллица превращается в иероглифы)
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::InputEncoding  = [System.Text.Encoding]::UTF8
+$OutputEncoding           = [System.Text.Encoding]::UTF8
+$env:PYTHONIOENCODING     = "utf-8"
+$env:PYTHONUTF8           = "1"
+try { chcp 65001 > $null } catch {}
+
 $REPO_ROOT = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $DATA_DIR = Join-Path $REPO_ROOT "data"
 $DASH_DIR = Join-Path $REPO_ROOT "dashboard"

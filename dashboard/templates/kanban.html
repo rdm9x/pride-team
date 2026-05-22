@@ -35,7 +35,7 @@
       </button>
       <button class="nav-item" data-view="settings">
         <span class="ico">⚙</span>
-        <span class="lbl" data-i18n="nav.settings">Состояние</span>
+        <span class="lbl" data-i18n="nav.settings">Настройки</span>
       </button>
       <button class="nav-item" data-view="roles" aria-label="Управление ролями" title="Управление ролями" data-i18n-attr="title:nav.roles_title">
         <span class="ico">🎭</span>
@@ -219,28 +219,216 @@
       <div id="archive-body" class="archive-body"></div>
     </section>
 
-    <!-- View: Settings/State -->
+    <!-- View: Settings -->
     <section class="view view-settings" data-view="settings" hidden>
       <div class="view-header">
-        <h1 data-i18n="settings.title">Состояние системы</h1>
+        <h1 data-i18n="settings.title">Настройки</h1>
       </div>
-      <div id="settings-body" class="settings-body">
-        <p class="muted" data-i18n="settings.intro">Здесь видна сводка по подписке, моделям, БД, бекапам.</p>
-        <div id="usage-detail-table"></div>
-        <h3 data-i18n="settings.backups.title">Бекапы БД</h3>
-        <p class="muted"><span data-i18n="settings.backups.intro">Делаются раз в час пока работает дашборд. Хранятся 7 дней. Папка: </span><code>data/backups/</code></p>
-        <h3 data-i18n="settings.tg.title">Telegram-алерты</h3>
-        <p class="muted" id="tg-status" data-i18n="settings.tg.status_unknown">Состояние неизвестно.</p>
-        <h3 data-i18n="settings.onboarding.title">Onboarding</h3>
-        <p class="muted" data-i18n="settings.onboarding.desc">Replay the quick-start tour.</p>
-        <button id="btn-replay-tour" class="btn btn-secondary" data-i18n="settings.onboarding.replay">Replay tour</button>
-        <h3 data-i18n="settings.demo.title">Demo data</h3>
-        <p class="muted" data-i18n="settings.demo.desc">Load example tasks to explore the kanban.</p>
-        <div class="demo-actions">
-          <button id="btn-demo-create" class="btn btn-primary" data-i18n="settings.demo.create">Try with example data</button>
-          <button id="btn-demo-clear" class="btn btn-secondary" data-i18n="settings.demo.clear">Clear demo</button>
+      <div class="settings-page">
+
+        <!-- Section 1: Language -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <span class="settings-section-icon">🌐</span>
+            <h2 class="settings-section-title" data-i18n="settings.lang.title">Язык</h2>
+          </div>
+          <div class="settings-section-body">
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span data-i18n="settings.lang.ui_label">Язык интерфейса</span>
+                <span class="settings-row-hint" data-i18n="settings.lang.ui_hint">Меняет все подписи в дашборде</span>
+              </div>
+              <div class="settings-row-control">
+                <select id="settings-ui-locale" class="settings-select" aria-label="Interface language">
+                  <option value="ru">🇷🇺 Русский</option>
+                  <option value="en">🇬🇧 English</option>
+                </select>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span data-i18n="settings.lang.output_label">Язык вывода команды</span>
+                <span class="settings-row-hint" data-i18n="settings.lang.output_hint">На каком языке команда пишет результаты</span>
+              </div>
+              <div class="settings-row-control">
+                <select id="settings-output-locale" class="settings-select" aria-label="Team output language">
+                  <option value="ru">🇷🇺 Русский</option>
+                  <option value="en">🇬🇧 English</option>
+                </select>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+
+        <!-- Section 2: Theme -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <span class="settings-section-icon">🎨</span>
+            <h2 class="settings-section-title" data-i18n="settings.theme.title">Тема</h2>
+          </div>
+          <div class="settings-section-body">
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span data-i18n="settings.theme.label">Цветовая схема</span>
+                <span class="settings-row-hint" data-i18n="settings.theme.hint">Синхронизировано с переключателем в шапке</span>
+              </div>
+              <div class="settings-row-control">
+                <div class="settings-theme-radio" role="radiogroup" aria-label="Theme">
+                  <label class="settings-radio-label">
+                    <input type="radio" name="settings-theme" value="light" id="settings-theme-light">
+                    <span data-i18n="settings.theme.light">☀ Светлая</span>
+                  </label>
+                  <label class="settings-radio-label">
+                    <input type="radio" name="settings-theme" value="dark" id="settings-theme-dark">
+                    <span data-i18n="settings.theme.dark">🌙 Тёмная</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Team -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <span class="settings-section-icon">🤖</span>
+            <h2 class="settings-section-title" data-i18n="settings.team.title">Команда</h2>
+          </div>
+          <div class="settings-section-body">
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span data-i18n="settings.team.auto_label">Авто-режим</span>
+                <span class="settings-row-hint" data-i18n="settings.team.auto_hint">Тимлид сам запускает сессии при наличии задач</span>
+              </div>
+              <div class="settings-row-control">
+                <label class="settings-toggle" title="Авто-режим" data-i18n-attr="title:settings.team.auto_label">
+                  <input type="checkbox" id="settings-auto-mode">
+                  <span class="settings-toggle-track"></span>
+                </label>
+              </div>
+            </div>
+            <div class="settings-row settings-row-readonly">
+              <div class="settings-row-label">
+                <span data-i18n="settings.team.limits_label">Лимиты авто-режима</span>
+              </div>
+              <div class="settings-row-control">
+                <span class="settings-readonly-value" data-i18n="settings.team.limits_value">не более 20 сессий/час, мин. 30с между запусками</span>
+              </div>
+            </div>
+            <div class="settings-row settings-row-readonly">
+              <div class="settings-row-label">
+                <span data-i18n="settings.team.router_label">Роутер моделей</span>
+              </div>
+              <div class="settings-row-control">
+                <span id="settings-router-value" class="settings-readonly-value">…</span>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span data-i18n="settings.team.model_override_label">Принудительная модель</span>
+                <span class="settings-row-hint" data-i18n="settings.team.model_override_hint">Переопределяет роутер для следующего запуска</span>
+              </div>
+              <div class="settings-row-control">
+                <select id="settings-model-override" class="settings-select" aria-label="Model override">
+                  <option value="auto" data-i18n="settings.team.model_auto">Авто (роутер)</option>
+                  <option value="haiku">haiku</option>
+                  <option value="sonnet">sonnet</option>
+                  <option value="opus">opus</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 4: Backups -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <span class="settings-section-icon">💾</span>
+            <h2 class="settings-section-title" data-i18n="settings.backups.title">Бекапы</h2>
+          </div>
+          <div class="settings-section-body">
+            <div class="settings-row settings-row-readonly">
+              <div class="settings-row-label">
+                <span data-i18n="settings.backups.path_label">Папка</span>
+              </div>
+              <div class="settings-row-control">
+                <code id="settings-backups-path" class="settings-mono">data/backups/</code>
+              </div>
+            </div>
+            <div class="settings-row settings-row-readonly">
+              <div class="settings-row-label">
+                <span data-i18n="settings.backups.last_label">Последний бекап</span>
+              </div>
+              <div class="settings-row-control">
+                <span id="settings-last-backup" class="settings-readonly-value" data-i18n="settings.backups.none">нет данных</span>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span data-i18n="settings.backups.open_label">Открыть папку</span>
+              </div>
+              <div class="settings-row-control">
+                <button id="btn-open-backups" class="settings-btn" data-i18n="settings.backups.open_btn">Открыть папку</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 5: Usage -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <span class="settings-section-icon">📊</span>
+            <h2 class="settings-section-title" data-i18n="settings.usage.title">Использование</h2>
+          </div>
+          <div class="settings-section-body">
+            <div class="settings-row settings-row-readonly">
+              <div class="settings-row-label">
+                <span data-i18n="settings.usage.today_label">Сегодня</span>
+              </div>
+              <div class="settings-row-control">
+                <span id="settings-usage-today" class="settings-readonly-value" data-i18n="settings.usage.placeholder">N сессий сегодня</span>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span data-i18n="settings.usage.detail_label">Подробная статистика</span>
+              </div>
+              <div class="settings-row-control">
+                <button id="btn-usage-detail" class="settings-btn" data-i18n="settings.usage.detail_btn">Подробнее</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 6: Danger zone -->
+        <div class="settings-section settings-section-danger">
+          <div class="settings-section-header">
+            <span class="settings-section-icon">⚠</span>
+            <h2 class="settings-section-title" data-i18n="settings.danger.title">Опасная зона</h2>
+          </div>
+          <div class="settings-section-body">
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span data-i18n="settings.danger.reset_tour_label">Сбросить онбординг-тур</span>
+                <span class="settings-row-hint" data-i18n="settings.danger.reset_tour_hint">Тур покажется снова при следующем открытии</span>
+              </div>
+              <div class="settings-row-control">
+                <button id="btn-reset-tour" class="settings-btn settings-btn-danger" data-i18n="settings.danger.reset_tour_btn">Сбросить тур</button>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span data-i18n="settings.danger.clear_storage_label">Очистить локальное состояние</span>
+                <span class="settings-row-hint" data-i18n="settings.danger.clear_storage_hint">Удалить все настройки UI из localStorage</span>
+              </div>
+              <div class="settings-row-control">
+                <button id="btn-clear-storage" class="settings-btn settings-btn-danger" data-i18n="settings.danger.clear_storage_btn">Очистить</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /.settings-page -->
     </section>
 
     <!-- View: Roles -->
@@ -285,7 +473,9 @@
       <button id="chat-collapse" class="chat-collapse-btn" title="Свернуть чат"
               data-i18n-attr="title:chat.collapse_title">→</button>
     </header>
-    <div id="chat-body" class="chat-body"></div>
+    <div id="chat-body" class="chat-body">
+      <button id="chat-scroll-bottom" class="chat-scroll-btn" hidden aria-label="Scroll to bottom">⬇</button>
+    </div>
     <form id="chat-form" class="chat-form">
       <input id="chat-input" name="text" placeholder="Спроси тимлида…" autocomplete="off"
              data-i18n-attr="placeholder:chat.placeholder">

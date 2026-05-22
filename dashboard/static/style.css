@@ -615,6 +615,8 @@ code, .md-inline {
   /* S1.3: gap between card borders and scrollbar */
   padding-right: 8px;
   scrollbar-gutter: stable;
+  /* S1.4: зазор сверху чтобы hover-bump карточки не залезал под sticky header */
+  padding-top: 6px;
 }
 
 .col-empty {
@@ -905,6 +907,42 @@ code, .md-inline {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  position: relative;
+}
+.chat-scroll-btn {
+  position: sticky;
+  bottom: 8px;
+  align-self: flex-end;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent, #2563eb);
+  color: var(--on-accent, #fff);
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s ease;
+  z-index: 10;
+  flex-shrink: 0;
+  margin-top: auto;
+}
+.chat-scroll-btn:hover { opacity: 0.85; }
+/* badge via data-badge */
+.chat-scroll-btn[data-badge]::after {
+  content: attr(data-badge);
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--danger, #ef4444);
+  color: white;
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 8px;
+  min-width: 16px;
+  text-align: center;
 }
 
 .chat-message {

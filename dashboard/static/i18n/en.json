@@ -256,7 +256,8 @@
     "rail_label": "Chat",
     "placeholder": "Ask the team-lead…",
     "empty": "nothing yet. Drop a message — the team-lead will see it on the next run.",
-    "send_failed": "Could not send: "
+    "send_failed": "Could not send: ",
+    "scroll_to_bottom": "Scroll to bottom"
   },
   "modal": {
     "confirm": {

@@ -84,6 +84,7 @@
   document.getElementById("chat-expand-rail").addEventListener("click", () => {
     applyChatCollapsed(false);
     markChatRead();
+    scrollToBottom(false);
   });
 
   // ===================== Views & navigation =====================
@@ -994,46 +995,229 @@
   }
 
   // ===================== Settings view =====================
+
+  // --- S2.1: Settings page state helpers ---
+  function settingsGetUiLocale() {
+    return localStorage.getItem("locale") || "ru";
+  }
+  function settingsGetOutputLocale() {
+    return localStorage.getItem("output_locale") || "ru";
+  }
+  function settingsGetModelOverride() {
+    return localStorage.getItem("next_model_override") || "auto";
+  }
+
+  // Sync the settings page controls from current state (called on open + locale change)
+  function settingsSyncControls() {
+    // Language
+    const uiSel = $("#settings-ui-locale");
+    if (uiSel) uiSel.value = settingsGetUiLocale();
+    const outSel = $("#settings-output-locale");
+    if (outSel) outSel.value = settingsGetOutputLocale();
+
+    // Theme
+    const currentTheme = document.documentElement.dataset.theme || "light";
+    const lightRadio = $("#settings-theme-light");
+    const darkRadio = $("#settings-theme-dark");
+    if (lightRadio) lightRadio.checked = currentTheme === "light";
+    if (darkRadio) darkRadio.checked = currentTheme === "dark";
+
+    // Auto-mode toggle — mirror topbar checkbox
+    const autoCheckbox = $("#settings-auto-mode");
+    const topbarAuto = $("#auto-mode-toggle");
+    if (autoCheckbox && topbarAuto) autoCheckbox.checked = topbarAuto.checked;
+
+    // Model override
+    const modelSel = $("#settings-model-override");
+    if (modelSel) modelSel.value = settingsGetModelOverride();
+  }
+
   async function loadSettings() {
-    const r = await fetch("/api/usage");
-    const u = await r.json();
-    const row = (label, w) =>
-      `<tr><td>${label}</td><td class="num">${w.sessions}</td><td class="num">${w.turns}</td>` +
-      `<td class="num">${(w.input_tokens || 0).toLocaleString(dtLocale())}</td>` +
-      `<td class="num">${(w.output_tokens || 0).toLocaleString(dtLocale())}</td>` +
-      `<td class="num">$${(w.cost_usd || 0).toFixed(4)}</td></tr>`;
-    const models = (u.models || []).map(
-      (m) => `<li><code>${escapeHtml(m.model || "—")}</code> · ${m.sessions} ${i18n("usage.models.unit_sessions")} · ${m.turns} ${i18n("usage.models.unit_turns")}</li>`
-    ).join("") || `<li style='color:#8b949e'>${i18n("usage.models.empty")}</li>`;
-    const noteLine1 = i18n("usage.note.line1");
-    const noteLine2 = i18n("usage.note.line2");
-    $("#usage-detail-table").innerHTML = `
-      <table class="usage-table">
-        <thead>
-          <tr><th>${i18n("usage.table.window")}</th><th class="num">${i18n("usage.table.sessions")}</th><th class="num">${i18n("usage.table.turns")}</th>
-              <th class="num">Input</th><th class="num">Output</th>
-              <th class="num">${i18n("usage.table.cost")}</th></tr>
-        </thead>
-        <tbody>
-          ${row(i18n("usage.row.last5h"), u.last_5h || {})}
-          ${row(i18n("usage.row.today"), u.today || {})}
-          ${row(i18n("usage.row.last24h"), u.last_24h || {})}
-          ${row(i18n("usage.row.total"), u.total || {})}
-        </tbody>
-      </table>
-      <h3 style="margin-top:18px">${i18n("usage.models.title")}</h3>
-      <ul style="padding-left: 20px; margin: 0">${models}</ul>
-      <div class="usage-note">
-        ${noteLine1}<br>
-        ${noteLine2}
-      </div>
-    `;
-    // TG-статус
+    // Sync controls with current state
+    settingsSyncControls();
+
+    // Load static info (backups, limits)
     try {
-      const t = await fetch("/api/usage");
-      // Простая проверка наличия env-переменных через router (не идеально, но рабоче)
+      const r = await fetch("/api/settings/static-info");
+      if (r.ok) {
+        const info = await r.json();
+        // Backups path
+        const pathEl = $("#settings-backups-path");
+        if (pathEl) pathEl.textContent = info.backups_path || "data/backups/";
+        // Last backup
+        const lastEl = $("#settings-last-backup");
+        if (lastEl) {
+          if (info.last_backup) {
+            const kb = info.last_backup.size_kb;
+            const sizeStr = kb >= 1024
+              ? (kb / 1024).toFixed(1) + " MB"
+              : kb + " KB";
+            lastEl.textContent = info.last_backup.name + " · " + sizeStr;
+          } else {
+            lastEl.textContent = i18n("settings.backups.none");
+          }
+        }
+        // Router current value
+        const routerEl = $("#settings-router-value");
+        if (routerEl && info.auto_limits) {
+          // Show limits info is already in read-only row; show router model from sidebar
+          const routerSummary = $("#router-summary");
+          routerEl.textContent = routerSummary
+            ? routerSummary.textContent
+            : i18n("settings.team.router_placeholder");
+        }
+      }
+    } catch (_) {}
+
+    // Load usage today
+    try {
+      const r = await fetch("/api/usage");
+      if (r.ok) {
+        const u = await r.json();
+        const todayEl = $("#settings-usage-today");
+        if (todayEl) {
+          const today = u.today || {};
+          const n = today.sessions || 0;
+          todayEl.textContent = n + " " + i18n("settings.usage.sessions_unit");
+        }
+      }
     } catch (_) {}
   }
+
+  // --- S2.1: Wire settings controls (once on DOMContentLoaded) ---
+  function initSettingsControls() {
+    // UI locale dropdown
+    const uiSel = $("#settings-ui-locale");
+    if (uiSel) {
+      uiSel.addEventListener("change", () => {
+        const lang = uiSel.value;
+        localStorage.setItem("locale", lang);
+        // Use locale-switcher's setLocale if available, else call window.setLocale
+        if (typeof window.setLocale === "function") {
+          window.setLocale(lang);
+        }
+        // Keep topbar locale-switcher buttons in sync
+        document.querySelectorAll(".locale-switcher [data-locale]").forEach((b) => {
+          b.setAttribute("aria-pressed", b.dataset.locale === lang ? "true" : "false");
+        });
+        document.documentElement.setAttribute("lang", lang);
+        // Re-sync settings select (i18n might re-render)
+        setTimeout(() => { if (uiSel) uiSel.value = lang; }, 50);
+      });
+    }
+
+    // Output locale dropdown
+    const outSel = $("#settings-output-locale");
+    if (outSel) {
+      outSel.addEventListener("change", () => {
+        localStorage.setItem("output_locale", outSel.value);
+      });
+    }
+
+    // Theme radios — mirror topbar theme-set buttons
+    document.querySelectorAll("input[name='settings-theme']").forEach((radio) => {
+      radio.addEventListener("change", () => {
+        if (!radio.checked) return;
+        const theme = radio.value;
+        document.documentElement.dataset.theme = theme;
+        localStorage.setItem("devboard-theme", theme);
+        // Keep topbar theme toggle in sync
+        document.querySelectorAll("[data-theme-set]").forEach((btn) => {
+          btn.classList.toggle("active", btn.dataset.themeSet === theme);
+        });
+      });
+    });
+
+    // Auto-mode toggle — mirrors topbar checkbox bidirectionally
+    const settingsAuto = $("#settings-auto-mode");
+    if (settingsAuto) {
+      settingsAuto.addEventListener("change", () => {
+        const topbarAuto = $("#auto-mode-toggle");
+        if (topbarAuto && topbarAuto.checked !== settingsAuto.checked) {
+          topbarAuto.checked = settingsAuto.checked;
+          // Trigger the existing auto-mode handler
+          topbarAuto.dispatchEvent(new Event("change"));
+        }
+      });
+    }
+
+    // Model override dropdown
+    const modelSel = $("#settings-model-override");
+    if (modelSel) {
+      modelSel.addEventListener("change", () => {
+        localStorage.setItem("next_model_override", modelSel.value);
+      });
+    }
+
+    // Open backups folder button
+    const btnOpenBackups = $("#btn-open-backups");
+    if (btnOpenBackups) {
+      btnOpenBackups.addEventListener("click", async () => {
+        try {
+          await fetch("/api/open-folder", { method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: "data/backups" }) });
+        } catch (_) {
+          // Fallback — open relative URL (won't open finder but avoids silent fail)
+        }
+      });
+    }
+
+    // Usage detail button — Sprint 3 placeholder
+    const btnUsageDetail = $("#btn-usage-detail");
+    if (btnUsageDetail) {
+      btnUsageDetail.addEventListener("click", () => {
+        alert(i18n("settings.usage.sprint3_placeholder"));
+      });
+    }
+
+    // Danger zone: reset tour
+    const btnResetTour = $("#btn-reset-tour");
+    if (btnResetTour) {
+      btnResetTour.addEventListener("click", () => {
+        localStorage.removeItem("onboarding_completed");
+        alert(i18n("settings.danger.reset_tour_done"));
+      });
+    }
+
+    // Danger zone: clear localStorage
+    const btnClearStorage = $("#btn-clear-storage");
+    if (btnClearStorage) {
+      btnClearStorage.addEventListener("click", () => {
+        if (!confirm(i18n("settings.danger.clear_storage_confirm"))) return;
+        localStorage.clear();
+        location.reload();
+      });
+    }
+
+    // Keep settings-auto-mode in sync when topbar auto changes
+    const topbarAuto = $("#auto-mode-toggle");
+    if (topbarAuto) {
+      topbarAuto.addEventListener("change", () => {
+        const settingsAuto2 = $("#settings-auto-mode");
+        if (settingsAuto2) settingsAuto2.checked = topbarAuto.checked;
+      });
+    }
+
+    // Keep theme radios in sync when topbar theme buttons change
+    document.querySelectorAll("[data-theme-set]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const theme = btn.dataset.themeSet;
+        const lightR = $("#settings-theme-light");
+        const darkR = $("#settings-theme-dark");
+        if (lightR) lightR.checked = theme === "light";
+        if (darkR) darkR.checked = theme === "dark";
+      });
+    });
+
+    // Keep settings-ui-locale in sync on locale change
+    window.addEventListener("localechange", () => {
+      const uiSel2 = $("#settings-ui-locale");
+      if (uiSel2) uiSel2.value = settingsGetUiLocale();
+    });
+  }
+
+  // Initialize settings controls right away
+  initSettingsControls();
 
   // ===================== Router / silence / usage badges =====================
   async function refreshRouter() {
@@ -1074,6 +1258,38 @@
   }
 
   // ===================== Chat =====================
+
+  // Scroll utilities
+  let _unreadChatSinceScroll = 0;
+  const chatScrollBtn = document.getElementById('chat-scroll-bottom');
+  const chatList = document.getElementById('chat-body');
+
+  function isAtBottom() {
+    if (!chatList) return true;
+    return chatList.scrollTop + chatList.clientHeight >= chatList.scrollHeight - 50;
+  }
+
+  function scrollToBottom(smooth) {
+    if (!chatList) return;
+    chatList.scrollTo({ top: chatList.scrollHeight, behavior: smooth ? 'smooth' : 'instant' });
+    _unreadChatSinceScroll = 0;
+    updateScrollBtn();
+  }
+
+  function updateScrollBtn() {
+    if (!chatScrollBtn) return;
+    const atBottom = isAtBottom();
+    chatScrollBtn.hidden = atBottom;
+    if (_unreadChatSinceScroll > 0 && !atBottom) {
+      chatScrollBtn.setAttribute('data-badge', _unreadChatSinceScroll);
+    } else {
+      chatScrollBtn.removeAttribute('data-badge');
+    }
+  }
+
+  if (chatList) chatList.addEventListener('scroll', updateScrollBtn);
+  if (chatScrollBtn) chatScrollBtn.addEventListener('click', () => scrollToBottom(true));
+
   async function refreshChat() {
     const r = await fetch("/api/chat?limit=200");
     if (!r.ok) return;
@@ -1126,12 +1342,16 @@
   };
 
   function renderChat(messages) {
-    const body = $("#chat-body");
+    const body = chatList;
+    if (!body) return;
+    const isFirstRender = lastChatId === 0;
     if (messages.length === 0) {
       body.innerHTML = `<div style="color:var(--muted);font-size:11px;font-style:italic">${i18n("chat.empty")}</div>`;
+      // Re-attach scroll button (innerHTML replaced it)
+      if (chatScrollBtn) body.appendChild(chatScrollBtn);
       return;
     }
-    const atBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 30;
+    const wasAtBottom = isAtBottom();
     body.innerHTML = messages.map((m) => {
       const time = new Date(m.created_at * 1000).toLocaleTimeString(dtLocale(), {hour:"2-digit", minute:"2-digit"});
       const icon = AUTHOR_ICON[m.author] || "•";
@@ -1143,14 +1363,33 @@
         <div class="chat-text">${formatChatText(m.text)}</div>
       </div>`;
     }).join("");
+    // Re-attach scroll button after innerHTML replacement
+    if (chatScrollBtn) body.appendChild(chatScrollBtn);
     body.querySelectorAll("[data-task-ref]").forEach((el) =>
       el.addEventListener("click", () => openTaskModal(el.dataset.taskRef)),
     );
-    if (atBottom) body.scrollTop = body.scrollHeight;
 
+    // === Scroll logic ===
     // === Уведомления о новых сообщениях НЕ от Дмитрия ===
     const latest = messages[messages.length - 1];
+    const prevLastChatId = lastChatId;
     lastChatId = latest.id;
+
+    if (isFirstRender) {
+      // Initial load: always scroll to bottom
+      scrollToBottom(false);
+    } else {
+      const newMessages = messages.filter((m) => m.id > prevLastChatId);
+      if (newMessages.length > 0 && wasAtBottom) {
+        scrollToBottom(false);
+      } else if (newMessages.length > 0 && !wasAtBottom) {
+        _unreadChatSinceScroll += newMessages.length;
+        updateScrollBtn();
+      } else if (wasAtBottom) {
+        scrollToBottom(false);
+      }
+    }
+
     const newFromTeam = messages.filter(
       (m) => m.id > lastSeenChatId && m.author !== "пользователь"
     );

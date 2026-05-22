@@ -15,6 +15,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [1.1.0] - 2026-05-22
+
+### Changed
+
+- Product renamed: `pride-team` → `devboard` across the entire repo (sidebar brand, README, packages, configs, launcher scripts).
+- Owner role renamed: `Дмитрий`/`дмитрий` → `пользователь`/`user` in code, i18n, tests, and DB migration script (`scripts/migrate_dmitry_to_user.py`) for open-source friendliness.
+- i18n RU: todo column label "К работе" → "В очереди".
+
+### Fixed
+
+- CSS: scrollbar in kanban columns no longer overlaps card borders (`padding-right: 8px; scrollbar-gutter: stable` on `.column .cards`).
+- CSS: column header no longer hidden by top-card hover transform (`position: sticky; z-index: 2` on `.column h2`).
+
 ## [1.0.0] - Unreleased
 
 First public release. Open-source baseline of devboard — a local kanban driven by a small fleet of AI role-bots (Team Lead, Backend, QA, and optional specialists).

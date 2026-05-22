@@ -2390,27 +2390,32 @@ input[type="checkbox"] {
 }
 
 .acceptance-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: 16px 1fr;
   align-items: center;
-  gap: 8px;
+  column-gap: 10px;
   font-size: 13px;
   color: var(--text);
-  line-height: 1.45;
+  min-height: 22px;
 }
 
 .acceptance-item input[type="checkbox"] {
   cursor: pointer;
   accent-color: var(--accent);
-  flex-shrink: 0;
   width: 14px;
   height: 14px;
   margin: 0;
+  padding: 0;
+  vertical-align: middle;
+  display: block;
 }
 
 .acceptance-item label {
   cursor: pointer;
-  flex: 1;
-  line-height: 1.4;
+  line-height: 1.45;
+  margin: 0;
+  padding: 0;
+  display: block;
 }
 
 .acceptance-item.checked label {

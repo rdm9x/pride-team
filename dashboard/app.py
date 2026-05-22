@@ -734,6 +734,15 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             return jsonify(res), 404
         return jsonify(res)
 
+    @app.get("/api/tasks/<task_id>/parsed")
+    def api_parse_task(task_id: str) -> Any:
+        res = tools.parse_task_description(task_id, db_path=_db())
+        if res["статус"] == "not_found":
+            return jsonify(res), 404
+        if res["статус"] != "ok":
+            return jsonify(res), 400
+        return jsonify(res)
+
     @app.patch("/api/tasks/<task_id>")
     def api_update_task(task_id: str) -> Any:
         data = request.get_json(silent=True) or {}
@@ -1369,6 +1378,32 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             hour_map = {r["hour"]: r["count"] for r in hour_rows}
             hourly_activity = [{"hour": h, "count": hour_map.get(h, 0)} for h in range(24)]
 
+            # === Lifetime task counters (NOT filtered by range) ===
+            # Всего сделано задач (статус = 'done')
+            tasks_total_done_row = conn.execute(
+                "SELECT COUNT(*) AS count FROM tasks WHERE status = 'done'"
+            ).fetchone()
+            tasks_total_done = tasks_total_done_row["count"] or 0
+
+            # Всего создано задач
+            tasks_total_created_row = conn.execute(
+                "SELECT COUNT(*) AS count FROM tasks"
+            ).fetchone()
+            tasks_total_created = tasks_total_created_row["count"] or 0
+
+            # Сейчас в работе (wip + review + needs_approval)
+            tasks_in_progress_row = conn.execute(
+                "SELECT COUNT(*) AS count FROM tasks WHERE status IN ('wip', 'review', 'needs_approval')"
+            ).fetchone()
+            tasks_in_progress = tasks_in_progress_row["count"] or 0
+
+            # Completion rate (завершённые от всех созданных)
+            tasks_completion_rate = (
+                round(tasks_total_done / tasks_total_created, 2)
+                if tasks_total_created > 0
+                else 0.0
+            )
+
         finally:
             conn.close()
 
@@ -1409,6 +1444,11 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
                 "fastest_task": fastest_task,
                 "most_productive_role": most_productive_role,
             },
+            # Lifetime task counters (always, not range-filtered)
+            "tasks_total_done": tasks_total_done,
+            "tasks_total_created": tasks_total_created,
+            "tasks_in_progress": tasks_in_progress,
+            "tasks_completion_rate": tasks_completion_rate,
         }
         _stats_cache[rng] = (now_ts, payload)
         return jsonify(payload)

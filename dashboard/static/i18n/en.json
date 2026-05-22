@@ -285,6 +285,17 @@
     "files": "Files",
     "lines": "Lines",
     "hours": "Hours worked",
+    "tasks_total_done": "Tasks done",
+    "tasks_total_created": "Total created",
+    "tasks_completion_rate": "Completion rate",
+    "tasks_in_progress": "In progress",
+    "lifetime": {
+      "title": "Team lifetime counters",
+      "done": "Total done",
+      "created": "Total created",
+      "rate": "Completion rate",
+      "inprogress": "In progress"
+    },
     "models": {
       "title": "Model usage"
     },

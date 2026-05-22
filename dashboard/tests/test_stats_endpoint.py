@@ -98,6 +98,55 @@ def test_stats_cache_works(client) -> None:
     assert r1.get_json() == r2.get_json()
 
 
+def test_stats_lifetime_counters_present(client) -> None:
+    """S5.2: endpoint возвращает поля lifetime-счётчиков задач."""
+    r = client.get("/api/stats/aggregates?range=all")
+    assert r.status_code == 200
+    j = r.get_json()
+    lifetime_keys = {"tasks_total_done", "tasks_total_created", "tasks_in_progress", "tasks_completion_rate"}
+    assert lifetime_keys <= set(j.keys()), f"Отсутствуют ключи: {lifetime_keys - set(j.keys())}"
+    # Счётчики должны быть неотрицательными числами
+    assert j["tasks_total_done"] >= 0
+    assert j["tasks_total_created"] >= 0
+    assert j["tasks_in_progress"] >= 0
+    assert 0.0 <= j["tasks_completion_rate"] <= 1.0
+
+
+def test_stats_lifetime_tasks_total_done_counts_done_tasks(client) -> None:
+    """S5.2: tasks_total_done > 0 при наличии задач со status='done' (включая архивные)."""
+    from pride_tasks import db as _db, tools as _tools  # type: ignore
+
+    db_path = client.application.config["DB_PATH"]
+
+    # Создаём задачу напрямую со статусом done (имитируем архивную выполненную задачу)
+    res = _tools.create_task(
+        title="Test done task S5.2",
+        description="",
+        assignee="бэкенд",
+        reporter="пользователь",
+        priority="P2",
+        status="done",
+        db_path=db_path,
+    )
+    assert res["статус"] == "ok"
+
+    r = client.get("/api/stats/aggregates?range=all")
+    assert r.status_code == 200
+    j = r.get_json()
+    assert j["tasks_total_done"] > 0, (
+        f"tasks_total_done должен быть > 0 при наличии done-задач, получено {j['tasks_total_done']}"
+    )
+    assert j["tasks_total_created"] >= j["tasks_total_done"], (
+        "tasks_total_created не может быть меньше tasks_total_done"
+    )
+    # Completion rate должен быть вычислен корректно
+    if j["tasks_total_created"] > 0:
+        expected_rate = round(j["tasks_total_done"] / j["tasks_total_created"], 2)
+        assert abs(j["tasks_completion_rate"] - expected_rate) < 0.01, (
+            f"Ожидался rate {expected_rate:.2f}, получено {j['tasks_completion_rate']}"
+        )
+
+
 def test_stats_all_models_shown_including_haiku(client) -> None:
     """S5.1: все модели (haiku/sonnet/opus) отображаются, включая с малыми затратами.
 
@@ -168,3 +217,65 @@ def test_stats_all_models_shown_including_haiku(client) -> None:
     assert haiku["cost_usd"] == 0.0003
     assert haiku["input_tokens"] == 100
     assert haiku["output_tokens"] == 50
+
+
+def test_stats_lifetime_counters(client) -> None:
+    """S5.2: endpoint возвращает lifetime task counters (НЕ зависят от range)."""
+    from pride_tasks import db as _db  # type: ignore
+
+    db_path = client.application.config["DB_PATH"]
+
+    # Создаём тестовые задачи (3 done, 1 wip, 1 todo = 5 всего)
+    _db.insert_task(
+        db_path,
+        title="Task 1",
+        status="done",
+        assignee="backend",
+        priority="P1",
+    )
+    _db.insert_task(
+        db_path,
+        title="Task 2",
+        status="done",
+        assignee="qa",
+        priority="P2",
+    )
+    _db.insert_task(
+        db_path,
+        title="Task 3",
+        status="wip",
+        assignee="frontend",
+        priority="P1",
+    )
+    _db.insert_task(
+        db_path,
+        title="Task 4",
+        status="todo",
+        assignee="backend",
+        priority="P2",
+    )
+    _db.insert_task(
+        db_path,
+        title="Task 5",
+        status="done",
+        assignee="backend",
+        priority="P1",
+    )
+
+    # Проверяем для разных диапазонов — lifetime счётчики всегда одинаковые
+    for rng in ("today", "24h", "week", "all"):
+        r = client.get(f"/api/stats/aggregates?range={rng}")
+        assert r.status_code == 200, f"range={rng} вернул {r.status_code}"
+        j = r.get_json()
+
+        # Lifetime counters должны быть в ответе
+        assert "tasks_total_done" in j, f"tasks_total_done отсутствует в range={rng}"
+        assert "tasks_total_created" in j, f"tasks_total_created отсутствует в range={rng}"
+        assert "tasks_in_progress" in j, f"tasks_in_progress отсутствует в range={rng}"
+        assert "tasks_completion_rate" in j, f"tasks_completion_rate отсутствует в range={rng}"
+
+        # Проверяем значения (всегда одинаковые, НЕ зависят от range)
+        assert j["tasks_total_done"] == 3, f"tasks_total_done: ожидалось 3, получено {j['tasks_total_done']}"
+        assert j["tasks_total_created"] == 5, f"tasks_total_created: ожидалось 5, получено {j['tasks_total_created']}"
+        assert j["tasks_in_progress"] == 1, f"tasks_in_progress: ожидалось 1, получено {j['tasks_in_progress']}"
+        assert j["tasks_completion_rate"] == 0.6, f"tasks_completion_rate: ожидалось 0.6, получено {j['tasks_completion_rate']}"

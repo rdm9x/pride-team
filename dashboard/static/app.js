@@ -312,17 +312,119 @@
     return STATUS_KEYS.map((k) => [k, statusLabel(k)]);
   }
 
+  // Рендер user-mode: структурированное отображение с TL;DR, шагами, acceptance, опциями
+  function renderUserMode(parsed) {
+    if (!parsed || !parsed.has_structure) {
+      return null; // Fallback к raw markdown
+    }
+
+    const parts = [];
+
+    // TL;DR — крупно и выделено
+    if (parsed.tldr) {
+      parts.push(`
+        <div class="reader-mode-tldr">
+          <strong>${escapeHtml(parsed.tldr)}</strong>
+        </div>
+      `);
+    }
+
+    // Шаги со списком
+    if (parsed.steps && parsed.steps.length) {
+      const stepsList = parsed.steps
+        .map((step) => `<li>${escapeHtml(step)}</li>`)
+        .join("");
+      parts.push(`
+        <div class="reader-mode-section">
+          <h4>Что делать</h4>
+          <ul class="steps-list">${stepsList}</ul>
+        </div>
+      `);
+    }
+
+    // Acceptance criteria как чек-лист
+    if (parsed.acceptance && parsed.acceptance.length) {
+      const checkboxes = parsed.acceptance
+        .map((item) => {
+          const checked = item.checked ? "checked" : "";
+          return `<div class="acceptance-item">
+            <input type="checkbox" disabled ${checked}>
+            <span>${escapeHtml(item.label)}</span>
+          </div>`;
+        })
+        .join("");
+      parts.push(`
+        <div class="reader-mode-section">
+          <h4>Acceptance</h4>
+          <div class="acceptance-list">${checkboxes}</div>
+        </div>
+      `);
+    }
+
+    // Варианты ответов как кнопки
+    if (parsed.options && parsed.options.length) {
+      const optionsBtns = parsed.options
+        .map((opt) => {
+          return `<button type="button" class="option-btn" data-option-value="${escapeAttr(opt.value)}">
+            ${escapeHtml(opt.label)}
+          </button>`;
+        })
+        .join("");
+      parts.push(`
+        <div class="reader-mode-section">
+          <h4>Варианты</h4>
+          <div class="options-buttons">${optionsBtns}</div>
+        </div>
+      `);
+    }
+
+    // Кнопка раскрыть полный текст
+    if (parsed.raw_markdown) {
+      parts.push(`
+        <button type="button" class="tech-details-btn" id="btn-show-agent-mode">
+          Технические детали
+        </button>
+      `);
+    }
+
+    return parts.length > 0 ? `<div class="reader-mode">${parts.join("")}</div>` : null;
+  }
+
+  // Рендер agent-mode: raw markdown в монопространстве
+  function renderAgentMode(parsed) {
+    if (!parsed || !parsed.raw_markdown) {
+      return null;
+    }
+    return `
+      <div class="agent-mode" hidden>
+        <h4>Raw Markdown</h4>
+        <pre class="raw-markdown">${escapeHtml(parsed.raw_markdown)}</pre>
+        <button type="button" id="btn-hide-agent-mode">Скрыть</button>
+      </div>
+    `;
+  }
+
   async function openTaskModal(id) {
     const r = await fetch("/api/tasks/" + id);
     if (!r.ok) return;
     const { задача: t } = await r.json();
+
+    // Пытаемся получить парсированное description
+    let parsed = null;
+    const rParsed = await fetch("/api/tasks/" + id + "/parsed");
+    if (rParsed.ok) {
+      const pData = await rParsed.json();
+      parsed = pData.parsed;
+    }
+
     $("#modal-task-title").textContent = `#${t.id.slice(0, 6)} · ${t.title}`;
-    $("#modal-task-body").innerHTML = renderTaskBody(t);
+    $("#modal-task-body").innerHTML = renderTaskBody(t, parsed);
     bindTaskActions(t);
+    bindReaderMode(parsed);
     $("#modal-task").hidden = false;
   }
 
-  function renderTaskBody(t) {
+  function renderTaskBody(t, parsed) {
     const created = new Date(t.created_at * 1000).toLocaleString(dtLocale());
     const updated = new Date(t.updated_at * 1000).toLocaleString(dtLocale());
     const createdUpdated = i18n("task.meta.created_updated")
@@ -366,7 +468,11 @@
 
       <div id="view-mode">
         <h3>${i18n("task.section.description")}</h3>
-        <div style="white-space:pre-wrap">${escapeHtml(t.description || "—")}</div>
+        ${
+          parsed && parsed.has_structure
+            ? renderUserMode(parsed) + (parsed.raw_markdown ? renderAgentMode(parsed) : "")
+            : `<div style="white-space:pre-wrap">${escapeHtml(t.description || "—")}</div>`
+        }
       </div>
 
       <form id="edit-mode" hidden>
@@ -550,6 +656,58 @@
         await openTaskModal(t.id);
       });
     }
+  }
+
+  // Reader mode: переключение между user-mode и agent-mode
+  function bindReaderMode(parsed) {
+    if (!parsed) return;
+
+    const root = $("#modal-task-body");
+    const btnShowAgent = root.querySelector("#btn-show-agent-mode");
+    const btnHideAgent = root.querySelector("#btn-hide-agent-mode");
+    const readerMode = root.querySelector(".reader-mode");
+    const agentMode = root.querySelector(".agent-mode");
+
+    if (btnShowAgent) {
+      btnShowAgent.addEventListener("click", () => {
+        if (readerMode) readerMode.hidden = true;
+        if (agentMode) agentMode.hidden = false;
+      });
+    }
+
+    if (btnHideAgent) {
+      btnHideAgent.addEventListener("click", () => {
+        if (readerMode) readerMode.hidden = false;
+        if (agentMode) agentMode.hidden = true;
+      });
+    }
+
+    // Обработка кликов на кнопки вариантов (option-btn)
+    root.querySelectorAll(".option-btn").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        const optionValue = btn.dataset.optionValue;
+        const optionLabel = btn.textContent.trim();
+
+        // Добавляем комментарий с выбранным вариантом
+        const taskId = btn.closest("[data-task-id]")?.dataset.taskId ||
+                      root.closest("[data-task-id]")?.dataset.taskId;
+        if (!taskId) return;
+
+        const text = `Выбран вариант: ${optionLabel}`;
+        await fetch(`/api/tasks/${taskId}/comment`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ author: "пользователь", text }),
+        });
+
+        // Обновляем модалку чтобы показать новый комментарий
+        const taskId2 = $("#modal-task-title").textContent.match(/#([a-z0-9]+)/)?.[1];
+        if (taskId2) {
+          await openTaskModal(taskId2);
+        }
+      });
+    });
   }
 
   // ===================== New-task modal =====================
@@ -1811,7 +1969,28 @@
       return;
     }
 
-    // --- KPI cards ---
+    // --- KPI cards: lifetime counters (always shown) ---
+    let kpiHtml = `<div class="stats-kpi-lifetime">
+      <h3 class="stats-kpi-lifetime-title">${i18n("stats.range.all")}</h3>
+      <div class="stats-kpi-row">`;
+
+    const lifetimeDefs = [
+      { key: "tasks_total_done",       label: i18n("stats.tasks_total_done"),       value: data.tasks_total_done || 0, unit: "" },
+      { key: "tasks_total_created",    label: i18n("stats.tasks_total_created"),    value: data.tasks_total_created || 0, unit: "" },
+      { key: "tasks_completion_rate",  label: i18n("stats.tasks_completion_rate"),  value: (Math.round((data.tasks_completion_rate || 0) * 100)) + "%", unit: "" },
+      { key: "tasks_in_progress",      label: i18n("stats.tasks_in_progress"),      value: data.tasks_in_progress || 0, unit: "" },
+    ];
+
+    kpiHtml += lifetimeDefs.map((k) => `
+      <div class="stats-kpi-card">
+        <div class="stats-kpi-label">${escapeHtml(k.label)}</div>
+        <div class="stats-kpi-value">${escapeHtml(String(k.value))}${k.unit ? '<span class="stats-kpi-unit">' + k.unit + '</span>' : ''}</div>
+      </div>
+    `).join("");
+
+    kpiHtml += `</div></div>`;
+
+    // --- KPI cards: range-based counters ---
     const kpiDefs = [
       { key: "sessions",      label: i18n("stats.sessions"),  value: data.sessions      || 0, unit: "" },
       { key: "turns",         label: i18n("stats.turns"),     value: data.turns         || 0, unit: "" },
@@ -1820,12 +1999,21 @@
       { key: "lines_written", label: i18n("stats.lines"),     value: data.lines_written || 0, unit: "" },
       { key: "hours_worked",  label: i18n("stats.hours"),     value: (data.hours_worked || 0).toFixed(1), unit: "h" },
     ];
-    kpiGrid.innerHTML = kpiDefs.map((k) => `
+
+    kpiHtml += `<div class="stats-kpi-range">
+      <h3 class="stats-kpi-range-title">${i18n("stats.range." + _statsRange)}</h3>
+      <div class="stats-kpi-row">`;
+
+    kpiHtml += kpiDefs.map((k) => `
       <div class="stats-kpi-card">
         <div class="stats-kpi-label">${escapeHtml(k.label)}</div>
         <div class="stats-kpi-value">${escapeHtml(String(k.value))}${k.unit ? '<span class="stats-kpi-unit">' + k.unit + '</span>' : ''}</div>
       </div>
     `).join("");
+
+    kpiHtml += `</div></div>`;
+
+    kpiGrid.innerHTML = kpiHtml;
 
     // --- Models table ---
     if (modelsEl) {
@@ -1908,6 +2096,52 @@
       }
       html += `</div>`;
       topEl.innerHTML = html;
+    }
+
+    // --- Lifetime task counters ---
+    const lifetimeEl = $("#statsLifetime");
+    if (lifetimeEl) {
+      const totalDone      = data.tasks_total_done      || 0;
+      const totalCreated   = data.tasks_total_created   || 0;
+      const inProgress     = data.tasks_in_progress     || 0;
+      const completionRate = data.tasks_completion_rate || 0;
+      const rateDisplay    = Math.round(completionRate * 100);
+
+      const lifetimeDefs = [
+        { id: "lt-done",       label: i18n("stats.lifetime.done"),       rawVal: totalDone,    suffix: "" },
+        { id: "lt-created",    label: i18n("stats.lifetime.created"),    rawVal: totalCreated, suffix: "" },
+        { id: "lt-rate",       label: i18n("stats.lifetime.rate"),       rawVal: rateDisplay,  suffix: "%" },
+        { id: "lt-inprogress", label: i18n("stats.lifetime.inprogress"), rawVal: inProgress,   suffix: "" },
+      ];
+
+      let lifetimeHtml = `<h3 class="stats-section-title">${i18n("stats.lifetime.title")}</h3>`;
+      lifetimeHtml += `<div class="stats-kpi-grid">`;
+      lifetimeHtml += lifetimeDefs.map((d) => `
+        <div class="stats-kpi-card">
+          <div class="stats-kpi-label">${escapeHtml(d.label)}</div>
+          <div class="stats-kpi-value" id="${escapeHtml(d.id)}">0${escapeHtml(d.suffix)}</div>
+        </div>
+      `).join("");
+      lifetimeHtml += `</div>`;
+      lifetimeEl.innerHTML = lifetimeHtml;
+
+      // Count-up animation (600ms JS ease-out tween)
+      lifetimeDefs.forEach((d) => {
+        const el = document.getElementById(d.id);
+        if (!el) return;
+        if (d.rawVal === 0) { el.textContent = "0" + d.suffix; return; }
+        const startTime = performance.now();
+        const dur = 600;
+        function step(now) {
+          const elapsed = now - startTime;
+          const progress = Math.min(elapsed / dur, 1);
+          const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+          el.textContent = Math.round(eased * d.rawVal) + d.suffix;
+          if (progress < 1) requestAnimationFrame(step);
+          else el.textContent = d.rawVal + d.suffix;
+        }
+        requestAnimationFrame(step);
+      });
     }
   }
 

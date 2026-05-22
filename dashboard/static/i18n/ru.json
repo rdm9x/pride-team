@@ -285,6 +285,17 @@
     "files": "Файлов",
     "lines": "Строк",
     "hours": "Часов работы",
+    "tasks_total_done": "Сделано задач",
+    "tasks_total_created": "Всего создано",
+    "tasks_completion_rate": "Завершено",
+    "tasks_in_progress": "В работе",
+    "lifetime": {
+      "title": "Жизненные счётчики команды",
+      "done": "Всего сделано",
+      "created": "Всего создано",
+      "rate": "Выполнено",
+      "inprogress": "В работе"
+    },
     "models": {
       "title": "Расход по моделям"
     },

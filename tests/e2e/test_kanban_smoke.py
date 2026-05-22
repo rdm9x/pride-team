@@ -25,10 +25,17 @@ import urllib.error
 import urllib.request
 
 import pytest
-from playwright.sync_api import Page, expect
 
-# Если по какой-то причине chromium не установлен — даём явный skip вместо
-# падения внутри pytest-playwright. Это вторая линия защиты помимо conftest.
+# Пропускаем весь модуль при сборке если pytest-playwright не установлен.
+# pytest.importorskip вызывает Skipped-исключение на уровне коллекции,
+# поэтому fixture-ошибки («page not found») не возникают.
+pytest.importorskip(
+    "pytest_playwright",
+    reason="pytest-playwright не установлен. pip install pytest-playwright && playwright install chromium",
+)
+
+from playwright.sync_api import Page, expect  # noqa: E402 — после importorskip
+
 pytestmark = pytest.mark.e2e
 
 

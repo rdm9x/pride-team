@@ -301,6 +301,10 @@
       "description": "Description",
       "llm": "LLM provider",
       "model": "Model",
+      "modelClaude": "Claude model",
+      "modelOpenAI": "OpenAI model",
+      "modelOllama": "Ollama model",
+      "modelOllamaCustom": "or type model name…",
       "temperature": "Temperature",
       "maxTokens": "Max tokens",
       "systemPrompt": "System prompt"

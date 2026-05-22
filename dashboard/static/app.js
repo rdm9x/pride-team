@@ -1241,46 +1241,69 @@
 
   // ===================== Roles =====================
 
-  const _MODEL_OPTIONS = {
-    claude: [
-      { value: "claude-opus-4-7",             label: "Opus 4.7" },
-      { value: "claude-sonnet-4-6",            label: "Sonnet 4.6" },
-      { value: "claude-haiku-4-5-20251001",    label: "Haiku 4.5" },
-    ],
-    openai: [
-      { value: "gpt-4o",          label: "GPT-4o" },
-      { value: "gpt-4o-mini",     label: "GPT-4o mini" },
-      { value: "gpt-4-turbo",     label: "GPT-4 Turbo" },
-      { value: "gpt-3.5-turbo",   label: "GPT-3.5 Turbo" },
-    ],
-    ollama: [
-      { value: "llama3.2",   label: "Llama 3.2" },
-      { value: "llama3.1",   label: "Llama 3.1" },
-      { value: "mistral",    label: "Mistral" },
-      { value: "gemma2",     label: "Gemma 2" },
-    ],
-  };
+  // Known model values per provider (for custom-detection in ollama)
+  const _KNOWN_OLLAMA_MODELS = ["llama3.1", "qwen2.5-coder", "mistral"];
 
-  function _populateModelSelect(llm, currentValue) {
-    const sel = $("#role-field-model");
-    const opts = _MODEL_OPTIONS[llm] || [];
-    sel.innerHTML = "";
-    const knownValues = opts.map((o) => o.value);
-    // If current value is not in list, add it as custom option at top
-    if (currentValue && !knownValues.includes(currentValue)) {
-      const custom = document.createElement("option");
-      custom.value = currentValue;
-      custom.textContent = currentValue;
-      sel.appendChild(custom);
-    }
-    opts.forEach(({ value, label }) => {
-      const opt = document.createElement("option");
-      opt.value = value;
-      opt.textContent = label + " (" + value + ")";
-      sel.appendChild(opt);
+  /** Show the right model control for the selected LLM and pre-select/populate value */
+  function _updateModelUI(llm, currentValue) {
+    // Hide all provider blocks
+    document.querySelectorAll("[data-for-llm]").forEach((el) => {
+      el.hidden = true;
     });
-    if (currentValue) sel.value = currentValue;
-    else if (opts.length) sel.value = opts[0].value;
+
+    if (llm === "claude") {
+      const sel = $("#role-model-claude");
+      sel.hidden = false;
+      // If currentValue is not in options, pick first
+      const known = Array.from(sel.options).map((o) => o.value);
+      if (currentValue && known.includes(currentValue)) {
+        sel.value = currentValue;
+      } else {
+        sel.value = sel.options[0] ? sel.options[0].value : "";
+      }
+    } else if (llm === "openai") {
+      const sel = $("#role-model-openai");
+      sel.hidden = false;
+      const known = Array.from(sel.options).map((o) => o.value);
+      if (currentValue && known.includes(currentValue)) {
+        sel.value = currentValue;
+      } else {
+        sel.value = sel.options[0] ? sel.options[0].value : "";
+      }
+    } else if (llm === "ollama") {
+      const wrap = $("#role-model-ollama");
+      wrap.hidden = false;
+      const sel = $("#role-model-ollama-select");
+      const customInput = $("#role-model-ollama-custom");
+
+      if (!currentValue || _KNOWN_OLLAMA_MODELS.includes(currentValue)) {
+        // Select from list
+        sel.value = currentValue || _KNOWN_OLLAMA_MODELS[0];
+        customInput.style.display = "none";
+        customInput.value = "";
+      } else {
+        // Custom value — show input
+        sel.value = "";  // "-- custom --"
+        customInput.style.display = "";
+        customInput.value = currentValue;
+      }
+    }
+  }
+
+  /** Read the active model value from whichever control is currently visible */
+  function _getModelValue() {
+    const llm = $("#role-field-llm").value;
+    if (llm === "claude") return $("#role-model-claude").value;
+    if (llm === "openai") return $("#role-model-openai").value;
+    if (llm === "ollama") {
+      const sel = $("#role-model-ollama-select");
+      if (sel.value === "") {
+        // custom
+        return $("#role-model-ollama-custom").value.trim();
+      }
+      return sel.value;
+    }
+    return "";
   }
 
   let _rolesEditingName = null;  // null = create mode, string = edit mode
@@ -1298,7 +1321,7 @@
       form.name.disabled = true;  // имя роли — PK, не меняем
       form.description.value = role.description || "";
       form.llm.value = role.llm || "claude";
-      _populateModelSelect(form.llm.value, role.model || "");
+      _updateModelUI(form.llm.value, role.model || "");
       form.temperature.value = role.temperature != null ? role.temperature : 1;
       form.max_tokens.value = role.max_tokens || 8096;
       form.system_prompt.value = role.system_prompt || "";
@@ -1306,7 +1329,7 @@
       form.name.disabled = false;
       form.temperature.value = 1;
       form.max_tokens.value = 8096;
-      _populateModelSelect("claude", "");
+      _updateModelUI("claude", "");
     }
 
     $("#modal-role").hidden = false;
@@ -1325,9 +1348,21 @@
   });
   $("#btn-new-role") && $("#btn-new-role").addEventListener("click", () => openRoleModal(null));
 
-  // Re-populate model options when provider changes
+  // Show correct model control when provider changes
   $("#role-field-llm").addEventListener("change", (e) => {
-    _populateModelSelect(e.target.value, "");
+    _updateModelUI(e.target.value, "");
+  });
+
+  // Ollama: show/hide custom input when "-- custom --" is selected
+  $("#role-model-ollama-select").addEventListener("change", (e) => {
+    const customInput = $("#role-model-ollama-custom");
+    if (e.target.value === "") {
+      customInput.style.display = "";
+      customInput.focus();
+    } else {
+      customInput.style.display = "none";
+      customInput.value = "";
+    }
   });
 
   $("#form-role").addEventListener("submit", async (e) => {
@@ -1337,7 +1372,7 @@
       name: form.name.value.trim(),
       description: form.description.value.trim(),
       llm: form.llm.value,
-      model: form.model.value.trim(),
+      model: _getModelValue(),
       temperature: parseFloat(form.temperature.value),
       max_tokens: parseInt(form.max_tokens.value, 10),
       system_prompt: form.system_prompt.value,

@@ -1433,6 +1433,40 @@ input[type="checkbox"] {
   margin-top: 2px;
 }
 
+/* Model provider dropdowns container */
+.role-model-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.role-model-select,
+.role-model-input {
+  padding: 7px 10px;
+  border: 1px solid var(--border-2);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  transition: border-color 0.12s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.role-model-select:focus,
+.role-model-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.role-model-ollama-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 /* ============================================================ Mobile (roles) */
 
 @media (max-width: 768px) {

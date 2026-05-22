@@ -428,8 +428,34 @@
         </label>
         <label>
           <span data-i18n="roles.field.model">Модель</span>
-          <select name="model" id="role-field-model" aria-label="Модель" data-i18n-attr="aria-label:roles.field.model">
-          </select>
+          <div id="role-model-container" class="role-model-container">
+            <!-- Claude models -->
+            <select id="role-model-claude" class="role-model-select" data-for-llm="claude"
+                    aria-label="Модель Claude" data-i18n-attr="aria-label:roles.field.modelClaude">
+              <option value="claude-opus-4-7">claude-opus-4-7 (most capable)</option>
+              <option value="claude-sonnet-4-6" selected>claude-sonnet-4-6 (fast, recommended)</option>
+              <option value="claude-haiku-4-5-20251001">claude-haiku-4-5 (lightweight)</option>
+            </select>
+            <!-- OpenAI models -->
+            <select id="role-model-openai" class="role-model-select" data-for-llm="openai" hidden
+                    aria-label="Модель OpenAI" data-i18n-attr="aria-label:roles.field.modelOpenAI">
+              <option value="gpt-4o">gpt-4o (best quality)</option>
+              <option value="gpt-4o-mini">gpt-4o-mini (fast, cheaper)</option>
+            </select>
+            <!-- Ollama models -->
+            <div id="role-model-ollama" class="role-model-ollama-wrap" data-for-llm="ollama" hidden>
+              <select id="role-model-ollama-select" class="role-model-select"
+                      aria-label="Модель Ollama" data-i18n-attr="aria-label:roles.field.modelOllama">
+                <option value="llama3.1">llama3.1</option>
+                <option value="qwen2.5-coder">qwen2.5-coder</option>
+                <option value="mistral">mistral</option>
+                <option value="">-- custom --</option>
+              </select>
+              <input type="text" id="role-model-ollama-custom" class="role-model-input"
+                     placeholder="or type model name…" style="display:none;"
+                     data-i18n-attr="placeholder:roles.field.modelOllamaCustom">
+            </div>
+          </div>
         </label>
         <label>
           <span data-i18n="roles.field.temperature">Temperature</span>

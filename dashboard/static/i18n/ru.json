@@ -301,6 +301,10 @@
       "description": "Описание",
       "llm": "LLM-провайдер",
       "model": "Модель",
+      "modelClaude": "Модель Claude",
+      "modelOpenAI": "Модель OpenAI",
+      "modelOllama": "Модель Ollama",
+      "modelOllamaCustom": "или введите название модели…",
       "temperature": "Temperature",
       "maxTokens": "Max tokens",
       "systemPrompt": "Системный промт"

@@ -33,8 +33,8 @@ if str(_DASHBOARD) not in sys.path:
 # Если playwright не установлен — даём pytest корректно skip'нуть все тесты
 # вместо collection-error'а.
 pytest.importorskip(
-    "playwright.sync_api",
-    reason="playwright не установлен. `pip install pytest-playwright && playwright install chromium`",
+    "pytest_playwright",
+    reason="pytest-playwright не установлен. `pip install pytest-playwright && playwright install chromium`",
 )
 
 

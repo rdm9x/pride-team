@@ -8,6 +8,7 @@
   deployment, security hardening. Загружается тимлидом через Task tool.
 schema_version: 1
 name: devops
+name_en: DevOps
 description: DevOps — Docker, GitHub Actions, deployment, security hardening.
 llm: claude
 model: claude-opus-4-7

@@ -50,13 +50,13 @@
   "sidebar": {
     "team": "Team",
     "role": {
-      "teamlead": "team-lead",
-      "backend": "backend",
-      "qa": "qa",
-      "architect": "architect",
-      "frontend": "frontend",
-      "devops": "devops",
-      "tech_writer": "tech-writer"
+      "teamlead": "Team Lead",
+      "backend": "Backend",
+      "qa": "QA",
+      "architect": "Architect",
+      "frontend": "Frontend",
+      "devops": "DevOps",
+      "tech_writer": "Tech Writer"
     }
   },
   "topbar": {
@@ -306,10 +306,14 @@
       "description_placeholder": "**TL;DR**: one-line summary\n\nDetails:\n..."
     },
     "assignee": {
-      "teamlead": "team-lead",
-      "backend": "backend",
-      "architect": "architect",
-      "tech_writer": "tech-writer"
+      "teamlead": "Team Lead",
+      "backend": "Backend",
+      "qa": "QA",
+      "architect": "Architect",
+      "frontend": "Frontend",
+      "devops": "DevOps",
+      "tech_writer": "Tech Writer",
+      "user": "User"
     },
     "task": {
       "delete_confirm": "Delete task «{title}»?",
@@ -319,6 +323,16 @@
     }
   },
   "roles": {
+    "names": {
+      "teamlead": "Team Lead",
+      "backend": "Backend",
+      "qa": "QA",
+      "architect": "Architect",
+      "frontend": "Frontend",
+      "devops": "DevOps",
+      "techwriter": "Tech Writer",
+      "user": "User"
+    },
     "title": "Roles",
     "addRole": "+ New role",
     "addRoleTitle": "Add new role",

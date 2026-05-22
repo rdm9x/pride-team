@@ -9,6 +9,7 @@
   бэкенд закончил подзадачу.
 schema_version: 1
 name: qa
+name_en: QA
 description: QA engineer — tests, smoke, regression, bug reports to backend.
 llm: claude
 model: claude-opus-4-7

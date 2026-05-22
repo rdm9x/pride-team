@@ -1319,6 +1319,37 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             "last_backup": last_backup,
         })
 
+    @app.post("/api/open-folder")
+    def api_open_folder() -> Any:
+        """Открыть папку в системном файловом менеджере (macOS: Finder, Linux: xdg-open).
+
+        Принимает {"path": "data/backups"} — относительный путь от repo root.
+        Используется кнопкой «Открыть папку» на странице Settings.
+        """
+        data = request.get_json(silent=True) or {}
+        rel_path = (data.get("path") or "").strip()
+        if not rel_path:
+            return jsonify({"статус": "error", "причина": "path обязателен"}), 400
+        # Безопасность: разрешаем только data/ — не допускаем path traversal
+        target = (_REPO_ROOT / rel_path).resolve()
+        data_resolved = (_DATA_DIR).resolve()
+        try:
+            target.relative_to(data_resolved)
+        except ValueError:
+            return jsonify({"статус": "error", "причина": "доступ только к папке data/"}), 403
+        if not target.exists():
+            target.mkdir(parents=True, exist_ok=True)
+        try:
+            if sys.platform == "darwin":
+                subprocess.Popen(["open", str(target)])
+            elif sys.platform == "win32":
+                subprocess.Popen(["explorer", str(target)])
+            else:
+                subprocess.Popen(["xdg-open", str(target)])
+        except Exception as exc:  # noqa: BLE001
+            return jsonify({"статус": "error", "причина": str(exc)}), 500
+        return jsonify({"статус": "ok", "path": str(target)})
+
     @app.get("/healthz")
     def healthz() -> Any:
         return jsonify({"status": "ok", "db": str(_db())})

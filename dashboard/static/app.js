@@ -4,6 +4,32 @@
   const REFRESH_MS = 3000;
   const STATUSES = ["todo", "wip", "needs_approval", "review", "done"];
 
+  // ===================== Role display names (i18n) =====================
+  const ROLE_DISPLAY = {
+    // Cyrillic DB keys
+    "тимлид":      { slug: "teamlead",   en: "Team Lead",   ru: "тимлид" },
+    "бэкенд":      { slug: "backend",    en: "Backend",     ru: "бэкенд" },
+    "qa":          { slug: "qa",         en: "QA",          ru: "qa" },
+    "архитектор":  { slug: "architect",  en: "Architect",   ru: "архитектор" },
+    "frontend":    { slug: "frontend",   en: "Frontend",    ru: "frontend" },
+    "devops":      { slug: "devops",     en: "DevOps",      ru: "devops" },
+    "техписатель": { slug: "techwriter", en: "Tech Writer", ru: "техписатель" },
+    "пользователь":{ slug: "user",       en: "User",        ru: "пользователь" },
+    // Slug aliases (for chat authors and any slug-based references)
+    "teamlead":  { slug: "teamlead",   en: "Team Lead",   ru: "тимлид" },
+    "backend":   { slug: "backend",    en: "Backend",     ru: "бэкенд" },
+    "architect": { slug: "architect",  en: "Architect",   ru: "архитектор" },
+    "techwriter":{ slug: "techwriter", en: "Tech Writer", ru: "техписатель" },
+    "user":      { slug: "user",       en: "User",        ru: "пользователь" },
+  };
+
+  function displayRole(name) {
+    if (!name) return name;
+    const entry = ROLE_DISPLAY[name];
+    if (!entry) return name;
+    return (window.getLocale && window.getLocale() === "en") ? entry.en : entry.ru;
+  }
+
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
@@ -153,7 +179,7 @@
     card.addEventListener("dragend", () => card.classList.remove("dragging"));
 
     const approval = t.requires_approval ? `<span class="approval ico">⚠</span>` : "";
-    const role = t.assignee ? `<span class="role">${t.assignee}</span>` : "";
+    const role = t.assignee ? `<span class="role">${displayRole(t.assignee)}</span>` : "";
     const linkIcon = t._has_deps ? `<span class="link-icon ico" title="${i18n("kanban.card.has_deps")}">🔗</span>` : "";
     const model = pickModelForTask(t);
     const modelChip = model
@@ -303,7 +329,7 @@
       </div>`,
     ).join("") || `<div class="entry" style="color:var(--muted)">${i18n("task.history.quiet")}</div>`;
     const subtasks = (t.subtasks || []).map((s) =>
-      `<div class="sub">#${s.id.slice(0, 6)} · ${escapeHtml(statusLabel(s.status))} · ${escapeHtml(s.assignee || i18n("task.subtasks.no_assignee"))} · ${escapeHtml(s.title)}</div>`,
+      `<div class="sub">#${s.id.slice(0, 6)} · ${escapeHtml(statusLabel(s.status))} · ${escapeHtml(displayRole(s.assignee) || i18n("task.subtasks.no_assignee"))} · ${escapeHtml(s.title)}</div>`,
     ).join("") || `<div style="color:var(--muted)">${i18n("task.subtasks.none")}</div>`;
     const result = t.result
       ? `<pre class="result-block">${escapeHtml(JSON.stringify(t.result, null, 2))}</pre>`
@@ -323,7 +349,7 @@
     return `
       <div class="task-meta">
         <span class="pill status-${escapeHtml(t.status)}">${escapeHtml(statusLabel(t.status))}</span>
-        <span class="pill role">${escapeHtml(t.assignee || i18n("task.meta.unassigned"))}</span>
+        <span class="pill role">${escapeHtml(displayRole(t.assignee) || i18n("task.meta.unassigned"))}</span>
         <span class="pill prio-${escapeHtml(t.priority)}">${escapeHtml(t.priority)}</span>
         <span class="pill">labels: ${labels}</span>
         <button class="edit-btn" id="btn-edit" title="${i18n("task.meta.edit_title")}">${i18n("task.meta.edit_btn")}</button>
@@ -350,7 +376,7 @@
           <label>${i18n("task.field.assignee")}
             <select name="assignee">
               <option value=""${!t.assignee ? " selected" : ""}>${i18n("common.none_dash")}</option>
-              ${["тимлид", "бэкенд", "qa", "архитектор", "frontend", "devops", "техписатель", "пользователь"].map((r) => `<option value="${r}"${r === t.assignee ? " selected" : ""}>${r}</option>`).join("")}
+              ${["тимлид", "бэкенд", "qa", "архитектор", "frontend", "devops", "техписатель", "пользователь"].map((r) => `<option value="${r}"${r === t.assignee ? " selected" : ""}>${escapeHtml(displayRole(r))}</option>`).join("")}
             </select>
           </label>
           <label>${i18n("task.field.status")}
@@ -898,7 +924,7 @@
         <div class="meta">
           <span>#${t.id.slice(0, 6)}</span>
           <span class="pri">${t.priority}</span>
-          <span class="role">${i18n("inbox.from_prefix")}${escapeHtml(author)}</span>
+          <span class="role">${i18n("inbox.from_prefix")}${escapeHtml(displayRole(author))}</span>
           <span>${shortAge(t.created_at)} ${i18n("kanban.card.ago_suffix")}</span>
         </div>
         <div class="inbox-actions"></div>
@@ -1114,17 +1140,12 @@
       });
     }
 
-    // Theme radios — mirror topbar theme-set buttons
+    // Theme radios — reuse applyTheme() so all side-effects (DOM attr, localStorage,
+    // topbar button active state) are applied consistently and in one place.
     document.querySelectorAll("input[name='settings-theme']").forEach((radio) => {
       radio.addEventListener("change", () => {
         if (!radio.checked) return;
-        const theme = radio.value;
-        document.documentElement.dataset.theme = theme;
-        localStorage.setItem("devboard-theme", theme);
-        // Keep topbar theme toggle in sync
-        document.querySelectorAll("[data-theme-set]").forEach((btn) => {
-          btn.classList.toggle("active", btn.dataset.themeSet === theme);
-        });
+        applyTheme(radio.value);
       });
     });
 
@@ -1339,6 +1360,12 @@
     "devops":     "🚀",
     "техписатель":"📝",
     "system":     "⚙",
+    // slug aliases for EN locale
+    "teamlead":  "🧭",
+    "backend":   "🔧",
+    "architect": "🏗",
+    "techwriter":"📝",
+    "user":      "👤",
   };
 
   function renderChat(messages) {
@@ -1357,7 +1384,7 @@
       const icon = AUTHOR_ICON[m.author] || "•";
       return `<div class="chat-message author-${escapeHtml(m.author)}">
         <div class="head">
-          <span class="who"><span class="ico">${icon}</span> ${escapeHtml(m.author)}</span>
+          <span class="who"><span class="ico">${icon}</span> ${escapeHtml(displayRole(m.author))}</span>
           <span class="time">${time}</span>
         </div>
         <div class="chat-text">${formatChatText(m.text)}</div>
@@ -1407,7 +1434,7 @@
       // Browser notification — для самого свежего
       const m = newFromTeam[newFromTeam.length - 1];
       const preview = m.text.slice(0, 120) + (m.text.length > 120 ? "…" : "");
-      notify(`${AUTHOR_ICON[m.author] || ""} ${m.author}`, preview);
+      notify(`${AUTHOR_ICON[m.author] || ""} ${displayRole(m.author)}`, preview);
     }
   }
 

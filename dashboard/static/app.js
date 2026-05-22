@@ -2281,14 +2281,28 @@
       // Локализованное имя роли:
       // 1. display_name_en / display_name_ru если API вернул (поле из БД)
       // 2. roles.names.<slug> из i18n-словаря
+      //    Кириллические slug'и маппим на латинские ключи словаря:
+      //    тимлид→teamlead, бэкенд→backend, архитектор→architect, техписатель→techwriter,
+      //    пользователь→user
       // 3. fallback — slug
+      const _cyrillicSlugMap = {
+        "тимлид": "teamlead",
+        "бэкенд": "backend",
+        "qa": "qa",
+        "архитектор": "architect",
+        "frontend": "frontend",
+        "devops": "devops",
+        "техписатель": "techwriter",
+        "пользователь": "user",
+      };
       let displayName;
       if (locale === "en" && r.display_name_en) {
         displayName = r.display_name_en;
       } else if (locale !== "en" && r.display_name_ru) {
         displayName = r.display_name_ru;
       } else {
-        const i18nKey = `roles.names.${r.name.replace(/-/g, "_")}`;
+        const slugKey = _cyrillicSlugMap[r.name] || r.name.replace(/-/g, "_");
+        const i18nKey = `roles.names.${slugKey}`;
         const i18nVal = i18n(i18nKey);
         displayName = (i18nVal !== i18nKey) ? i18nVal : r.name;
       }

@@ -36,7 +36,7 @@ _TRIVIAL_LABELS = {"trivial", "chore", "rename", "polish"}
 
 _MODELS = {
     "haiku":  "claude-haiku-4-5",
-    "sonnet": "claude-sonnet-4-5",
+    "sonnet": "claude-sonnet-4-6",
     "opus":   "claude-opus-4-7",
 }
 

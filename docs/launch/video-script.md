@@ -36,8 +36,8 @@
 | 14 | 1:05–1:10 | Push animation; card slides to Done with a checkmark. Live stream: "pushed to origin/main · sha 7b9ab7d". | "Done." | One word. Pause. |
 | 15 | 1:10–1:15 | Browser tab opens — the landing page is live. Coffee-shop hero, hours, map. | (silence — let the page breathe) | 5s of nothing said is rare and powerful. Light page-load sfx only. |
 | 16 | 1:15–1:20 | Cut back to the kanban — every column except Done is empty. 5 green cards stacked in Done. | "From one prompt to shipped — in one afternoon." | Slow zoom on the Done column. |
-| 17 | 1:20–1:25 | Cut to terminal: `git clone github.com/<user>/pride-team && ./Start.command`. Two lines, then a localhost URL appears. | "Local. Open source. MIT." | Real commands, real output. No ellipses cheats. |
-| 18 | 1:25–1:30 | End card: pride-team logo · `github.com/<user>/pride-team` · "Try it free". QR code top-right for mobile viewers. | "Link below. Build a team." | Hold the end card 2 full seconds before fade. |
+| 17 | 1:20–1:25 | Cut to terminal: `git clone github.com/rdm9x/pride-team && ./Start.command`. Two lines, then a localhost URL appears. | "Local. Open source. MIT." | Real commands, real output. No ellipses cheats. |
+| 18 | 1:25–1:30 | End card: pride-team logo · `github.com/rdm9x/pride-team` · "Try it free". QR code top-right for mobile viewers. | "Link below. Build a team." | Hold the end card 2 full seconds before fade. |
 
 ---
 
@@ -123,7 +123,7 @@ A real kanban (Inbox · Todo · WIP · Review · Done) where each card is picked
 
 Local-first. SQLite. Flask. MCP. Open source under MIT.
 
-Repo: github.com/<user>/pride-team
+Repo: github.com/rdm9x/pride-team
 Docs: README + ARCHITECTURE.md in the repo
 Discord / Discussions: see repo header
 

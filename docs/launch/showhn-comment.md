@@ -22,9 +22,9 @@ Primary is #0 because it is the most concrete and the least hype-coded: it names
 
 ## URL field
 
-`https://github.com/<user>/pride-team`
+`https://github.com/rdm9x/pride-team`
 
-(Dmitry: replace `<user>` with the final GitHub org/handle before submission.)
+(`rdm9x` was replaced with the final GitHub handle `rdm9x` before submission.)
 
 ---
 
@@ -103,7 +103,7 @@ description: |
   TL;DR: post pride-team to Show HN using the primary title from showhn-comment.md.
 
   Title: Show HN: pride-team – a local AI dev team in a kanban board
-  URL:   https://github.com/<user>/pride-team
+  URL:   https://github.com/rdm9x/pride-team
   When:  next Tue or Wed, 8:00–9:00 AM Pacific (15:00–16:00 UTC)
 
   First-comment body: paste verbatim from

@@ -73,12 +73,12 @@
 >
 > OpenAI and Ollama are on the roadmap, not in the box.
 >
-> Repo: github.com/<user>/pride-team
+> Repo: github.com/rdm9x/pride-team
 >
 > Star if you want me to keep going.
 
 **Char count:** 239/280
-**Media:** [Terminal screenshot: `git clone github.com/<user>/pride-team && ./Start.command` running, ending with the localhost URL appearing. Same shot as video-script segment 17.]
+**Media:** [Terminal screenshot: `git clone github.com/rdm9x/pride-team && ./Start.command` running, ending with the localhost URL appearing. Same shot as video-script segment 17.]
 
 ---
 
@@ -99,20 +99,20 @@
 Pre-written replies for the three most likely comment types. Keep them short, friendly, link out — never defensive.
 
 ### Q1 — "How is this different from Claude Code / Aider / Cline?"
-> Those are great single-loop agents — one session, one terminal. pride-team runs several sessions in parallel, each with a different role and a shared board, so handoffs survive context resets. Same Claude underneath, different shape around it. Architecture: github.com/<user>/pride-team/blob/main/ARCHITECTURE.md
+> Those are great single-loop agents — one session, one terminal. pride-team runs several sessions in parallel, each with a different role and a shared board, so handoffs survive context resets. Same Claude underneath, different shape around it. Architecture: github.com/rdm9x/pride-team/blob/main/ARCHITECTURE.md
 
 ### Q2 — "Does it work with OpenAI / Ollama?"
 > Not in v1.0 — Claude-only for now because subagents and MCP are wired tight to the Anthropic SDK. OpenAI and Ollama are on the roadmap (E7); the LLMProvider interface lives in ADR-001 if you want to see the seam. Honest answer: 4–6 weeks if no one helps, faster with PRs.
 
 ### Q3 — "How do you stop it from going off the rails?"
-> Two things. (1) Approval-gate: git push, ssh, anything destructive pauses with a full diff and waits for your click. (2) Roles are scoped — the QA bot literally cannot write to source, the tech writer cannot touch code. Both are configured in roles/*.md, no magic. Details: github.com/<user>/pride-team/blob/main/approval_gates.md
+> Two things. (1) Approval-gate: git push, ssh, anything destructive pauses with a full diff and waits for your click. (2) Roles are scoped — the QA bot literally cannot write to source, the tech writer cannot touch code. Both are configured in roles/*.md, no magic. Details: github.com/rdm9x/pride-team/blob/main/approval_gates.md
 
 ---
 
 ## Notes for the poster (Dmitry)
 
 - Post tweet 1 as standalone first, then reply-chain 2–7 within 60 seconds (X penalizes long gaps between thread tweets in the algorithm).
-- Repo URL placeholder `<user>` must be replaced before posting.
+- Repo URL placeholder was replaced with `rdm9x` before posting.
 - After posting, pin tweet 1 to profile for 7 days.
 - Reply to every comment within the first 4 hours — that window is where X decides whether to amplify the thread.
 - If a reply gets > 20 likes, quote-tweet it from the project account with a thank-you. Compounds reach.

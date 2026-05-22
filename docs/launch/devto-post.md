@@ -115,14 +115,14 @@ Finish the multi-LLM provider work so OpenAI and Ollama are first-class. Ship a 
 ## Try it
 
 ```bash
-git clone https://github.com/<user>/pride-team
+git clone https://github.com/rdm9x/pride-team
 cd pride-team
 ./Start.command   # macOS, double-click in Finder works too
 # or:
 docker-compose up
 ```
 
-Repo: github.com/<user>/pride-team
+Repo: github.com/rdm9x/pride-team
 Roadmap: see the issues tab
 License: MIT.
 

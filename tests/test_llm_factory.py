@@ -157,9 +157,11 @@ def test_create_provider_openai_builds_with_api_key(monkeypatch):
     assert provider.model == "gpt-4o"
 
 
-def test_create_provider_ollama_not_implemented():
-    with pytest.raises(NotImplementedError, match="E6.5"):
-        create_provider({"llm": "ollama"})
+def test_create_provider_ollama_returns_provider():
+    from llm import OllamaProvider
+    config = {"llm": "ollama", "model": "qwen2.5-coder:7b", "base_url": "http://localhost:11434"}
+    provider = create_provider(config)
+    assert isinstance(provider, OllamaProvider)
 
 
 def test_create_provider_normalizes_case_and_whitespace():
@@ -195,9 +197,10 @@ def test_autodetect_openai_second(monkeypatch):
 
 
 def test_autodetect_ollama_third(monkeypatch):
+    from llm import OllamaProvider
     monkeypatch.setenv("OLLAMA_URL", "http://x")
-    with pytest.raises(NotImplementedError, match="E6.5"):
-        create_provider({})
+    provider = create_provider({})
+    assert isinstance(provider, OllamaProvider)
 
 
 def test_autodetect_nothing_raises_config_error():

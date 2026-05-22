@@ -2528,19 +2528,7 @@ input[type="checkbox"] {
   flex-direction: column;
   gap: 6px;
 }
-
-.acceptance-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: var(--text);
-}
-
-.acceptance-item input[type="checkbox"] {
-  cursor: default;
-  accent-color: var(--accent);
-}
+/* Note: .acceptance-item стили — выше в файле (S6.2 v2), не дублируем */
 
 .options-buttons {
   display: flex;

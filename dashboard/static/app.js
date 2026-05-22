@@ -1959,9 +1959,11 @@
     const rolesEl = $("#statsRoles");
     const heatmapEl = $("#statsHeatmap");
     const topEl = $("#statsTop");
+    const lifetimeGridEl = $("#statsLifetime");
     if (!kpiGrid) return;
 
     // Loading state
+    if (lifetimeGridEl) lifetimeGridEl.innerHTML = "";
     kpiGrid.innerHTML = `<div class="stats-loading">${i18n("roles.loading")}</div>`;
     if (modelsEl) modelsEl.innerHTML = "";
     if (rolesEl) rolesEl.innerHTML = "";
@@ -2107,7 +2109,7 @@
       topEl.innerHTML = html;
     }
 
-    // --- Lifetime task counters ---
+    // --- Lifetime task counters (S5.2) ---
     const lifetimeEl = $("#statsLifetime");
     if (lifetimeEl) {
       const totalDone      = data.tasks_total_done      || 0;
@@ -2116,42 +2118,46 @@
       const completionRate = data.tasks_completion_rate || 0;
       const rateDisplay    = Math.round(completionRate * 100);
 
-      const lifetimeDefs = [
-        { id: "lt-done",       label: i18n("stats.lifetime.done"),       rawVal: totalDone,    suffix: "" },
-        { id: "lt-created",    label: i18n("stats.lifetime.created"),    rawVal: totalCreated, suffix: "" },
-        { id: "lt-rate",       label: i18n("stats.lifetime.rate"),       rawVal: rateDisplay,  suffix: "%" },
-        { id: "lt-inprogress", label: i18n("stats.lifetime.inprogress"), rawVal: inProgress,   suffix: "" },
+      const achievementDefs = [
+        { id: "stat-total-done",      label: i18n("stats.lifetime.total_done"),      rawVal: totalDone,    suffix: "" },
+        { id: "stat-total-created",   label: i18n("stats.lifetime.total_created"),   rawVal: totalCreated, suffix: "" },
+        { id: "stat-completion-rate", label: i18n("stats.lifetime.completion_rate"), rawVal: rateDisplay,  suffix: "%" },
+        { id: "stat-in-progress",     label: i18n("stats.lifetime.in_progress"),     rawVal: inProgress,   suffix: "" },
       ];
 
       let lifetimeHtml = `<h3 class="stats-section-title">${i18n("stats.lifetime.title")}</h3>`;
-      lifetimeHtml += `<div class="stats-kpi-grid">`;
-      lifetimeHtml += lifetimeDefs.map((d) => `
-        <div class="stats-kpi-card">
-          <div class="stats-kpi-label">${escapeHtml(d.label)}</div>
-          <div class="stats-kpi-value" id="${escapeHtml(d.id)}">0${escapeHtml(d.suffix)}</div>
+      lifetimeHtml += `<div class="stat-achievements-grid">`;
+      lifetimeHtml += achievementDefs.map((d) => `
+        <div class="stat-achievement-card">
+          <div class="stat-achievement-number" id="${escapeHtml(d.id)}">0${escapeHtml(d.suffix)}</div>
+          <div class="stat-achievement-label">${escapeHtml(d.label)}</div>
         </div>
       `).join("");
       lifetimeHtml += `</div>`;
       lifetimeEl.innerHTML = lifetimeHtml;
 
-      // Count-up animation (600ms JS ease-out tween)
-      lifetimeDefs.forEach((d) => {
+      // Count-up animation (~600ms)
+      achievementDefs.forEach((d) => {
         const el = document.getElementById(d.id);
-        if (!el) return;
-        if (d.rawVal === 0) { el.textContent = "0" + d.suffix; return; }
-        const startTime = performance.now();
-        const dur = 600;
-        function step(now) {
-          const elapsed = now - startTime;
-          const progress = Math.min(elapsed / dur, 1);
-          const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
-          el.textContent = Math.round(eased * d.rawVal) + d.suffix;
-          if (progress < 1) requestAnimationFrame(step);
-          else el.textContent = d.rawVal + d.suffix;
-        }
-        requestAnimationFrame(step);
+        if (el) animateCounter(el, d.rawVal, d.suffix, 600);
       });
     }
+  }
+
+  /** Count-up animation: increments el.textContent from 0 to target over duration ms. */
+  function animateCounter(el, target, suffix, duration) {
+    if (!el) return;
+    suffix = suffix || "";
+    duration = duration || 600;
+    if (target === 0) { el.textContent = "0" + suffix; return; }
+    const start = Date.now();
+    const tick = () => {
+      const progress = Math.min((Date.now() - start) / duration, 1);
+      el.textContent = Math.floor(progress * target) + suffix;
+      if (progress < 1) requestAnimationFrame(tick);
+      else el.textContent = target + suffix;
+    };
+    requestAnimationFrame(tick);
   }
 
   // Wire stats-tab clicks

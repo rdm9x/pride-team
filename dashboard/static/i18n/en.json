@@ -446,6 +446,14 @@
     }
   },
   "task": {
+    "reader": {
+      "tldr": "Summary",
+      "steps": "What to do",
+      "acceptance": "Done when",
+      "show_raw": "Technical details ↓",
+      "hide_raw": "↑ Collapse",
+      "options": "Options"
+    },
     "meta": {
       "unassigned": "unassigned",
       "edit_title": "Edit fields",

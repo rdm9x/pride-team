@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pride-team-test.sh — единый прогон всех тестов малой команды.
+# devboard-test.sh — единый прогон всех тестов малой команды.
 #
 # Запускает pytest в двух венвах подряд (mcp_server + dashboard) и возвращает
 # ненулевой exit-code если упал хоть один.

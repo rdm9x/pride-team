@@ -1,4 +1,4 @@
-# pride-team-stop.ps1 — останавливает дашборд и сессию тимлида (Windows).
+# devboard-stop.ps1 — останавливает дашборд и сессию тимлида (Windows).
 
 $ErrorActionPreference = "Continue"
 

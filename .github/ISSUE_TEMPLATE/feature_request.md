@@ -12,7 +12,7 @@ What is missing or painful today? Describe the user-facing problem, not the impl
 
 ## Proposed solution
 
-What you would like `pride-team` to do. Be concrete — sketch the user flow, the CLI command, the role behavior, or the dashboard change.
+What you would like `devboard` to do. Be concrete — sketch the user flow, the CLI command, the role behavior, or the dashboard change.
 
 ## Alternatives considered
 

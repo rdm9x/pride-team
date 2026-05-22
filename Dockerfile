@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 #
-# pride-team — production Docker image.
+# devboard — production Docker image.
 # Multi-stage build: builder колесит wheel'ы, runner ставит их offline.
 # Цель: < 250 MB, non-root, healthcheck на /healthz, EXPOSE 5000.
 

@@ -1,9 +1,9 @@
-# pride-team-start.ps1 — поднимает Flask-дашборд (Windows PowerShell).
+# devboard-start.ps1 — поднимает Flask-дашборд (Windows PowerShell).
 #
 # Использование:
-#   powershell -ExecutionPolicy Bypass -File commands\pride-team-start.ps1
+#   powershell -ExecutionPolicy Bypass -File commands\devboard-start.ps1
 #
-# По смыслу — то же что pride-team-start.sh на Unix.
+# По смыслу — то же что devboard-start.sh на Unix.
 
 $ErrorActionPreference = "Stop"
 
@@ -50,7 +50,7 @@ Start-Sleep -Seconds 1
 if (Get-Process -Id $proc.Id -ErrorAction SilentlyContinue) {
     Write-Host "✓ Дашборд запущен (pid=$($proc.Id)). http://$($env:PRIDE_DASHBOARD_HOST):$($env:PRIDE_DASHBOARD_PORT)" -ForegroundColor Green
     Write-Host "  Логи: $LOG_FILE"
-    Write-Host "  Стоп: powershell -ExecutionPolicy Bypass -File commands\pride-team-stop.ps1"
+    Write-Host "  Стоп: powershell -ExecutionPolicy Bypass -File commands\devboard-stop.ps1"
 } else {
     Write-Host "✗ Не удалось запустить. См. $LOG_FILE" -ForegroundColor Red
     Remove-Item $PID_FILE -Force -ErrorAction SilentlyContinue

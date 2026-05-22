@@ -62,12 +62,12 @@
   // ===================== Theme toggle =====================
   function applyTheme(theme) {
     document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("pride-team-theme", theme);
+    localStorage.setItem("devboard-theme", theme);
     $$("[data-theme-set]").forEach((b) =>
       b.classList.toggle("active", b.dataset.themeSet === theme)
     );
   }
-  const savedTheme = localStorage.getItem("pride-team-theme") || "dark";
+  const savedTheme = localStorage.getItem("devboard-theme") || "dark";
   applyTheme(savedTheme);
   $$("[data-theme-set]").forEach((b) =>
     b.addEventListener("click", () => applyTheme(b.dataset.themeSet))
@@ -77,9 +77,9 @@
   function applyChatCollapsed(collapsed) {
     document.querySelector(".app").classList.toggle("chat-collapsed", collapsed);
     document.getElementById("chat").classList.toggle("collapsed", collapsed);
-    localStorage.setItem("pride-team-chat-collapsed", collapsed ? "1" : "0");
+    localStorage.setItem("devboard-chat-collapsed", collapsed ? "1" : "0");
   }
-  applyChatCollapsed(localStorage.getItem("pride-team-chat-collapsed") === "1");
+  applyChatCollapsed(localStorage.getItem("devboard-chat-collapsed") === "1");
   document.getElementById("chat-collapse").addEventListener("click", () => applyChatCollapsed(true));
   document.getElementById("chat-expand-rail").addEventListener("click", () => {
     applyChatCollapsed(false);
@@ -718,14 +718,14 @@
   // ===================== Live toggle =====================
   const liveSection = document.getElementById("live");
   const liveToggleBtn = document.getElementById("live-toggle");
-  const liveOpen = localStorage.getItem("pride-team-live-open") === "1";
+  const liveOpen = localStorage.getItem("devboard-live-open") === "1";
   if (liveOpen) liveSection.classList.add("open");
   liveToggleBtn.setAttribute("aria-expanded", liveOpen ? "true" : "false");
   liveToggleBtn.addEventListener("click", () => {
     const willOpen = !liveSection.classList.contains("open");
     liveSection.classList.toggle("open", willOpen);
     liveToggleBtn.setAttribute("aria-expanded", willOpen ? "true" : "false");
-    localStorage.setItem("pride-team-live-open", willOpen ? "1" : "0");
+    localStorage.setItem("devboard-live-open", willOpen ? "1" : "0");
     // Скроллим в конец при открытии
     if (willOpen) {
       const body = document.getElementById("live-body");
@@ -758,7 +758,7 @@
   // Хранилище всех событий — при переключении режима пере-рендериваем.
   const liveEvents = [];      // [{ts, human, raw}]
   const LIVE_MAX = 2000;       // ограничение, чтобы DOM не задыхался
-  let liveModeRaw = localStorage.getItem("pride-team-live-raw") === "1";
+  let liveModeRaw = localStorage.getItem("devboard-live-raw") === "1";
 
   function renderLiveItem(item) {
     const text = liveModeRaw ? item.raw : item.human;
@@ -792,7 +792,7 @@
   // Init toggle (segmented pill — те же стили что у theme-toggle)
   function applyLiveMode(mode) {
     liveModeRaw = mode === "raw";
-    localStorage.setItem("pride-team-live-raw", liveModeRaw ? "1" : "0");
+    localStorage.setItem("devboard-live-raw", liveModeRaw ? "1" : "0");
     $$("[data-live-mode]").forEach((b) =>
       b.classList.toggle("active", b.dataset.liveMode === mode),
     );
@@ -832,7 +832,7 @@
 
   // ===== Inbox notifications — пингуем при появлении новых задач =====
   let seenInboxIds = new Set(
-    (localStorage.getItem("pride-team-seen-inbox") || "").split(",").filter(Boolean)
+    (localStorage.getItem("devboard-seen-inbox") || "").split(",").filter(Boolean)
   );
 
   function checkInboxNotifications(inbox) {
@@ -849,7 +849,7 @@
     // Чистим из seen те id что уже не в inbox (задача ушла из inbox = можно забыть)
     const stillInInbox = new Set(all.map((t) => t.id));
     seenInboxIds = new Set([...seenInboxIds].filter((id) => stillInInbox.has(id)));
-    localStorage.setItem("pride-team-seen-inbox", [...seenInboxIds].join(","));
+    localStorage.setItem("devboard-seen-inbox", [...seenInboxIds].join(","));
   }
 
   function renderInbox(inbox) {
@@ -1101,7 +1101,7 @@
       const n = new Notification(title, {
         body: (body || "").slice(0, 200),
         icon: "/static/favicon.png",
-        tag: "pride-team",
+        tag: "devboard",
         silent: false,
       });
       n.onclick = () => { window.focus(); n.close(); };
@@ -1110,7 +1110,7 @@
   }
 
   // Хранение «последнего увиденного» id сообщения чата
-  let lastSeenChatId = parseInt(localStorage.getItem("pride-team-last-seen-chat") || "0", 10);
+  let lastSeenChatId = parseInt(localStorage.getItem("devboard-last-seen-chat") || "0", 10);
   let lastChatId = 0;
 
   const AUTHOR_ICON = {
@@ -1163,7 +1163,7 @@
       } else {
         // Чат раскрыт — сразу засчитываем как прочитанное
         lastSeenChatId = lastChatId;
-        localStorage.setItem("pride-team-last-seen-chat", String(lastSeenChatId));
+        localStorage.setItem("devboard-last-seen-chat", String(lastSeenChatId));
       }
       // Browser notification — для самого свежего
       const m = newFromTeam[newFromTeam.length - 1];
@@ -1178,7 +1178,7 @@
     rail.classList.remove("has-unread");
     if (lastChatId > lastSeenChatId) {
       lastSeenChatId = lastChatId;
-      localStorage.setItem("pride-team-last-seen-chat", String(lastSeenChatId));
+      localStorage.setItem("devboard-last-seen-chat", String(lastSeenChatId));
     }
   }
 

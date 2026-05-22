@@ -1,4 +1,4 @@
-# docker-compose.yml — pride-team
+# docker-compose.yml — devboard
 #
 # Single-service local/VPS deployment. Wraps the production Dockerfile
 # (multi-stage, non-root, healthcheck на /healthz, EXPOSE 5000).
@@ -16,8 +16,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: pride-team:latest
-    container_name: pride-team
+    image: devboard:latest
+    container_name: devboard
     ports:
       - "5000:5000"
     volumes:

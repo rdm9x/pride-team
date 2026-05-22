@@ -1,8 +1,8 @@
-# pride-team на Windows — короткая инструкция
+# devboard на Windows — короткая инструкция
 
 ## Установка (один раз)
 
-1. Распакуй `pride-team.zip` в удобную папку.
+1. Распакуй `devboard.zip` в удобную папку.
 2. Открой PowerShell в этой папке (`Shift + ПКМ` → «Open PowerShell window here»).
 3. Запусти установщик:
 
@@ -22,7 +22,7 @@
 ## Запуск дашборда
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File команды\pride-team-start.ps1
+powershell -ExecutionPolicy Bypass -File команды\devboard-start.ps1
 ```
 
 Открой в браузере: http://127.0.0.1:5000
@@ -30,7 +30,7 @@ powershell -ExecutionPolicy Bypass -File команды\pride-team-start.ps1
 ## Остановка
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File команды\pride-team-stop.ps1
+powershell -ExecutionPolicy Bypass -File команды\devboard-stop.ps1
 ```
 
 ## Что делать в дашборде
@@ -54,7 +54,7 @@ powershell -ExecutionPolicy Bypass -File команды\pride-team-stop.ps1
 ## Прогон тестов вручную
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File команды\pride-team-test.ps1
+powershell -ExecutionPolicy Bypass -File команды\devboard-test.ps1
 ```
 
 Ожидаемо: 51 + 16 = **67 тестов зелёные**.
@@ -66,7 +66,7 @@ powershell -ExecutionPolicy Bypass -File команды\pride-team-test.ps1
   это разовый bypass только для этого вызова, системную политику не меняет.
 - Если 5000-й порт занят: `set PRIDE_DASHBOARD_PORT=5001` перед стартом.
 - Кириллица в путях работает, но если что-то странное — переименуй
-  корневую папку в `pride-team` (без кириллицы). Внутренние папки
+  корневую папку в `devboard` (без кириллицы). Внутренние папки
   (`mcp_сервер`, `дашборд`, `команды`, `роли`) переименовывать **не нужно**.
 - Антивирус (Defender, Касперский) может тормозить первый запуск pytest
   из-за сканирования. После прогрева — норм.

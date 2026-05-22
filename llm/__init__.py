@@ -1,4 +1,4 @@
-"""Multi-LLM абстракция pride-team (ADR-001).
+"""Multi-LLM абстракция devboard (ADR-001).
 
 Публичный API:
 

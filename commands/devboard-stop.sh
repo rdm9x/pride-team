@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pride-team-stop.sh — останавливает дашборд (и live-сессию тимлида если есть).
+# devboard-stop.sh — останавливает дашборд (и live-сессию тимлида если есть).
 
 set -euo pipefail
 

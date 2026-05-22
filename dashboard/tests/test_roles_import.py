@@ -52,7 +52,7 @@ max_tokens: 8192
 # Test backend
 
 You are a backend developer responsible for writing
-clean, well-tested Python code for the pride-team project.
+clean, well-tested Python code for the devboard project.
 """
 
 # Role with a path-traversal-like name (should be caught by slug regex)

@@ -1,6 +1,6 @@
 # Architecture
 
-> How **pride-team** is wired together: processes, data, and the three flows that matter.
+> How **devboard** is wired together: processes, data, and the three flows that matter.
 
 This document is for contributors who want to fix a bug, add a role, or plug in a new LLM provider. If you only want to *use* the project, start with [README.md](README.md).
 
@@ -8,7 +8,7 @@ This document is for contributors who want to fix a bug, add a role, or plug in 
 
 ## 1. Overview
 
-**pride-team** is a local kanban for AI dev teams. A small fleet of role-bots — Team Lead, Backend, QA, plus optional Architect / Frontend / DevOps / Tech Writer — pulls work from a SQLite kanban, writes code, and hands results back for human approval. The whole stack runs on one laptop.
+**devboard** is a local kanban for AI dev teams. A small fleet of role-bots — Team Lead, Backend, QA, plus optional Architect / Frontend / DevOps / Tech Writer — pulls work from a SQLite kanban, writes code, and hands results back for human approval. The whole stack runs on one laptop.
 
 ### Tech stack
 
@@ -273,7 +273,7 @@ sequenceDiagram
     actor U as User
     participant UI as Kanban UI
     participant F as Flask
-    participant Sh as pride-team-work.sh
+    participant Sh as devboard-work.sh
     participant R as router.py
     participant C as claude CLI
     participant L as Team Lead<br/>(claude session)
@@ -314,7 +314,7 @@ sequenceDiagram
 **Steps in detail:**
 
 1. **`POST /api/team/start`** calls `_start_team_process`. It guards against double-start with a lock and returns `409` if a session is already running.
-2. **`pride-team-work.sh` runs the router first.** `pride_tasks.router.pick_from_db` reads open tasks, classifies them by keywords (architectural / trivial / techwrite / devops / other), and picks `haiku`, `sonnet`, or `opus`. The decision is logged to stdout so the user sees the *why*.
+2. **`devboard-work.sh` runs the router first.** `pride_tasks.router.pick_from_db` reads open tasks, classifies them by keywords (architectural / trivial / techwrite / devops / other), and picks `haiku`, `sonnet`, or `opus`. The decision is logged to stdout so the user sees the *why*.
 3. **`claude` CLI launches in `--print` mode** with `--append-system-prompt = роли/тимлид.md`, `--mcp-config .mcp.json`, `--permission-mode bypassPermissions`, and `--output-format stream-json`.
 4. **The Team Lead starts every session with the chat.** `chat_recent` → reply via `chat_post` if there are unread messages from Dmitry. *Then* it reads the kanban.
 5. **Decomposition.** For each new top-level task the Team Lead calls `create_task(parent_id=..., assignee=...)` 2–6 times.
@@ -474,8 +474,8 @@ The ADR template is short on purpose: Context → Decision → Consequences → 
 │   ├── templates/kanban.html
 │   └── static/{app.js,style.css}
 ├── команды/                   ← shell launchers
-│   ├── pride-team-start.sh    ← starts the dashboard
-│   ├── pride-team-work.sh     ← spawned per Team Lead session
+│   ├── devboard-start.sh    ← starts the dashboard
+│   ├── devboard-work.sh     ← spawned per Team Lead session
 │   └── *.ps1                  ← Windows equivalents
 └── data/
     ├── tasks.db               ← the only state

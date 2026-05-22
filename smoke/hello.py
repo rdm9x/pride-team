@@ -1,4 +1,4 @@
-"""Smoke-модуль для проверки инфры pride-team (MCP, subagent, канбан)."""
+"""Smoke-модуль для проверки инфры devboard (MCP, subagent, канбан)."""
 
 
 def greet(name: str) -> str:

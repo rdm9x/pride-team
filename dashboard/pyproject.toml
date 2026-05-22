@@ -1,7 +1,7 @@
 [project]
-name = "pride-team-dashboard"
+name = "devboard-dashboard"
 version = "0.1.0"
-description = "Flask-дашборд малой команды pride-team. Канбан + кнопка запуска тимлида."
+description = "Flask-дашборд малой команды devboard. Канбан + кнопка запуска тимлида."
 requires-python = ">=3.11"
 dependencies = [
     "flask>=3.0",

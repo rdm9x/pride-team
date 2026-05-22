@@ -1,3 +1,3 @@
-"""pride-tasks — MCP-сервер канбана малой команды pride-team."""
+"""pride-tasks — MCP-сервер канбана малой команды devboard."""
 
 __version__ = "0.1.0"

@@ -1,6 +1,6 @@
-# Contributing to pride-team
+# Contributing to devboard
 
-Thanks for thinking about helping out. `pride-team` is a small open-source project — a local kanban driven by an AI dev team. We try to keep the contribution loop short: clone, fix, push, merge.
+Thanks for thinking about helping out. `devboard` is a small open-source project — a local kanban driven by an AI dev team. We try to keep the contribution loop short: clone, fix, push, merge.
 
 This guide covers everything you need to ship your first PR.
 
@@ -38,8 +38,8 @@ You will need:
 Clone the repo and create a virtualenv:
 
 ```bash
-git clone https://github.com/pride-team/pride-team.git
-cd pride-team
+git clone https://github.com/devboard/devboard.git
+cd devboard
 
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
@@ -65,7 +65,7 @@ You should see green output across `mcp_сервер/tests/` and `smoke/tests/`.
 Start the dashboard to see your changes:
 
 ```bash
-./команды/pride-team-start.sh
+./команды/devboard-start.sh
 open http://127.0.0.1:5000
 ```
 
@@ -227,7 +227,7 @@ The repo doesn't enforce conventional commits with a hook yet (planned: `commitl
 
 ## Adding a new role
 
-Roles are the heart of `pride-team`. Each role is a system prompt in `роли/<role>.md` with YAML frontmatter, loaded by the Team Lead and handed to a Claude subagent through the `Task` tool.
+Roles are the heart of `devboard`. Each role is a system prompt in `роли/<role>.md` with YAML frontmatter, loaded by the Team Lead and handed to a Claude subagent through the `Task` tool.
 
 ### 1. Create the file
 
@@ -247,7 +247,7 @@ Minimum frontmatter:
 ---
 тип: системный_промт_роли
 роль: myrole
-проект: pride-team
+проект: devboard
 дата_создания: 2026-05-21
 описание_короткое: |
   One-sentence description of what this role does and when the Team Lead
@@ -278,7 +278,7 @@ The Team Lead (`роли/тимлид.md`) lists the roles it knows about. Add y
 
 ```bash
 # Start the dashboard
-./команды/pride-team-start.sh
+./команды/devboard-start.sh
 
 # Create a small task targeted at your new role through the UI,
 # then click "Run team" and watch the live log.
@@ -295,7 +295,7 @@ The role should pick up the task, post at least one `add_comment`, and call `sub
 
 ## Adding a new LLM provider
 
-`pride-team` is moving from hard-coded `claude` CLI calls to a pluggable `LLMProvider` abstraction. The contract is locked in **[ADR-001 — LLMProvider interface](docs/adr/0001-llm-provider.md)**. Read it before you start — it explains why we use the Anthropic message format, how tool-call IDs are normalized across providers, and how MCP bridging works for non-Claude backends.
+`devboard` is moving from hard-coded `claude` CLI calls to a pluggable `LLMProvider` abstraction. The contract is locked in **[ADR-001 — LLMProvider interface](docs/adr/0001-llm-provider.md)**. Read it before you start — it explains why we use the Anthropic message format, how tool-call IDs are normalized across providers, and how MCP bridging works for non-Claude backends.
 
 The short version:
 
@@ -449,8 +449,8 @@ If your PR is a work-in-progress, open it as a **draft** and prefix the title wi
 
 ## Where to ask questions
 
-- **Bugs and feature requests** — [GitHub Issues](https://github.com/pride-team/pride-team/issues). Search first; reproduce in 3-5 lines.
-- **Design discussion** — [GitHub Discussions](https://github.com/pride-team/pride-team/discussions). Good for "should we…" questions before you write code.
+- **Bugs and feature requests** — [GitHub Issues](https://github.com/devboard/devboard/issues). Search first; reproduce in 3-5 lines.
+- **Design discussion** — [GitHub Discussions](https://github.com/devboard/devboard/discussions). Good for "should we…" questions before you write code.
 - **Security disclosures** — email **rudich@example.com**. Do not open a public issue for vulnerabilities.
 
 For larger changes (new role, new provider, refactor that crosses package boundaries), open a Discussion or a draft ADR under `docs/adr/` first. It saves everyone time.

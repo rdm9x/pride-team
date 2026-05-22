@@ -1,7 +1,7 @@
 [project]
 name = "pride-tasks"
 version = "0.1.0"
-description = "MCP-сервер канбана малой команды pride-team. SQLite + 8 tools для тимлида и subagent'ов."
+description = "MCP-сервер канбана малой команды devboard. SQLite + 8 tools для тимлида и subagent'ов."
 requires-python = ">=3.11"
 dependencies = [
     "mcp>=1.0.0",

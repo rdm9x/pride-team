@@ -1,4 +1,4 @@
-"""Telegram-алерты для малой команды pride-team.
+"""Telegram-алерты для малой команды devboard.
 
 Минимальная обёртка над Telegram Bot HTTP API (sendMessage) на стандартной
 библиотеке. Используется:
@@ -14,7 +14,7 @@
 Алерты НИКОГДА не должны ронять основной процесс.
 
 Перенесено из pride_dev/alerts/telegram.py (часть pride-dev-department,
-закрыта в пользу фокуса на pride-team). httpx убран — для одного POST'а
+закрыта в пользу фокуса на devboard). httpx убран — для одного POST'а
 достаточно urllib.request.
 """
 

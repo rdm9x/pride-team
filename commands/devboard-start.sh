@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pride-team-start.sh — поднимает Flask-дашборд малой команды.
+# devboard-start.sh — поднимает Flask-дашборд малой команды.
 #
 # MCP-сервер pride-tasks НЕ запускается как отдельный демон — он stdio-сервер
 # и стартует автоматически когда тимлид (claude -p) подключается через
@@ -50,7 +50,7 @@ if kill -0 "$PID" 2>/dev/null; then
     echo "✓ Дашборд запущен (pid=$PID). http://$PRIDE_DASHBOARD_HOST:$PRIDE_DASHBOARD_PORT"
     echo "  Логи: $LOG_FILE"
     echo "  БД:   $PRIDE_TASKS_DB"
-    echo "  Стоп: $REPO_ROOT/commands/pride-team-stop.sh"
+    echo "  Стоп: $REPO_ROOT/commands/devboard-stop.sh"
 else
     echo "✗ Не удалось запустить дашборд. См. $LOG_FILE"
     rm -f "$PID_FILE"

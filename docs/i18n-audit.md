@@ -66,7 +66,7 @@
 
 | key | ru | location |
 |---|---|---|
-| `nav.brand` | Praid | templates/kanban.html:16 |
+| `nav.brand` | Devboard | templates/kanban.html:16 |
 | `nav.inbox` | Inbox | templates/kanban.html:22 |
 | `nav.board` | Доска | templates/kanban.html:27 |
 | `nav.archive` | Архив | templates/kanban.html:32 |
@@ -79,7 +79,7 @@
 | `sidebar.role.frontend` | frontend | templates/kanban.html:57 |
 | `sidebar.role.devops` | devops | templates/kanban.html:58 |
 | `sidebar.role.tech_writer` | техписатель | templates/kanban.html:59 |
-| `page.title` | pride-team · малая команда | templates/kanban.html:5 |
+| `page.title` | devboard · малая команда | templates/kanban.html:5 |
 
 ## `topbar.*` — верхний бар
 

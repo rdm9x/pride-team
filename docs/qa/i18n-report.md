@@ -45,7 +45,7 @@
 | key | value |
 |---|---|
 | `common.ok` | `OK` |
-| `nav.brand` | `Praid` |
+| `nav.brand` | `Devboard` |
 | `nav.inbox` | `Inbox` |
 | `topbar.locale.en_title` | `English` |
 | `sidebar.role.qa` | `qa` |
@@ -95,7 +95,7 @@ grep -nE "[А-Яа-яЁё]+" дашборд/templates/*.html дашборд/stat
 
 | location | строка | предложение ключа | severity |
 |---|---|---|---|
-| `kanban.html:5` | `<title>pride-team · малая команда</title>` | `page.title` (уже в JSON!) — добавить `<title data-i18n="page.title">` либо рендерить на сервере | P1 |
+| `kanban.html:5` | `<title>devboard · малая команда</title>` | `page.title` (уже в JSON!) — добавить `<title data-i18n="page.title">` либо рендерить на сервере | P1 |
 | `kanban.html:23` | `Inbox` | `nav.inbox` (уже в JSON) — `data-i18n` | P1 |
 | `kanban.html:28` | `Доска` | `nav.board` | P1 |
 | `kanban.html:33` | `Архив` | `nav.archive` | P1 |
@@ -405,7 +405,7 @@ usage-таблицы и т.п. через template literals, в которых h
 
 ```bash
 # 1. Sync audit
-cd /Users/dm_pc/Desktop/pride-team-v1.0
+cd /Users/dm_pc/Desktop/devboard-v1.0
 python3 - <<'PY'
 import json
 ru = json.load(open("дашборд/static/i18n/ru.json"))

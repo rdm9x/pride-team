@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Двойной клик в Finder → дашборд pride-team запускается, открывается браузер.
+# Двойной клик в Finder → дашборд devboard запускается, открывается браузер.
 # Окно Terminal остаётся открытым с логами — закроешь его, дашборд остановится.
 
 set -e
@@ -11,7 +11,7 @@ cd "$REPO"
 clear
 cat <<'BANNER'
 ┌────────────────────────────────────────────────┐
-│           pride-team — запуск                  │
+│           devboard — запуск                  │
 └────────────────────────────────────────────────┘
 
 BANNER
@@ -52,7 +52,7 @@ PORT="${PRIDE_DASHBOARD_PORT:-4999}"
 export PRIDE_DASHBOARD_PORT="$PORT"
 echo ""
 echo "▶ Запускаю дашборд на порту $PORT…"
-bash "$REPO/commands/pride-team-start.sh"
+bash "$REPO/commands/devboard-start.sh"
 
 # 4) Ждём пока healthz отвечает 200 (до 20 секунд)
 URL="http://127.0.0.1:$PORT"
@@ -86,7 +86,7 @@ PID_FILE="$REPO/data/dashboard.pid"
 if [[ -f "$PID_FILE" ]]; then
     PID=$(cat "$PID_FILE")
     # Ловим Ctrl+C и корректно останавливаем
-    trap 'echo ""; echo "Останавливаю дашборд…"; bash "$REPO/commands/pride-team-stop.sh"; exit 0' INT TERM
+    trap 'echo ""; echo "Останавливаю дашборд…"; bash "$REPO/commands/devboard-stop.sh"; exit 0' INT TERM
     # Ждём пока процесс жив
     while kill -0 "$PID" 2>/dev/null; do
         sleep 2

@@ -1,20 +1,20 @@
-# pride-team
+# devboard
 
 > An AI dev team in your kanban.
 
 [![CI](https://img.shields.io/badge/CI-pending-lightgrey)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Stars](https://img.shields.io/github/stars/pride-team/pride-team?style=social)](#)
+[![Stars](https://img.shields.io/github/stars/devboard/devboard?style=social)](#)
 
 Three role-bots — **Team Lead**, **Backend**, **QA** — share one local kanban and ship real code while you watch the board. You write the task; they pick it up, decompose it, write the code, run the tests, and hand it back for approval.
 
 <!-- video demo will go here after E9 -->
-<img alt="pride-team demo (placeholder — replaced after E9)" src="docs/screenshots/demo.gif" width="720" onerror="this.style.display='none'"/>
+<img alt="devboard demo (placeholder — replaced after E9)" src="docs/screenshots/demo.gif" width="720" onerror="this.style.display='none'"/>
 
 ## Why
 
-Most coding agents run as a single loop in your terminal. `pride-team` runs as a **small org**: a Team Lead splits work, delegates to specialists, reviews their results, and only escalates to you when it actually matters. Everything lives in a SQLite kanban you can read with `sqlite3` and see in a Flask dashboard.
+Most coding agents run as a single loop in your terminal. `devboard` runs as a **small org**: a Team Lead splits work, delegates to specialists, reviews their results, and only escalates to you when it actually matters. Everything lives in a SQLite kanban you can read with `sqlite3` and see in a Flask dashboard.
 
 Built for solo developers who want agent-driven delivery without giving up the board, the audit trail, or the approval gates.
 
@@ -25,8 +25,8 @@ Built for solo developers who want agent-driven delivery without giving up the b
 ### Option A — double-click (Mac / Linux / Windows)
 
 ```text
-Запустить pride-team.command   # macOS / Linux (double-click in Finder)
-Запустить pride-team.bat       # Windows       (double-click in Explorer)
+Запустить devboard.command   # macOS / Linux (double-click in Finder)
+Запустить devboard.bat       # Windows       (double-click in Explorer)
 ```
 
 The launcher installs dependencies on first run, starts the Flask dashboard, and opens `http://127.0.0.1:5000` in your browser.
@@ -34,10 +34,10 @@ The launcher installs dependencies on first run, starts the Flask dashboard, and
 ### Option B — shell
 
 ```bash
-git clone https://github.com/pride-team/pride-team.git
-cd pride-team
+git clone https://github.com/devboard/devboard.git
+cd devboard
 python3 setup.py            # one-time: creates venvs, installs deps
-./команды/pride-team-start.sh
+./команды/devboard-start.sh
 open http://127.0.0.1:5000
 ```
 

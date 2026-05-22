@@ -1,4 +1,4 @@
-"""Кросс-платформенный установщик pride-team.
+"""Кросс-платформенный установщик devboard.
 
 Запуск:
     python setup.py            (или python3 setup.py)
@@ -147,16 +147,16 @@ def print_final_instructions() -> None:
     print()
     if IS_WINDOWS:
         print("  Запуск дашборда:")
-        print("    powershell -ExecutionPolicy Bypass -File commands\\pride-team-start.ps1")
+        print("    powershell -ExecutionPolicy Bypass -File commands\\devboard-start.ps1")
         print()
         print("  Открыть в браузере:  http://127.0.0.1:5000")
         print()
         print("  Остановить:")
-        print("    powershell -ExecutionPolicy Bypass -File commands\\pride-team-stop.ps1")
+        print("    powershell -ExecutionPolicy Bypass -File commands\\devboard-stop.ps1")
     else:
-        print("  Запуск дашборда:    ./commands/pride-team-start.sh")
+        print("  Запуск дашборда:    ./commands/devboard-start.sh")
         print("  Открыть в браузере: http://127.0.0.1:5000")
-        print("  Остановить:         ./commands/pride-team-stop.sh")
+        print("  Остановить:         ./commands/devboard-stop.sh")
     print()
     print("  Подробнее — README.md")
     print()
@@ -164,7 +164,7 @@ def print_final_instructions() -> None:
 
 def main() -> None:
     print()
-    log(f"pride-team setup · {ROOT}")
+    log(f"devboard setup · {ROOT}")
     print()
     check_python()
     uv = ensure_uv()

@@ -30,7 +30,7 @@ What actually happened. If you saw an error message, paste the one-line summary 
 
 - **OS:** (e.g. macOS 14.5, Ubuntu 22.04, Windows 11)
 - **Python version:** output of `python --version`
-- **pride-team version / commit:** output of `git rev-parse --short HEAD`
+- **devboard version / commit:** output of `git rev-parse --short HEAD`
 - **LLM provider:** Claude (CLI) / OpenAI / Ollama
 - **Model:** e.g. `claude-opus-4-7`, `gpt-4o`, `llama3.1:8b`
 - **Browser (if UI bug):** e.g. Chrome 124, Firefox 126
@@ -41,7 +41,7 @@ What actually happened. If you saw an error message, paste the one-line summary 
 <summary>Click to expand</summary>
 
 ```
-Paste tracebacks, dashboard logs, or `pride-team-start.sh` output here.
+Paste tracebacks, dashboard logs, or `devboard-start.sh` output here.
 Trim secrets (API keys, tokens) before pasting.
 ```
 

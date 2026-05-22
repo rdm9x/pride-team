@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-REM Двойной клик в Explorer -> дашборд pride-team запускается, открывается браузер.
+REM Двойной клик в Explorer -> дашборд devboard запускается, открывается браузер.
 REM Закроешь это окно - дашборд остановится.
 
 setlocal
@@ -9,7 +9,7 @@ cd /d "%REPO%"
 
 cls
 echo +----------------------------------------------+
-echo ^|         pride-team - запуск                  ^|
+echo ^|         devboard - запуск                  ^|
 echo +----------------------------------------------+
 echo.
 
@@ -62,7 +62,7 @@ if errorlevel 1 (
 if not defined PRIDE_DASHBOARD_PORT set "PRIDE_DASHBOARD_PORT=4999"
 echo.
 echo [*] Запускаю дашборд на порту %PRIDE_DASHBOARD_PORT%...
-powershell -NoProfile -ExecutionPolicy Bypass -File "commands\pride-team-start.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "commands\devboard-start.ps1"
 
 REM 3) Ждём готовности (до 20 секунд)
 echo|set /p="  ждём готовности"

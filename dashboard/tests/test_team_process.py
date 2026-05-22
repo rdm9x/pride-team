@@ -60,7 +60,7 @@ def test_start_team_process_already_running(reset_team_state) -> None:
 
 
 def test_start_team_process_missing_script(reset_team_state, monkeypatch, tmp_path) -> None:
-    # Подменяем _COMMANDS_DIR на пустую папку — скрипта pride-team-work.sh там нет.
+    # Подменяем _COMMANDS_DIR на пустую папку — скрипта devboard-work.sh там нет.
     monkeypatch.setattr(app_module, "_COMMANDS_DIR", tmp_path)
     res = app_module._start_team_process()
     assert res["ok"] is False
@@ -70,7 +70,7 @@ def test_start_team_process_missing_script(reset_team_state, monkeypatch, tmp_pa
 
 def test_start_team_process_happy(reset_team_state, monkeypatch, tmp_path) -> None:
     # Скрипт существует
-    script_name = "pride-team-work.ps1" if sys.platform == "win32" else "pride-team-work.sh"
+    script_name = "devboard-work.ps1" if sys.platform == "win32" else "devboard-work.sh"
     work_script = tmp_path / script_name
     work_script.write_text("#!/bin/bash\necho hi\n")
     monkeypatch.setattr(app_module, "_COMMANDS_DIR", tmp_path)

@@ -1,5 +1,5 @@
 /* =========================================================================
- * tour.js — onboarding-тур для pride-team.
+ * tour.js — onboarding-тур для devboard.
  *
  * Без зависимостей. Чистый vanilla JS.
  * Создаёт overlay с подсветкой целевого элемента + popover-tooltip рядом.

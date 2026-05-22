@@ -1,4 +1,4 @@
-# Pre-commit hooks для pride-team.
+# Pre-commit hooks для devboard.
 #
 # Установка для разработчика:
 #   pip install pre-commit

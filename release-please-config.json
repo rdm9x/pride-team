@@ -11,7 +11,7 @@
   "prerelease": false,
   "packages": {
     ".": {
-      "package-name": "pride-team",
+      "package-name": "devboard",
       "changelog-path": "CHANGELOG.md",
       "release-type": "simple",
       "extra-files": []

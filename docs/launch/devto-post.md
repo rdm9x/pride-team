@@ -1,9 +1,9 @@
 ---
 title: "Building an AI team in a kanban (and why one chatbot wasn't enough)"
 published: false
-description: An honest writeup of building pride-team — a local kanban where AI roles pick up cards, write code, and ask before anything destructive.
+description: An honest writeup of building devboard — a local kanban where AI roles pick up cards, write code, and ask before anything destructive.
 tags: ai, opensource, llm, productivity
-cover_image: <placeholder — screenshot of the pride-team kanban with five columns (Inbox · Todo · WIP · Review · Done), a card moving from WIP to Review, and a red "Needs your approval — git push" banner across the top. 1000×420, dark theme, real screen capture, no mockup chrome.>
+cover_image: <placeholder — screenshot of the devboard kanban with five columns (Inbox · Todo · WIP · Review · Done), a card moving from WIP to Review, and a red "Needs your approval — git push" banner across the top. 1000×420, dark theme, real screen capture, no mockup chrome.>
 ---
 
 # Building an AI team in a kanban (and why one chatbot wasn't enough)
@@ -12,7 +12,7 @@ I have a folder on my laptop called `chats-i-gave-up-on/`. It holds maybe forty 
 
 The models aren't bad — they got dramatically better while I was writing those transcripts. What didn't get better was the shape of the conversation: one window, one role, one growing context, one human trying to be product manager, architect, reviewer, and operator at once. The bottleneck stopped being the model and started being me.
 
-`pride-team` is what I built once I admitted that. It's a local web kanban where each card is picked up by a separate Claude session running a specific role — team lead, backend, QA, architect, frontend, devops, tech writer — and anything destructive (a `git push`, an `ssh`, a `DROP TABLE`) stops at an approval gate so I can read the diff first. This post is the long version of why each choice is the way it is, what didn't work, and where the tradeoffs sting.
+`devboard` is what I built once I admitted that. It's a local web kanban where each card is picked up by a separate Claude session running a specific role — team lead, backend, QA, architect, frontend, devops, tech writer — and anything destructive (a `git push`, an `ssh`, a `DROP TABLE`) stops at an approval gate so I can read the diff first. This post is the long version of why each choice is the way it is, what didn't work, and where the tradeoffs sting.
 
 ## The problem with one big chatbot
 
@@ -83,13 +83,13 @@ A role file looks roughly like this:
 ---
 type: role_prompt
 role: backend
-project: pride-team
+project: devboard
 llm: claude
 model: opus
 tools: [Read, Write, Edit, Bash, mcp__pride_tasks]
 ---
 
-# You are the Backend developer of the pride-team team
+# You are the Backend developer of the devboard team
 
 You work in Python, Flask, SQLite, and MCP. You don't touch the UI ...
 ```
@@ -115,14 +115,14 @@ Finish the multi-LLM provider work so OpenAI and Ollama are first-class. Ship a 
 ## Try it
 
 ```bash
-git clone https://github.com/rdm9x/pride-team
-cd pride-team
+git clone https://github.com/rdm9x/devboard
+cd devboard
 ./Start.command   # macOS, double-click in Finder works too
 # or:
 docker-compose up
 ```
 
-Repo: github.com/rdm9x/pride-team
+Repo: github.com/rdm9x/devboard
 Roadmap: see the issues tab
 License: MIT.
 

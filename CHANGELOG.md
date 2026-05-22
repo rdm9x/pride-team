@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to **pride-team** will be documented in this file.
+All notable changes to **devboard** will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0] - Unreleased
 
-First public release. Open-source baseline of pride-team — a local kanban driven by a small fleet of AI role-bots (Team Lead, Backend, QA, and optional specialists).
+First public release. Open-source baseline of devboard — a local kanban driven by a small fleet of AI role-bots (Team Lead, Backend, QA, and optional specialists).
 
 ### Added
 
@@ -51,7 +51,7 @@ First public release. Open-source baseline of pride-team — a local kanban driv
 
 - Renamed Cyrillic source folders to Latin equivalents for cross-platform tooling:
   `роли/` → `roles/`, `дашборд/` → `dashboard/`, `команды/` → `commands/`, `мcp_сервер/` → `mcp_server/`.
-- Launcher scripts renamed to Latin: `pride-team-start.sh`, `pride-team-work.sh`, and their Windows `.ps1`/`.bat` counterparts.
+- Launcher scripts renamed to Latin: `devboard-start.sh`, `devboard-work.sh`, and their Windows `.ps1`/`.bat` counterparts.
 - Internal module imports and `pyproject.toml` package paths updated to match the new folder names.
 - Default UI language is now English; Russian remains available via the in-app language switcher.
 - Team Lead invocation goes through `create_provider()` instead of a hard-coded `claude --print` call.

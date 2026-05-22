@@ -1,4 +1,4 @@
-# pride-team — 90-second demo video script
+# devboard — 90-second demo video script
 
 **Format:** 90 seconds, 18 segments × 5s
 **Aspect ratio:** 16:9 (YouTube/Twitter/embed in README) — also export 9:16 vertical cut for mobile/X
@@ -21,7 +21,7 @@
 | # | Time | On screen | Voiceover (EN) | B-roll / notes |
 |---|------|-----------|----------------|----------------|
 | 1 | 0:00–0:05 | Talking head, 1.5s, then cut to laptop screen showing a single ChatGPT-style chat with a long, fading scroll of messages. | "One chatbot. One long conversation. You've been here." | Hook — make the pain feel familiar. Keep talking head ≤ 1.5s. |
-| 2 | 0:05–0:10 | Pan to a second monitor — the pride-team dashboard, empty kanban with columns: Inbox · Todo · WIP · Review · Done. | "What if your AI was a team — with a board?" | Slow horizontal pan, ~0.5s on each column. |
+| 2 | 0:05–0:10 | Pan to a second monitor — the devboard dashboard, empty kanban with columns: Inbox · Todo · WIP · Review · Done. | "What if your AI was a team — with a board?" | Slow horizontal pan, ~0.5s on each column. |
 | 3 | 0:10–0:15 | Sidebar lights up: 7 role chips — team lead, backend, QA, architect, frontend, devops, tech writer. | "Seven roles. Each one a separate prompt, a separate session." | Hover cursor across chips, names visible. |
 | 4 | 0:15–0:20 | Click "New task". Modal opens. Type "Build a landing page for our coffee shop". | "You drop a task in the Inbox." | Real typing, ~12 chars/sec. |
 | 5 | 0:20–0:25 | Card appears in Inbox. Big "Run team lead" button pulses softly. | "Hit Run." | Cursor moves to button — beat. |
@@ -36,8 +36,8 @@
 | 14 | 1:05–1:10 | Push animation; card slides to Done with a checkmark. Live stream: "pushed to origin/main · sha 7b9ab7d". | "Done." | One word. Pause. |
 | 15 | 1:10–1:15 | Browser tab opens — the landing page is live. Coffee-shop hero, hours, map. | (silence — let the page breathe) | 5s of nothing said is rare and powerful. Light page-load sfx only. |
 | 16 | 1:15–1:20 | Cut back to the kanban — every column except Done is empty. 5 green cards stacked in Done. | "From one prompt to shipped — in one afternoon." | Slow zoom on the Done column. |
-| 17 | 1:20–1:25 | Cut to terminal: `git clone github.com/rdm9x/pride-team && ./Start.command`. Two lines, then a localhost URL appears. | "Local. Open source. MIT." | Real commands, real output. No ellipses cheats. |
-| 18 | 1:25–1:30 | End card: pride-team logo · `github.com/rdm9x/pride-team` · "Try it free". QR code top-right for mobile viewers. | "Link below. Build a team." | Hold the end card 2 full seconds before fade. |
+| 17 | 1:20–1:25 | Cut to terminal: `git clone github.com/rdm9x/devboard && ./Start.command`. Two lines, then a localhost URL appears. | "Local. Open source. MIT." | Real commands, real output. No ellipses cheats. |
+| 18 | 1:25–1:30 | End card: devboard logo · `github.com/rdm9x/devboard` · "Try it free". QR code top-right for mobile viewers. | "Link below. Build a team." | Hold the end card 2 full seconds before fade. |
 
 ---
 
@@ -117,13 +117,13 @@
 ## What to put in the description / pinned post
 
 ```
-pride-team — give your AI a kanban board and a team of roles.
+devboard — give your AI a kanban board and a team of roles.
 
 A real kanban (Inbox · Todo · WIP · Review · Done) where each card is picked up by a separate Claude session running a specific role: team lead, backend, QA, architect, frontend, devops, tech writer. Anything destructive — git push, ssh, schema changes — pauses at an approval gate so you stay in control.
 
 Local-first. SQLite. Flask. MCP. Open source under MIT.
 
-Repo: github.com/rdm9x/pride-team
+Repo: github.com/rdm9x/devboard
 Docs: README + ARCHITECTURE.md in the repo
 Discord / Discussions: see repo header
 

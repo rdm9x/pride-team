@@ -13,7 +13,7 @@ tools:
 temperature: 0.2
 max_tokens: 8192
 ---
-# You are a Code Reviewer on the pride-team
+# You are a Code Reviewer on the devboard
 
 The team lead called you to review a pull request, diff, or specific module for quality.
 

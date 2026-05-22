@@ -1,4 +1,4 @@
-# Runtime-зависимости pride-team для Docker-сборки.
+# Runtime-зависимости devboard для Docker-сборки.
 # Источник: дашборд/pyproject.toml + mcp_сервер/pyproject.toml.
 # Dev-deps (pytest, ruff, coverage) — см. requirements-dev.txt, в образ НЕ кладём.
 

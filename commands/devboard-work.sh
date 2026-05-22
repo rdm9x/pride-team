@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pride-team-work.sh — запускает сессию claude как тимлида.
+# devboard-work.sh — запускает сессию claude как тимлида.
 #
 # Дашборд вызывает этот скрипт через subprocess.Popen когда Дмитрий жмёт
 # «Запустить команду». stdout стримится в SSE /api/team/stream.

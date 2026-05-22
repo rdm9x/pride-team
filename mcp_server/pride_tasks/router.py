@@ -5,7 +5,7 @@
 токенов), прозрачный — пользователь видит причину выбора.
 
 Используется:
-  - pride-team-work.sh: вызывает `python -m pride_tasks.router pick`,
+  - devboard-work.sh: вызывает `python -m pride_tasks.router pick`,
     получает имя модели, передаёт в `claude --model`.
   - Дашборд: показывает текущую рекомендацию в плашке шапки
     (через REST endpoint /api/router/pick).
@@ -100,13 +100,20 @@ def pick(open_tasks: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def pick_from_db(db_path: Path | None = None) -> dict[str, Any]:
-    """Собрать список открытых задач из БД и принять решение."""
+    """Собрать список открытых задач из БД и принять решение.
+
+    Задачи с незакрытыми зависимостями (depends_on которые не done) исключаются —
+    тимлид к ним всё равно не может приступить, и они не должны влиять на выбор
+    модели (типично approval-gate задачи с destructive label, ждущие закрытия
+    рабочих подзадач).
+    """
     from pride_tasks import db
 
     path = db_path or db.default_db_path()
     open_tasks = []
     for status in ("todo", "wip", "review", "needs_approval"):
         open_tasks.extend(db.list_tasks(path, status=status, limit=200))
+
     # Снимем дубли по id (для подстраховки)
     seen = set()
     unique = []
@@ -115,11 +122,33 @@ def pick_from_db(db_path: Path | None = None) -> dict[str, Any]:
             continue
         seen.add(t["id"])
         unique.append(t)
-    return pick(unique)
+
+    # Отфильтровать задачи с незакрытыми зависимостями
+    import sqlite3
+    conn = sqlite3.connect(path)
+    conn.row_factory = sqlite3.Row
+    try:
+        ready = []
+        for t in unique:
+            row = conn.execute(
+                """
+                SELECT COUNT(*) as c
+                FROM task_dependencies d
+                JOIN tasks dep ON dep.id = d.depends_on
+                WHERE d.task_id = ? AND dep.status != 'done'
+                """,
+                (t["id"],),
+            ).fetchone()
+            if row["c"] == 0:
+                ready.append(t)
+    finally:
+        conn.close()
+
+    return pick(ready)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="pride-team model router")
+    parser = argparse.ArgumentParser(description="devboard model router")
     parser.add_argument("action", choices=["pick", "model-only"],
                         help="pick — JSON {model, reason, counters}; model-only — только имя alias (haiku/sonnet/opus)")
     args = parser.parse_args()

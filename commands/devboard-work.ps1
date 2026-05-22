@@ -1,4 +1,4 @@
-# pride-team-work.ps1 — запускает сессию claude как тимлида (Windows).
+# devboard-work.ps1 — запускает сессию claude как тимлида (Windows).
 # Вызывается дашбордом из «▶ Запустить команду».
 
 $ErrorActionPreference = "Stop"

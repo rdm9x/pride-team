@@ -1,4 +1,4 @@
-# pride-team — Show HN submission package
+# devboard — Show HN submission package
 
 > Status: DRAFT. Nothing is posted yet. Dmitry reviews this file before any public action.
 
@@ -6,15 +6,15 @@
 
 ## Title (≤ 80 chars)
 
-> Show HN: pride-team – a local AI dev team in a kanban board
+> Show HN: devboard – a local AI dev team in a kanban board
 
 **Char count:** 60/80
 
 **Alternative titles for A/B if first one underperforms:**
 
-1. `Show HN: pride-team – give Claude a kanban and a team of roles`  (62/80)
-2. `Show HN: pride-team – an open-source AI dev team you can audit`  (62/80)
-3. `Show HN: pride-team – AI agents on a kanban, with approval gates`  (64/80)
+1. `Show HN: devboard – give Claude a kanban and a team of roles`  (62/80)
+2. `Show HN: devboard – an open-source AI dev team you can audit`  (62/80)
+3. `Show HN: devboard – AI agents on a kanban, with approval gates`  (64/80)
 
 Primary is #0 because it is the most concrete and the least hype-coded: it names the artifact (kanban board), the location (local), and the actor (AI dev team) without using the word "AI" as a buzzword. HN guidelines say the title must describe the project, not sell it — #0 passes that test cleanest. #1 is the strongest backup if "local AI" pattern-matches as marketing for some readers; "Claude" anchors it as concrete tooling.
 
@@ -22,7 +22,7 @@ Primary is #0 because it is the most concrete and the least hype-coded: it names
 
 ## URL field
 
-`https://github.com/rdm9x/pride-team`
+`https://github.com/rdm9x/devboard`
 
 (`rdm9x` was replaced with the final GitHub handle `rdm9x` before submission.)
 
@@ -32,7 +32,7 @@ Primary is #0 because it is the most concrete and the least hype-coded: it names
 
 Hi HN,
 
-pride-team is a local Flask + SQLite kanban where each card is picked up by a separate Claude session running a specific role — team lead, backend, QA, architect, frontend, devops, tech writer. The team lead decomposes the task and delegates; specialists do the work; anything destructive (git push, ssh, schema changes, writes outside `data/`) pauses at an approval gate where you see the full diff or command before clicking Approve.
+devboard is a local Flask + SQLite kanban where each card is picked up by a separate Claude session running a specific role — team lead, backend, QA, architect, frontend, devops, tech writer. The team lead decomposes the task and delegates; specialists do the work; anything destructive (git push, ssh, schema changes, writes outside `data/`) pauses at an approval gate where you see the full diff or command before clicking Approve.
 
 I built it because one long chat with one assistant kept losing context on multi-step work, and "agent frameworks" felt like a black box — I wanted the work surface to be a board I could actually read, with an audit trail in SQLite I could `sqlite3` into. So I made the board first and the agents second.
 
@@ -45,7 +45,7 @@ I'd genuinely like feedback on three things:
 2. What roles would you want to see in an `roles/examples/` directory?
 3. Anyone running a similar role-separated setup in production — what broke first?
 
-Repo: https://github.com/&lt;user&gt;/pride-team
+Repo: https://github.com/&lt;user&gt;/devboard
 MIT. Solo project, no funding, no waitlist.
 
 — Dmitry
@@ -69,7 +69,7 @@ MIT. Solo project, no funding, no waitlist.
 
 ### "How is this different from <Cline / Aider / Cursor / OpenHands>?"
 
-Cursor and Cline are IDE-native and excellent for inline, in-editor work — that is a different shape of problem. pride-team is for longer multi-step tasks where you want explicit role separation (so the QA role can't silently rewrite backend code) and a persistent board you can leave running and come back to. The trade-off is real: pride-team has more setup friction than dropping a plugin into your editor. If your work is mostly single-file edits, Cursor wins. If it is "build me this small service and write the tests," the board pays off.
+Cursor and Cline are IDE-native and excellent for inline, in-editor work — that is a different shape of problem. devboard is for longer multi-step tasks where you want explicit role separation (so the QA role can't silently rewrite backend code) and a persistent board you can leave running and come back to. The trade-off is real: devboard has more setup friction than dropping a plugin into your editor. If your work is mostly single-file edits, Cursor wins. If it is "build me this small service and write the tests," the board pays off.
 
 ### "Why Claude-only? OpenAI / Ollama?"
 
@@ -100,10 +100,10 @@ assignee: дмитрий
 status: needs_approval
 labels: ["destructive", "public-launch", "showhn"]
 description: |
-  TL;DR: post pride-team to Show HN using the primary title from showhn-comment.md.
+  TL;DR: post devboard to Show HN using the primary title from showhn-comment.md.
 
-  Title: Show HN: pride-team – a local AI dev team in a kanban board
-  URL:   https://github.com/rdm9x/pride-team
+  Title: Show HN: devboard – a local AI dev team in a kanban board
+  URL:   https://github.com/rdm9x/devboard
   When:  next Tue or Wed, 8:00–9:00 AM Pacific (15:00–16:00 UTC)
 
   First-comment body: paste verbatim from

@@ -2,13 +2,13 @@
 
 - **Status:** Accepted (2026-05-21)
 - **Date:** 2026-05-21
-- **Authors:** архитектор (pride-team)
+- **Authors:** архитектор (devboard)
 - **Epic:** E6 — Multi-LLM (parent task `af976e279b39`)
 - **Supersedes:** —
 
 ## 1. Context
 
-Сейчас pride-team хардкодит вызов Claude:
+Сейчас devboard хардкодит вызов Claude:
 
 ```
 exec claude --append-system-prompt "$PROMPT" \
@@ -18,7 +18,7 @@ exec claude --append-system-prompt "$PROMPT" \
             --output-format stream-json ...
 ```
 
-(см. `команды/pride-team-work.sh`, `дашборд/app.py::_format_stream_event`).
+(см. `команды/devboard-work.sh`, `дашборд/app.py::_format_stream_event`).
 
 Это блокирует две группы пользователей:
 
@@ -238,7 +238,7 @@ Sidecar-сервис подменяет endpoint Anthropic API. Минусы: д
 - OpenAI Chat Completions / tools — `https://platform.openai.com/docs/guides/function-calling`
 - Ollama Chat API — `https://github.com/ollama/ollama/blob/main/docs/api.md#generate-a-chat-completion`
 - Model Context Protocol — `https://modelcontextprotocol.io/`
-- Текущий хардкод claude CLI — `команды/pride-team-work.sh`, `дашборд/app.py::_format_stream_event`
+- Текущий хардкод claude CLI — `команды/devboard-work.sh`, `дашборд/app.py::_format_stream_event`
 
 ## Changelog
 

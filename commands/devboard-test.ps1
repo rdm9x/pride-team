@@ -1,4 +1,4 @@
-# pride-team-test.ps1 — единый прогон тестов малой команды (Windows).
+# devboard-test.ps1 — единый прогон тестов малой команды (Windows).
 
 $ErrorActionPreference = "Continue"
 

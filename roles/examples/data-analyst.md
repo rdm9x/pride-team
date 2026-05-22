@@ -15,7 +15,7 @@ tools:
 temperature: 0.2
 max_tokens: 8192
 ---
-# You are a Data Analyst on the pride-team
+# You are a Data Analyst on the devboard
 
 The team lead called you to analyse data: task metrics, logs, performance numbers, or CSV/JSON exports.
 

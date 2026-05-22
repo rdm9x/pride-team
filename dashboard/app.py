@@ -1,8 +1,8 @@
-"""Flask-дашборд малой команды pride-team.
+"""Flask-дашборд малой команды devboard.
 
 Запуск:
     cd /D.AI/команда/dashboard && uv run python app.py
-    или через ../commands/pride-team-start.sh
+    или через ../commands/devboard-start.sh
 
 API — см. /D.AI/команда/детали_дашборда.md §API.
 """
@@ -517,8 +517,8 @@ def _auto_monitor_loop() -> None:
 def _start_team_process(triggered_by: str = "user") -> dict[str, Any]:
     """Запустить subprocess тимлида.
 
-    Выбор скрипта по платформе: на Windows — pride-team-work.ps1 через
-    powershell, на macOS/Linux — pride-team-work.sh через bash.
+    Выбор скрипта по платформе: на Windows — devboard-work.ps1 через
+    powershell, на macOS/Linux — devboard-work.sh через bash.
     """
 
     with _team_state["lock"]:
@@ -527,7 +527,7 @@ def _start_team_process(triggered_by: str = "user") -> dict[str, Any]:
             return {"ok": False, "reason": "already_running", "pid": proc.pid}
 
         if sys.platform == "win32":
-            work_script = _COMMANDS_DIR / "pride-team-work.ps1"
+            work_script = _COMMANDS_DIR / "devboard-work.ps1"
             cmd = [
                 "powershell",
                 "-ExecutionPolicy",
@@ -537,7 +537,7 @@ def _start_team_process(triggered_by: str = "user") -> dict[str, Any]:
                 str(work_script),
             ]
         else:
-            work_script = _COMMANDS_DIR / "pride-team-work.sh"
+            work_script = _COMMANDS_DIR / "devboard-work.sh"
             cmd = ["/bin/bash", str(work_script)]
 
         if not work_script.exists():

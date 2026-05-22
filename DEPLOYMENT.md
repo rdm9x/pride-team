@@ -1,6 +1,6 @@
 # Deployment
 
-How to self-host **pride-team** on a single VPS (DigitalOcean, Hetzner, Selectel, etc.)
+How to self-host **devboard** on a single VPS (DigitalOcean, Hetzner, Selectel, etc.)
 using Docker, docker-compose, and Caddy as an HTTPS reverse proxy.
 
 > This guide assumes you are running the app for yourself or a small team on one
@@ -87,10 +87,10 @@ You should see Docker Engine 24.x or newer and Compose v2.x.
 
 ```bash
 cd /opt
-sudo mkdir -p pride-team
-sudo chown "$USER":"$USER" pride-team
-git clone https://github.com/dmitrydevs/pride-team.git pride-team
-cd pride-team
+sudo mkdir -p devboard
+sudo chown "$USER":"$USER" devboard
+git clone https://github.com/dmitrydevs/devboard.git devboard
+cd devboard
 ```
 
 > The repo URL above is the canonical one. Replace it with your fork if you
@@ -251,11 +251,11 @@ a belt-and-braces fallback that runs `docker compose up` at boot and brings the
 stack down cleanly on shutdown — useful on hosts where the Docker daemon's auto-
 restart is unreliable (e.g. after kernel updates).
 
-Create `/etc/systemd/system/pride-team.service`:
+Create `/etc/systemd/system/devboard.service`:
 
 ```ini
 [Unit]
-Description=pride-team kanban (docker compose)
+Description=devboard kanban (docker compose)
 Requires=docker.service
 After=docker.service network-online.target
 Wants=network-online.target
@@ -263,8 +263,8 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-WorkingDirectory=/opt/pride-team
-EnvironmentFile=/opt/pride-team/.env
+WorkingDirectory=/opt/devboard
+EnvironmentFile=/opt/devboard/.env
 ExecStart=/usr/bin/docker compose up -d
 ExecStop=/usr/bin/docker compose down
 TimeoutStartSec=120
@@ -279,8 +279,8 @@ Enable and start:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now pride-team.service
-sudo systemctl status pride-team.service
+sudo systemctl enable --now devboard.service
+sudo systemctl status devboard.service
 ```
 
 After a reboot the stack will come up on its own.
@@ -294,14 +294,14 @@ The whole state of the app lives in a single SQLite file: `data/tasks.db`
 `sqlite3 .dump` so you get a portable SQL text dump, not a binary snapshot that
 may be mid-write.
 
-Create `/opt/pride-team/scripts/backup.sh`:
+Create `/opt/devboard/scripts/backup.sh`:
 
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_DIR=/opt/pride-team
-BACKUP_DIR=/opt/pride-team/backups
+APP_DIR=/opt/devboard
+BACKUP_DIR=/opt/devboard/backups
 RETENTION_DAYS=30
 
 mkdir -p "$BACKUP_DIR"
@@ -324,9 +324,9 @@ echo "backup ok: $OUT.gz"
 Make it executable and try it once:
 
 ```bash
-chmod +x /opt/pride-team/scripts/backup.sh
-/opt/pride-team/scripts/backup.sh
-ls -lh /opt/pride-team/backups/
+chmod +x /opt/devboard/scripts/backup.sh
+/opt/devboard/scripts/backup.sh
+ls -lh /opt/devboard/backups/
 ```
 
 Schedule it daily at 03:30 via cron:
@@ -338,7 +338,7 @@ crontab -e
 Add the line:
 
 ```cron
-30 3 * * * /opt/pride-team/scripts/backup.sh >> /opt/pride-team/backups/backup.log 2>&1
+30 3 * * * /opt/devboard/scripts/backup.sh >> /opt/devboard/backups/backup.log 2>&1
 ```
 
 > **Off-site copies:** the script above keeps backups on the same VPS. For real
@@ -378,7 +378,7 @@ your friend.
 
 ### Healthcheck script
 
-Create `/opt/pride-team/scripts/healthcheck.sh` for an external monitor
+Create `/opt/devboard/scripts/healthcheck.sh` for an external monitor
 (UptimeRobot, Healthchecks.io, or a cron that emails on failure):
 
 ```bash
@@ -397,14 +397,14 @@ fi
 ```
 
 ```bash
-chmod +x /opt/pride-team/scripts/healthcheck.sh
-/opt/pride-team/scripts/healthcheck.sh
+chmod +x /opt/devboard/scripts/healthcheck.sh
+/opt/devboard/scripts/healthcheck.sh
 ```
 
 For Healthchecks.io-style pings, add to cron:
 
 ```cron
-* * * * * /opt/pride-team/scripts/healthcheck.sh && curl -fsS --retry 3 https://hc-ping.com/USER-EDIT-uuid >/dev/null
+* * * * * /opt/devboard/scripts/healthcheck.sh && curl -fsS --retry 3 https://hc-ping.com/USER-EDIT-uuid >/dev/null
 ```
 
 ### Disk usage
@@ -478,7 +478,7 @@ The container runs as a non-root user (`pride`, UID 1000) by design. If you
 created `./data/` as root, it will not be writable. Fix:
 
 ```bash
-sudo chown -R 1000:1000 /opt/pride-team/data
+sudo chown -R 1000:1000 /opt/devboard/data
 ```
 
 ### Container restarts in a loop
@@ -500,7 +500,7 @@ The most common causes are:
 ### Upgrading
 
 ```bash
-cd /opt/pride-team
+cd /opt/devboard
 git fetch --tags
 git checkout v<latest-tag>     # or: git pull origin main
 docker compose pull            # if using a registry image
@@ -511,7 +511,7 @@ docker compose ps
 Always take a backup first:
 
 ```bash
-/opt/pride-team/scripts/backup.sh
+/opt/devboard/scripts/backup.sh
 ```
 
 If something breaks, `git checkout <previous-tag>` and `docker compose up -d --build`
@@ -542,15 +542,15 @@ Never commit `.env` to git — it is already listed in `.gitignore` and
 **Option A — systemd EnvironmentFile (recommended for single-server setups)**
 
 ```ini
-# /etc/systemd/system/pride-team.service  (see §6)
+# /etc/systemd/system/devboard.service  (see §6)
 [Service]
-EnvironmentFile=/opt/pride-team/.env
+EnvironmentFile=/opt/devboard/.env
 ```
 
 ```bash
 # Restrict read access to root only.
-sudo chmod 600 /opt/pride-team/.env
-sudo chown root:root /opt/pride-team/.env
+sudo chmod 600 /opt/devboard/.env
+sudo chown root:root /opt/devboard/.env
 ```
 
 **Option B — Docker secrets (Swarm mode)**
@@ -593,13 +593,13 @@ The `Dockerfile` additionally runs the process as non-root user `pride`
 
 ```bash
 # Scan the running image for known CVEs (requires trivy).
-trivy image pride-team:latest
+trivy image devboard:latest
 
 # Check that no container runs as root.
-docker inspect pride-team | jq '.[].Config.User'
+docker inspect devboard | jq '.[].Config.User'
 
 # Verify read-only enforcement.
-docker exec pride-team touch /test-rw 2>&1  # expected: "Read-only file system"
+docker exec devboard touch /test-rw 2>&1  # expected: "Read-only file system"
 ```
 
 ---

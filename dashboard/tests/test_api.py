@@ -6,7 +6,7 @@ from __future__ import annotations
 def test_index_renders(client) -> None:
     r = client.get("/")
     assert r.status_code == 200
-    assert b"pride-team" in r.data
+    assert b"devboard" in r.data
 
 
 def test_healthz(client) -> None:
@@ -141,7 +141,7 @@ def test_team_status_stopped(client) -> None:
 
 
 def test_team_start_missing_script(client, tmp_path, monkeypatch) -> None:
-    # pride-team-work.sh не существует пока — должен вернуть error
+    # devboard-work.sh не существует пока — должен вернуть error
     import app as dashboard_app  # type: ignore
 
     monkeypatch.setattr(

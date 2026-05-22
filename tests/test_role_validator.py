@@ -90,7 +90,7 @@ def test_valid_with_extras_and_legacy(tmp_path: Path) -> None:
     content = """---
 schema_version: 1
 name: qa-lead
-description: QA engineer for pride-team.
+description: QA engineer for devboard.
 llm: openai
 model: gpt-4o
 tools:

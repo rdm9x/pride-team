@@ -88,7 +88,7 @@ def test_api_team_start_missing_script(client, reset_state, monkeypatch, tmp_pat
 
 
 def test_api_team_start_happy(client, reset_state, monkeypatch, tmp_path) -> None:
-    script_name = "pride-team-work.ps1" if sys.platform == "win32" else "pride-team-work.sh"
+    script_name = "devboard-work.ps1" if sys.platform == "win32" else "devboard-work.sh"
     work_script = tmp_path / script_name
     work_script.write_text("#!/bin/bash\n")
     monkeypatch.setattr(app_module, "_COMMANDS_DIR", tmp_path)

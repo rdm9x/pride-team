@@ -1,4 +1,4 @@
-/* pride-team i18n loader — vanilla, no deps.
+/* devboard i18n loader — vanilla, no deps.
  * API: window.t(key, params), window.setLocale(lang), window.loadLocale(lang),
  *      window.applyI18nToDOM(), window.getLocale().
  * Markup: data-i18n="dot.path"  data-i18n-attr="placeholder:dot.path[,title:other.path]"

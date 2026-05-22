@@ -596,9 +596,24 @@ code, .md-inline {
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0;
+  /* S1.4: keep header above hovering cards */
+  position: sticky;
+  top: 0;
+  background: var(--glass-bg-2);
+  z-index: 2;
 }
 .column .count { background: var(--divider); padding: 2px 9px; border-radius: 999px; font-size: 11px; color: var(--text-2); }
-.column .cards { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex: 1; min-height: 0; }
+.column .cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  /* S1.3: gap between card borders and scrollbar */
+  padding-right: 8px;
+  scrollbar-gutter: stable;
+}
 
 .col-empty {
   color: var(--text-muted);
@@ -1285,6 +1300,11 @@ code, .md-inline {
   border-radius: 4px;
 }
 .cards::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+/* S1.3: indent scrollbar track so it doesn't clip card border-radius */
+.cards::-webkit-scrollbar-track {
+  background: transparent;
+  margin-block: 2px;
+}
 
 /* Чекбоксы — Apple-style */
 input[type="checkbox"] {

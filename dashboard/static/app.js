@@ -128,6 +128,17 @@
     return Math.floor(sec / 86400) + i18n("kanban.card.age.day");
   }
 
+  // Зеркало логики mcp_server/pride_tasks/router.pick для одной задачи.
+  // Возвращает alias модели (haiku/sonnet/opus) или null для родительских эпиков.
+  function pickModelForTask(t) {
+    const labels = new Set(t.labels || []);
+    if (labels.has("epic")) return null;
+    if (labels.has("destructive")) return "opus";
+    if (labels.has("design") || labels.has("architecture") || labels.has("adr")) return "opus";
+    if (labels.has("trivial") || labels.has("chore") || labels.has("rename") || labels.has("polish")) return "haiku";
+    return "sonnet";
+  }
+
   function renderCard(t) {
     const card = document.createElement("div");
     card.className = "card";
@@ -143,11 +154,16 @@
     const approval = t.requires_approval ? `<span class="approval ico">⚠</span>` : "";
     const role = t.assignee ? `<span class="role">${t.assignee}</span>` : "";
     const linkIcon = t._has_deps ? `<span class="link-icon ico" title="${i18n("kanban.card.has_deps")}">🔗</span>` : "";
+    const model = pickModelForTask(t);
+    const modelChip = model
+      ? `<span class="model ${model}" title="Модель LLM для этой задачи: ${model}">${model}</span>`
+      : "";
     card.innerHTML = `
       <div class="meta">
         <span class="id">#${t.id.slice(0, 6)}</span>
         <span class="pri">${t.priority}</span>
         ${role}
+        ${modelChip}
         ${approval}
         ${linkIcon}
       </div>
@@ -1225,6 +1241,48 @@
 
   // ===================== Roles =====================
 
+  const _MODEL_OPTIONS = {
+    claude: [
+      { value: "claude-opus-4-7",             label: "Opus 4.7" },
+      { value: "claude-sonnet-4-6",            label: "Sonnet 4.6" },
+      { value: "claude-haiku-4-5-20251001",    label: "Haiku 4.5" },
+    ],
+    openai: [
+      { value: "gpt-4o",          label: "GPT-4o" },
+      { value: "gpt-4o-mini",     label: "GPT-4o mini" },
+      { value: "gpt-4-turbo",     label: "GPT-4 Turbo" },
+      { value: "gpt-3.5-turbo",   label: "GPT-3.5 Turbo" },
+    ],
+    ollama: [
+      { value: "llama3.2",   label: "Llama 3.2" },
+      { value: "llama3.1",   label: "Llama 3.1" },
+      { value: "mistral",    label: "Mistral" },
+      { value: "gemma2",     label: "Gemma 2" },
+    ],
+  };
+
+  function _populateModelSelect(llm, currentValue) {
+    const sel = $("#role-field-model");
+    const opts = _MODEL_OPTIONS[llm] || [];
+    sel.innerHTML = "";
+    const knownValues = opts.map((o) => o.value);
+    // If current value is not in list, add it as custom option at top
+    if (currentValue && !knownValues.includes(currentValue)) {
+      const custom = document.createElement("option");
+      custom.value = currentValue;
+      custom.textContent = currentValue;
+      sel.appendChild(custom);
+    }
+    opts.forEach(({ value, label }) => {
+      const opt = document.createElement("option");
+      opt.value = value;
+      opt.textContent = label + " (" + value + ")";
+      sel.appendChild(opt);
+    });
+    if (currentValue) sel.value = currentValue;
+    else if (opts.length) sel.value = opts[0].value;
+  }
+
   let _rolesEditingName = null;  // null = create mode, string = edit mode
 
   function openRoleModal(role) {
@@ -1240,7 +1298,7 @@
       form.name.disabled = true;  // имя роли — PK, не меняем
       form.description.value = role.description || "";
       form.llm.value = role.llm || "claude";
-      form.model.value = role.model || "";
+      _populateModelSelect(form.llm.value, role.model || "");
       form.temperature.value = role.temperature != null ? role.temperature : 1;
       form.max_tokens.value = role.max_tokens || 8096;
       form.system_prompt.value = role.system_prompt || "";
@@ -1248,6 +1306,7 @@
       form.name.disabled = false;
       form.temperature.value = 1;
       form.max_tokens.value = 8096;
+      _populateModelSelect("claude", "");
     }
 
     $("#modal-role").hidden = false;
@@ -1265,6 +1324,11 @@
     if (e.key === "Escape") closeRoleModal();
   });
   $("#btn-new-role") && $("#btn-new-role").addEventListener("click", () => openRoleModal(null));
+
+  // Re-populate model options when provider changes
+  $("#role-field-llm").addEventListener("change", (e) => {
+    _populateModelSelect(e.target.value, "");
+  });
 
   $("#form-role").addEventListener("submit", async (e) => {
     e.preventDefault();

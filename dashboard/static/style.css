@@ -596,10 +596,12 @@ code, .md-inline {
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0;
-  /* S1.4: keep header above hovering cards */
+  /* S1.4: keep header above hovering cards (непрозрачный фон обязателен) */
   position: sticky;
   top: 0;
-  background: var(--glass-bg-2);
+  background: var(--surface);
+  padding: 8px 4px 6px;
+  margin: -8px -4px 6px;
   z-index: 2;
 }
 .column .count { background: var(--divider); padding: 2px 9px; border-radius: 999px; font-size: 11px; color: var(--text-2); }

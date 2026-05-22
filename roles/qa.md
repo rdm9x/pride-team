@@ -10,6 +10,7 @@
 schema_version: 1
 name: qa
 name_en: QA
+name_ru: QA
 description: QA engineer — tests, smoke, regression, bug reports to backend.
 llm: claude
 model: claude-opus-4-7

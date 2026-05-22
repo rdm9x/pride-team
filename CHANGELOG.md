@@ -5,15 +5,18 @@ All notable changes to **devboard** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Unreleased] / v1.2 (local)
 
 ### Added
 
-### Changed
+- **Settings page** (S2.1): full settings tab with 6 sections — Language, Theme, Team, Backups, Usage, Danger zone. Replaces the read-only "Status" sidebar item.
+- **Dual-axis i18n** (S2.2): separate `ui_locale` (interface language) and `output_locale` (team chat/task language). Output locale stored in `data/.output_locale` and injected into claude via `--append-system-prompt`.
+- **EN role names** (S2.3): roles display as `Team Lead / Backend / QA / Architect / Frontend / DevOps / Tech Writer` when `ui_locale=en`. Resolved via `ROLE_DISPLAY` map in `app.js`; `name_en` frontmatter added to all `roles/*.md`.
+- **Chat UX** (S2.4): auto-scroll to bottom on load; floating ⬇ button with unread badge when scrolled up; auto-scroll on new messages if already at bottom.
 
 ### Fixed
 
-### Security
+- `.gitignore`: added `data/.env.local` and `data/.output_locale` to prevent accidental credential/runtime-state commits.
 
 ## [1.1.0] - 2026-05-22
 

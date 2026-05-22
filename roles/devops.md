@@ -9,6 +9,7 @@
 schema_version: 1
 name: devops
 name_en: DevOps
+name_ru: DevOps
 description: DevOps — Docker, GitHub Actions, deployment, security hardening.
 llm: claude
 model: claude-opus-4-7

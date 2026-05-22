@@ -308,8 +308,12 @@
     "assignee": {
       "teamlead": "тимлид",
       "backend": "бэкенд",
+      "qa": "QA",
       "architect": "архитектор",
-      "tech_writer": "техписатель"
+      "frontend": "Frontend",
+      "devops": "DevOps",
+      "tech_writer": "техписатель",
+      "user": "пользователь"
     },
     "task": {
       "delete_confirm": "Удалить задачу «{title}»?",
@@ -319,6 +323,16 @@
     }
   },
   "roles": {
+    "names": {
+      "teamlead": "Тимлид",
+      "backend": "Бэкенд",
+      "qa": "QA",
+      "architect": "Архитектор",
+      "frontend": "Frontend",
+      "devops": "DevOps",
+      "techwriter": "Техписатель",
+      "user": "Пользователь"
+    },
     "title": "Роли",
     "addRole": "+ Новая роль",
     "addRoleTitle": "Добавить новую роль",

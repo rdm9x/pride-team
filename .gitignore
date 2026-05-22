@@ -108,6 +108,8 @@ data/*.db.lock
 data/*.pid
 data/*.log
 data/backups/
+data/.env.local
+data/.output_locale
 
 # -----------------------------------------------------------------------------
 # Claude Code / MCP — локальные настройки агентов

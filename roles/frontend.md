@@ -9,6 +9,7 @@
 schema_version: 1
 name: frontend
 name_en: Frontend
+name_ru: Frontend
 description: Frontend dev — vanilla HTML/CSS/JS, a11y, i18n, dashboard UI.
 llm: claude
 model: claude-opus-4-7

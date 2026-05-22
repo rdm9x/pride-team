@@ -99,35 +99,72 @@ def test_stats_cache_works(client) -> None:
 
 
 def test_stats_all_models_shown_including_haiku(client) -> None:
-    """S5.1: все модели (haiku/sonnet/opus) отображаются, даже если cost_usd=NULL.
+    """S5.1: все модели (haiku/sonnet/opus) отображаются, включая с малыми затратами.
 
-    Воспроизводит баг: когда total_cost_usd=NULL, SUM() возвращает NULL,
-    и float(None) бросал TypeError, обрушивая весь endpoint.
-    Фикс: COALESCE(SUM(total_cost_usd), 0.0) в запросе most_expensive_day.
+    Проверяет что claude-haiku-4-5-20251001 отображается на Statistics tab
+    несмотря на очень малые затраты ($0.001) по сравнению с другими моделями.
     """
     from pride_tasks import db as _db  # type: ignore
 
     db_path = client.application.config["DB_PATH"]
     now = int(time.time())
 
-    for model in ("claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-7"):
-        _db.record_claude_session(
-            db_path,
-            started_at=now - 100,
-            finished_at=now - 10,
-            duration_ms=90_000,
-            num_turns=5,
-            input_tokens=10,
-            output_tokens=10,
-            total_cost_usd=None,  # NULL cost — haiku может не иметь cost
-            model=model,
-        )
+    # Создаём 3 сессии с разными моделями и реалистичными затратами:
+    # - Haiku: много сессий но малые затраты (как в реальности)
+    # - Sonnet: средние затраты
+    # - Opus: дорогие затраты
 
-    r = client.get("/api/stats/aggregates?range=24h")
+    _db.record_claude_session(
+        db_path,
+        started_at=now - 1000,
+        finished_at=now - 950,
+        duration_ms=50_000,
+        num_turns=2,
+        input_tokens=100,
+        output_tokens=50,
+        total_cost_usd=0.0003,  # Haiku очень дешёвый
+        model="claude-haiku-4-5-20251001",
+    )
+
+    _db.record_claude_session(
+        db_path,
+        started_at=now - 900,
+        finished_at=now - 850,
+        duration_ms=50_000,
+        num_turns=3,
+        input_tokens=500,
+        output_tokens=200,
+        total_cost_usd=0.010,  # Sonnet дороже
+        model="claude-sonnet-4-6",
+    )
+
+    _db.record_claude_session(
+        db_path,
+        started_at=now - 800,
+        finished_at=now - 750,
+        duration_ms=50_000,
+        num_turns=5,
+        input_tokens=2000,
+        output_tokens=1000,
+        total_cost_usd=0.150,  # Opus самый дорогой
+        model="claude-opus-4-7",
+    )
+
+    r = client.get("/api/stats/aggregates?range=all")
     assert r.status_code == 200, f"endpoint вернул {r.status_code}: {r.get_data(as_text=True)}"
     j = r.get_json()
+
+    # Проверяем что ВСЕ модели присутствуют в ответе
     model_names = [m["model"] for m in j["models"]]
-    assert "claude-haiku-4-5" in model_names, f"haiku отсутствует в models: {model_names}"
+    assert "claude-haiku-4-5-20251001" in model_names, f"haiku отсутствует в models: {model_names}"
     assert "claude-sonnet-4-6" in model_names, f"sonnet отсутствует в models: {model_names}"
     assert "claude-opus-4-7" in model_names, f"opus отсутствует в models: {model_names}"
     assert len(model_names) == 3, f"Ожидалось 3 модели, получено {len(model_names)}: {model_names}"
+
+    # Проверяем что Haiku на месте с правильной статистикой (даже если стоит последним)
+    haiku = next((m for m in j["models"] if m["model"] == "claude-haiku-4-5-20251001"), None)
+    assert haiku is not None, "Haiku не найден в списке моделей"
+    assert haiku["sessions"] == 1
+    assert haiku["cost_usd"] == 0.0003
+    assert haiku["input_tokens"] == 100
+    assert haiku["output_tokens"] == 50

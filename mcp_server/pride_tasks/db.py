@@ -76,6 +76,17 @@ def default_db_path() -> Path:
 # === Схема ===
 
 SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS departments (
+  id            TEXT PRIMARY KEY,
+  name          TEXT NOT NULL UNIQUE,
+  description   TEXT NOT NULL DEFAULT '',
+  template_id   TEXT,
+  hr_session_id TEXT,
+  icon          TEXT DEFAULT '🗂',
+  created_at    INTEGER NOT NULL,
+  archived_at   INTEGER
+);
+
 CREATE TABLE IF NOT EXISTS tasks (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
@@ -92,6 +103,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   due_at INTEGER,
   completed_at INTEGER,
   result TEXT,                                 -- JSON object | NULL
+  department_id TEXT REFERENCES departments(id),
   FOREIGN KEY (parent_id) REFERENCES tasks(id)
 );
 
@@ -113,7 +125,8 @@ CREATE INDEX IF NOT EXISTS idx_comments_task ON task_comments(task_id);
 CREATE TABLE IF NOT EXISTS roles (
   name TEXT PRIMARY KEY,
   description TEXT NOT NULL,
-  capabilities TEXT NOT NULL DEFAULT '[]'      -- JSON array
+  capabilities TEXT NOT NULL DEFAULT '[]',     -- JSON array
+  department_id TEXT REFERENCES departments(id)
 );
 
 CREATE TABLE IF NOT EXISTS task_dependencies (
@@ -133,10 +146,14 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   author TEXT NOT NULL,            -- 'пользователь' | 'тимлид' | 'бэкенд' | 'qa' | 'system'
   text TEXT NOT NULL,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  department_id TEXT REFERENCES departments(id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_chat_created ON chat_messages(created_at);
+CREATE INDEX IF NOT EXISTS idx_tasks_department    ON tasks(department_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_dept_status   ON tasks(department_id, status);
+CREATE INDEX IF NOT EXISTS idx_chat_department     ON chat_messages(department_id);
 
 CREATE TABLE IF NOT EXISTS claude_sessions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -244,6 +261,57 @@ def _connect(db_path: Path) -> sqlite3.Connection:
     return conn
 
 
+def _add_column_if_missing(conn: sqlite3.Connection, table: str, column: str, col_def: str) -> None:
+    """Добавляет колонку в таблицу если её ещё нет (обход отсутствия ADD COLUMN IF NOT EXISTS в SQLite)."""
+    existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+    if column not in existing:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_def}")
+
+
+def ensure_dev_department(conn: sqlite3.Connection) -> None:
+    """Создаёт default-отдел 'dev' и мигрирует существующие данные в него.
+
+    Идемпотентно: безопасно вызывать несколько раз.
+    - Вставляет запись 'dev' в departments если её нет.
+    - Добавляет department_id в tasks/roles/chat_messages если колонок ещё нет.
+    - Backfill: все tasks → 'dev', все chat_messages → 'dev'.
+    - roles: все НЕ-глобальные роли → 'dev'; HR/owner/пользователь/user → NULL (глобальные).
+    """
+    now = int(time.time())
+
+    # Убедиться что колонки есть (для БД созданных до этой миграции).
+    _add_column_if_missing(conn, "tasks", "department_id", "TEXT REFERENCES departments(id)")
+    _add_column_if_missing(conn, "roles", "department_id", "TEXT REFERENCES departments(id)")
+    _add_column_if_missing(conn, "chat_messages", "department_id", "TEXT REFERENCES departments(id)")
+
+    # Создать индексы если нет.
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_department  ON tasks(department_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_dept_status ON tasks(department_id, status)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_department   ON chat_messages(department_id)")
+
+    # Вставить default department 'dev' если нет.
+    conn.execute(
+        "INSERT OR IGNORE INTO departments (id, name, description, template_id, hr_session_id, icon, created_at) "
+        "VALUES ('dev', 'Dev', 'Команда разработки devboard (мигрировано с v1.x)', NULL, NULL, '🛠', ?)",
+        (now,),
+    )
+
+    # Backfill tasks.
+    conn.execute("UPDATE tasks SET department_id = 'dev' WHERE department_id IS NULL")
+
+    # Backfill chat_messages.
+    conn.execute("UPDATE chat_messages SET department_id = 'dev' WHERE department_id IS NULL")
+
+    # Backfill roles — кроме глобальных.
+    _GLOBAL_ROLES = ("hr", "owner", "пользователь", "user")
+    placeholders = ",".join("?" * len(_GLOBAL_ROLES))
+    conn.execute(
+        f"UPDATE roles SET department_id = 'dev' "
+        f"WHERE department_id IS NULL AND name NOT IN ({placeholders})",
+        _GLOBAL_ROLES,
+    )
+
+
 def init_db(db_path: Optional[Path] = None) -> Path:
     """Создаёт схему и базовые роли. Идемпотентно."""
 
@@ -253,15 +321,16 @@ def init_db(db_path: Optional[Path] = None) -> Path:
         conn = _connect(path)
         try:
             conn.executescript(SCHEMA_SQL)
+            conn.execute("BEGIN IMMEDIATE")
             cur = conn.execute("SELECT COUNT(*) AS n FROM roles")
             if cur.fetchone()["n"] == 0:
-                conn.execute("BEGIN IMMEDIATE")
                 for name, desc, caps in _DEFAULT_ROLES:
                     conn.execute(
                         "INSERT INTO roles (name, description, capabilities) VALUES (?, ?, ?)",
                         (name, desc, json.dumps(caps, ensure_ascii=False)),
                     )
-                conn.execute("COMMIT")
+            ensure_dev_department(conn)
+            conn.execute("COMMIT")
         finally:
             conn.close()
     return path
@@ -271,6 +340,7 @@ def init_db(db_path: Optional[Path] = None) -> Path:
 
 
 def _row_to_task(row: sqlite3.Row) -> dict[str, Any]:
+    keys = row.keys() if hasattr(row, "keys") else []
     return {
         "id": row["id"],
         "title": row["title"],
@@ -287,6 +357,7 @@ def _row_to_task(row: sqlite3.Row) -> dict[str, Any]:
         "due_at": row["due_at"],
         "completed_at": row["completed_at"],
         "result": json.loads(row["result"]) if row["result"] else None,
+        "department_id": row["department_id"] if "department_id" in keys else None,
     }
 
 
@@ -335,6 +406,7 @@ def insert_task(
     requires_approval: bool = False,
     status: str = "todo",
     labels: Optional[list[str]] = None,
+    department_id: Optional[str] = "dev",
 ) -> dict[str, Any]:
     """Вставка задачи. Возвращает dict как _row_to_task."""
 
@@ -348,8 +420,9 @@ def insert_task(
                 """
                 INSERT INTO tasks (
                   id, title, description, status, assignee, reporter, priority,
-                  labels, parent_id, requires_approval, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  labels, parent_id, requires_approval, created_at, updated_at,
+                  department_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     task_id,
@@ -364,6 +437,7 @@ def insert_task(
                     1 if requires_approval else 0,
                     now,
                     now,
+                    department_id,
                 ),
             )
             conn.execute("COMMIT")

@@ -16,6 +16,10 @@ from pydantic import BaseModel, Field
 
 STATUSES = ("todo", "wip", "needs_approval", "review", "done", "blocked")
 PRIORITIES = ("P0", "P1", "P2", "P3")
+
+# Идентификатор отдела по умолчанию (legacy-миграция с v1.x).
+DEFAULT_DEPARTMENT_ID: str = "dev"
+
 ROLES = (
     "тимлид",
     "бэкенд",

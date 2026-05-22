@@ -1295,6 +1295,30 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             "total": total,
         })
 
+    @app.get("/api/settings/static-info")
+    def api_settings_static_info() -> Any:
+        """Статическая информация для страницы Settings: лимиты авто-режима, бекапы."""
+        backups_dir = _DATA_DIR / "backups"
+        last_backup = None
+        try:
+            if backups_dir.exists():
+                files = sorted(
+                    [f for f in backups_dir.iterdir() if f.is_file() and f.suffix == ".db"],
+                    key=lambda f: f.stat().st_mtime,
+                    reverse=True,
+                )
+                if files:
+                    f = files[0]
+                    size_kb = round(f.stat().st_size / 1024)
+                    last_backup = {"name": f.name, "size_kb": size_kb}
+        except Exception:
+            pass
+        return jsonify({
+            "auto_limits": {"max_per_hour": 20, "min_interval_sec": 30},
+            "backups_path": "data/backups",
+            "last_backup": last_backup,
+        })
+
     @app.get("/healthz")
     def healthz() -> Any:
         return jsonify({"status": "ok", "db": str(_db())})

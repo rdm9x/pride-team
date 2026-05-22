@@ -43,7 +43,7 @@
     "inbox": "Inbox",
     "board": "Board",
     "archive": "Archive",
-    "settings": "Status",
+    "settings": "Settings",
     "roles": "Roles",
     "roles_title": "Manage roles"
   },
@@ -186,28 +186,60 @@
     "empty": "Archive is empty. Closed tasks land here after 7 days."
   },
   "settings": {
-    "title": "System status",
-    "intro": "Summary of subscription, models, database and backups.",
+    "title": "Settings",
+    "lang": {
+      "title": "Language",
+      "ui_label": "Interface language",
+      "ui_hint": "Changes all labels in the dashboard",
+      "output_label": "Team output language",
+      "output_hint": "The language the team uses for results"
+    },
+    "theme": {
+      "title": "Theme",
+      "label": "Colour scheme",
+      "hint": "Synced with the topbar toggle",
+      "light": "☀ Light",
+      "dark": "🌙 Dark"
+    },
+    "team": {
+      "title": "Team",
+      "auto_label": "Auto mode",
+      "auto_hint": "Team-lead starts sessions automatically when there is work",
+      "limits_label": "Auto mode limits",
+      "limits_value": "max 20 sessions/hour, min 30s between runs",
+      "router_label": "Model router",
+      "router_placeholder": "no data",
+      "model_override_label": "Force model",
+      "model_override_hint": "Overrides the router for the next run",
+      "model_auto": "Auto (router)"
+    },
     "backups": {
-      "title": "DB backups",
-      "intro": "Taken hourly while the dashboard is running. Kept for 7 days. Folder: "
+      "title": "Backups",
+      "path_label": "Folder",
+      "last_label": "Last backup",
+      "none": "no data",
+      "open_label": "Open folder",
+      "open_btn": "Open folder"
     },
-    "tg": {
-      "title": "Telegram alerts",
-      "status_unknown": "Status unknown."
+    "usage": {
+      "title": "Usage",
+      "today_label": "Today",
+      "placeholder": "N sessions today",
+      "sessions_unit": "sessions",
+      "detail_label": "Detailed stats",
+      "detail_btn": "Details",
+      "sprint3_placeholder": "Detailed stats — Sprint 3"
     },
-    "onboarding": {
-      "title": "Onboarding",
-      "desc": "Replay the quick-start tour.",
-      "replay": "Replay tour"
-    },
-    "demo": {
-      "title": "Demo data",
-      "desc": "Load example tasks to explore the kanban.",
-      "create": "Try with example data",
-      "clear": "Clear demo",
-      "confirm": "This will create 5 example tasks in your kanban. Remove them later with 'Clear demo'. OK?",
-      "already_exists": "Demo data already loaded."
+    "danger": {
+      "title": "Danger zone",
+      "reset_tour_label": "Reset onboarding tour",
+      "reset_tour_hint": "The tour will show again on the next page open",
+      "reset_tour_btn": "Reset tour",
+      "reset_tour_done": "Tour reset. Reload the page to see it again.",
+      "clear_storage_label": "Clear local UI state",
+      "clear_storage_hint": "Remove all UI settings from localStorage",
+      "clear_storage_btn": "Clear",
+      "clear_storage_confirm": "Remove all UI settings from localStorage? The page will reload."
     }
   },
   "usage": {

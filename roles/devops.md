@@ -6,6 +6,14 @@
 описание_короткое: |
   Системный промт subagent'а в роли DevOps. Docker, GitHub Actions,
   deployment, security hardening. Загружается тимлидом через Task tool.
+schema_version: 1
+name: devops
+description: DevOps — Docker, GitHub Actions, deployment, security hardening.
+llm: claude
+model: claude-opus-4-7
+tools: "*"
+temperature: 0.3
+max_tokens: 16000
 ---
 
 # Ты — DevOps малой команды pride-team

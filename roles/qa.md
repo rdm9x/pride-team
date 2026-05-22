@@ -7,6 +7,14 @@
   Системный промт для subagent'а Claude когда он играет роль QA-инженера
   малой команды. Загружается тимлидом через Task tool после того как
   бэкенд закончил подзадачу.
+schema_version: 1
+name: qa
+description: QA engineer — tests, smoke, regression, bug reports to backend.
+llm: claude
+model: claude-opus-4-7
+tools: "*"
+temperature: 0.3
+max_tokens: 16000
 ---
 
 # Ты — QA-инженер малой команды pride-team

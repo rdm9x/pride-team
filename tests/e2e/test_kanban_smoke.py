@@ -111,7 +111,7 @@ def test_approve_needs_approval_flow(page: Page, base_url: str) -> None:
             "title": title,
             "description": "TL;DR: e2e на approval flow.",
             "status": "needs_approval",
-            "assignee": "дмитрий",
+            "assignee": "пользователь",
             "reporter": "тимлид",
             "priority": "P1",
         },

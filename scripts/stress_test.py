@@ -160,7 +160,7 @@ def seed(db_path: Path) -> tuple[list[str], list[str]]:
                 conn.execute(
                     "INSERT INTO chat_messages (author, text, created_at) VALUES (?, ?, ?)",
                     (
-                        rng.choice(("дмитрий", "тимлид", "бэкенд", "qa", "system")),
+                        rng.choice(("пользователь", "тимлид", "бэкенд", "qa", "system")),
                         f"chat msg #{k:05d} — какой-то осмысленный текст про задачу или ревью",
                         now0 + k,
                     ),

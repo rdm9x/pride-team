@@ -241,18 +241,18 @@ def test_api_chat_empty(client) -> None:
 
 
 def test_api_chat_post_and_list(client) -> None:
-    r = client.post("/api/chat", json={"author": "дмитрий", "text": "привет"})
+    r = client.post("/api/chat", json={"author": "пользователь", "text": "привет"})
     assert r.status_code == 201
 
     r = client.get("/api/chat")
     msgs = r.get_json()["messages"]
     assert len(msgs) == 1
-    assert msgs[0]["author"] == "дмитрий"
+    assert msgs[0]["author"] == "пользователь"
     assert msgs[0]["text"] == "привет"
 
 
 def test_api_chat_post_empty_text_returns_400(client) -> None:
-    r = client.post("/api/chat", json={"author": "дмитрий", "text": "   "})
+    r = client.post("/api/chat", json={"author": "пользователь", "text": "   "})
     assert r.status_code == 400
 
 
@@ -303,7 +303,7 @@ def test_api_inbox_questions(client) -> None:
     """Задача назначена дмитрию (todo) — попадает в questions."""
     tid = client.post("/api/tasks", json={
         "title": "вопрос",
-        "assignee": "дмитрий",
+        "assignee": "пользователь",
         "status": "todo",
     }).get_json()["задача"]["id"]
     r = client.get("/api/inbox")
@@ -316,7 +316,7 @@ def test_api_inbox_approval_priority_over_questions(client) -> None:
     """Approval-задача дмитрию НЕ дублируется в questions."""
     client.post("/api/tasks", json={
         "title": "approve me",
-        "assignee": "дмитрий",
+        "assignee": "пользователь",
         "status": "needs_approval",
         "requires_approval": True,
     })
@@ -330,7 +330,7 @@ def test_api_inbox_approval_priority_over_questions(client) -> None:
 def test_api_inbox_excludes_done_and_blocked(client) -> None:
     tid = client.post("/api/tasks", json={
         "title": "x",
-        "assignee": "дмитрий",
+        "assignee": "пользователь",
         "status": "todo",
     }).get_json()["задача"]["id"]
     client.patch(f"/api/tasks/{tid}", json={"status": "done"})
@@ -350,14 +350,14 @@ def test_api_usage_empty(client) -> None:
     assert isinstance(j, dict)
 
 
-# === Comment mirroring to chat (Дмитрий) ===
+# === Comment mirroring to chat (пользователь) ===
 
 
 def test_dmitry_comment_mirrored_to_chat(client) -> None:
     """Коммент Дмитрия должен зеркалиться в чат."""
     tid = client.post("/api/tasks", json={"title": "t"}).get_json()["задача"]["id"]
     client.post(f"/api/tasks/{tid}/comment", json={
-        "author": "дмитрий",
+        "author": "пользователь",
         "text": "проверь",
     })
     msgs = client.get("/api/chat").get_json()["messages"]
@@ -368,7 +368,7 @@ def test_system_approve_marker_not_mirrored(client) -> None:
     """approved at ... — системный маркер, не должен лететь в чат."""
     tid = client.post("/api/tasks", json={"title": "t"}).get_json()["задача"]["id"]
     client.post(f"/api/tasks/{tid}/comment", json={
-        "author": "дмитрий",
+        "author": "пользователь",
         "text": "approved at 2026-05-21 10:00:00",
     })
     msgs = client.get("/api/chat").get_json()["messages"]

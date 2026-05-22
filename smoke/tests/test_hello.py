@@ -11,7 +11,7 @@ from hello import greet  # noqa: E402
 
 def test_greet_happy_path():
     """Обычный кейс: имя подставляется в шаблон."""
-    assert greet("Дмитрий") == "Привет, Дмитрий!"
+    assert greet("пользователь") == "Привет, пользователь!"
 
 
 def test_greet_empty_string():

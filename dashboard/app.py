@@ -358,7 +358,7 @@ def _auto_restore_delegated_tasks(delegated_ids: set[str]) -> None:
                     continue
                 if row["status"] not in ("todo", "wip"):
                     continue
-                if row["assignee"] in ("дмитрий", None):
+                if row["assignee"] in ("пользователь", None):
                     continue
                 restored.append({
                     "id": row["id"],
@@ -380,7 +380,7 @@ def _auto_restore_delegated_tasks(delegated_ids: set[str]) -> None:
                 r["id"], "тимлид",
                 "🛠 Auto-restored backend safety-net: задача делегирована через "
                 "Task tool но не была переведена в review. Перевожу автоматически. "
-                "Дмитрий: проверь артефакты и accept или верни в work.",
+                "Пользователь: проверь артефакты и accept или верни в work.",
                 db_path=DB_PATH,
             )
 
@@ -715,7 +715,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             title=data.get("title", ""),
             description=data.get("description", ""),
             assignee=data.get("assignee"),
-            reporter=data.get("reporter", "дмитрий"),
+            reporter=data.get("reporter", "пользователь"),
             priority=data.get("priority", "P2"),
             parent_id=data.get("parent_id"),
             requires_approval=bool(data.get("requires_approval", False)),
@@ -757,7 +757,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
     @app.post("/api/tasks/<task_id>/comment")
     def api_comment(task_id: str) -> Any:
         data = request.get_json(silent=True) or {}
-        author = data.get("author", "дмитрий")
+        author = data.get("author", "пользователь")
         text = data.get("text", "")
         res = tools.add_comment(task_id, author, text, db_path=_db())
         if res["статус"] == "not_found":
@@ -767,14 +767,14 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         # Зеркалим комментарии Дмитрия в чат, чтобы тимлид (читающий только
         # chat_recent) их не пропустил. Системные approve/reject не зеркалим
         # — они и так выглядят как «approved at ...» без полезной нагрузки.
-        if author == "дмитрий":
+        if author == "пользователь":
             stripped = text.strip() if text else ""
             is_system_marker = stripped.startswith("approved at ") or stripped.startswith("REJECTED:")
             if stripped and not is_system_marker:
                 try:
                     db.post_chat_message(
                         _db(),
-                        "дмитрий",
+                        "пользователь",
                         f"[коммент к #{task_id[:6]}] {stripped}",
                     )
                 except Exception as exc:  # noqa: BLE001
@@ -786,7 +786,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         """Одобрение задачи в needs_approval.
 
         Workflow по approval_gates.md: subagent создаёт needs_approval-таску
-        с assignee=дмитрий, ждёт. После approve задача:
+        с assignee=пользователь, ждёт. После approve задача:
           - переходит в status=todo (НЕ wip — wip = «исполнитель уже работает»,
             а тут как раз нужно чтобы новый прогон тимлида взял задачу).
           - assignee возвращается на reporter'а (создателя), чтобы при
@@ -807,7 +807,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         comment_text = (request.get_json(silent=True) or {}).get(
             "text", f"approved at {time.strftime('%Y-%m-%d %H:%M:%S')}"
         )
-        tools.add_comment(task_id, "дмитрий", comment_text, db_path=_db())
+        tools.add_comment(task_id, "пользователь", comment_text, db_path=_db())
         return jsonify({"статус": "ok", "задача": upd["задача"]})
 
     @app.post("/api/tasks/<task_id>/reject")
@@ -820,7 +820,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         reason = (request.get_json(silent=True) or {}).get(
             "text", f"rejected at {time.strftime('%Y-%m-%d %H:%M:%S')}"
         )
-        tools.add_comment(task_id, "дмитрий", f"REJECTED: {reason}", db_path=_db())
+        tools.add_comment(task_id, "пользователь", f"REJECTED: {reason}", db_path=_db())
         return jsonify({"статус": "ok", "задача": upd["задача"]})
 
     @app.post("/api/tasks/<task_id>/dependencies")
@@ -1238,7 +1238,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
     @app.post("/api/chat")
     def api_chat_post() -> Any:
         data = request.get_json(silent=True) or {}
-        author = data.get("author", "дмитрий")
+        author = data.get("author", "пользователь")
         text = data.get("text", "")
         try:
             msg = db.post_chat_message(_db(), author, text)
@@ -1260,7 +1260,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
                        (карточка подсвечивается красным во frontend), но не
                        влияет на группировку.
           - reviews:   ВСЕ status=review.
-          - questions: assignee=дмитрий, status=todo (или needs_approval без
+          - questions: assignee=пользователь, status=todo (или needs_approval без
                        поглощения в approvals — здесь approvals имеет приоритет,
                        поэтому needs_approval-задача не попадёт сюда).
         Каждая задача попадает РОВНО в одну группу: approvals > reviews > questions.
@@ -1271,7 +1271,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         review_ids = {t["id"] for t in review_tasks}
         # questions: задачи назначенные Дмитрию, не попавшие в первые две группы.
         questions: list = []
-        for t in db.list_tasks(_db(), assignee="дмитрий", limit=200):
+        for t in db.list_tasks(_db(), assignee="пользователь", limit=200):
             if t["status"] in ("done", "blocked"):
                 continue
             if t["id"] in approval_ids or t["id"] in review_ids:
@@ -1315,7 +1315,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             title="Build a landing page",
             description="Верстаем лендинг для продукта. Эпик-задача.",
             assignee="тимлид",
-            reporter="дмитрий",
+            reporter="пользователь",
             priority="P1",
             status="wip",
             labels=["demo"],
@@ -1370,7 +1370,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         deploy_res = tools.create_task(
             title="Deploy to production",
             description="Деплой на продакшн — требует одобрения Дмитрия.",
-            assignee="дмитрий",
+            assignee="пользователь",
             reporter="тимлид",
             priority="P0",
             requires_approval=True,

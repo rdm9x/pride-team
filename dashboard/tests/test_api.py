@@ -81,7 +81,7 @@ def test_approve_flow(client) -> None:
             "status": "needs_approval",
             "requires_approval": True,
             "labels": ["approval", "git-push"],
-            "assignee": "дмитрий",
+            "assignee": "пользователь",
             "reporter": "тимлид",
         },
     ).get_json()["задача"]["id"]
@@ -93,18 +93,18 @@ def test_approve_flow(client) -> None:
     assert t["status"] == "todo"
     assert t["assignee"] == "тимлид"
     authors = [c["author"] for c in t["comments"]]
-    assert "дмитрий" in authors
+    assert "пользователь" in authors
 
 
 def test_approve_returns_to_reporter(client) -> None:
-    # Approval-таску создал бэкенд (не дмитрий) — после approve должна
+    # Approval-таску создал бэкенд (не пользователь) — после approve должна
     # вернуться бэкенду, не остаться у дмитрия.
     tid = client.post(
         "/api/tasks",
         json={
             "title": "x",
             "status": "needs_approval",
-            "assignee": "дмитрий",
+            "assignee": "пользователь",
             "reporter": "бэкенд",
         },
     ).get_json()["задача"]["id"]
@@ -155,16 +155,16 @@ def test_team_start_missing_script(client, tmp_path, monkeypatch) -> None:
 
 
 def test_dmitry_comment_mirrors_to_chat(client) -> None:
-    # Дмитрий пишет коммент к задаче → должно появиться сообщение в чате.
+    # Пользователь пишет коммент к задаче → должно появиться сообщение в чате.
     tid = client.post("/api/tasks", json={"title": "Telegram setup"}).get_json()["задача"]["id"]
     r = client.post(
         f"/api/tasks/{tid}/comment",
-        json={"author": "дмитрий", "text": "TELEGRAM_CHAT_ID=123456789"},
+        json={"author": "пользователь", "text": "TELEGRAM_CHAT_ID=123456789"},
     )
     assert r.status_code == 201
     msgs = client.get("/api/chat").get_json()["messages"]
     assert len(msgs) == 1
-    assert msgs[0]["author"] == "дмитрий"
+    assert msgs[0]["author"] == "пользователь"
     assert "123456789" in msgs[0]["text"]
     assert tid[:6] in msgs[0]["text"]  # ссылка на задачу
 
@@ -244,20 +244,20 @@ def test_chat_post_and_list(client) -> None:
     r = client.get("/api/chat")
     assert r.status_code == 200
     assert r.get_json()["messages"] == []
-    r = client.post("/api/chat", json={"author": "дмитрий", "text": "Привет, тимлид"})
+    r = client.post("/api/chat", json={"author": "пользователь", "text": "Привет, тимлид"})
     assert r.status_code == 201
     r = client.post("/api/chat", json={"author": "тимлид", "text": "Слушаю"})
     assert r.status_code == 201
     messages = client.get("/api/chat").get_json()["messages"]
     assert len(messages) == 2
-    assert messages[0]["author"] == "дмитрий"
+    assert messages[0]["author"] == "пользователь"
     assert messages[1]["author"] == "тимлид"
 
 
 def test_chat_post_validation(client) -> None:
     r = client.post("/api/chat", json={"author": "hacker", "text": "hi"})
     assert r.status_code == 400
-    r = client.post("/api/chat", json={"author": "дмитрий", "text": "   "})
+    r = client.post("/api/chat", json={"author": "пользователь", "text": "   "})
     assert r.status_code == 400
 
 
@@ -272,10 +272,10 @@ def test_inbox_empty(client) -> None:
 
 
 def test_inbox_groups_correctly(client) -> None:
-    # 1. destructive approval с assignee=дмитрий
+    # 1. destructive approval с assignee=пользователь
     client.post("/api/tasks", json={
         "title": "git push origin main", "status": "needs_approval",
-        "assignee": "дмитрий", "reporter": "бэкенд",
+        "assignee": "пользователь", "reporter": "бэкенд",
         "labels": ["destructive", "git-push"],
     })
     # 2. Approval с assignee=тимлид (после возврата дрегом) — тоже должна
@@ -291,7 +291,7 @@ def test_inbox_groups_correctly(client) -> None:
     })
     # 4. Вопрос (status=todo)
     client.post("/api/tasks", json={
-        "title": "выбери авторизацию", "assignee": "дмитрий",
+        "title": "выбери авторизацию", "assignee": "пользователь",
         "labels": ["question"], "reporter": "тимлид",
     })
     # 5. Шум: wip-задача, не для Дмитрия

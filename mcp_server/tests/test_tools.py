@@ -164,7 +164,7 @@ def test_approval_gate_flow(db_path: Path) -> None:
     approval = tools.create_task(
         title="git push origin main",
         description="бэкенд просит push",
-        assignee="дмитрий",
+        assignee="пользователь",
         parent_id=pid,
         status="needs_approval",
         requires_approval=True,
@@ -174,9 +174,9 @@ def test_approval_gate_flow(db_path: Path) -> None:
     assert approval["статус"] == "ok"
     assert approval["задача"]["status"] == "needs_approval"
     aid = approval["задача"]["id"]
-    # Дмитрий approve через update_task → wip
+    # пользователь approve через update_task → wip
     tools.update_task(aid, status="wip", db_path=db_path)
-    tools.add_comment(aid, "дмитрий", "approved", db_path=db_path)
+    tools.add_comment(aid, "пользователь", "approved", db_path=db_path)
     # Бэкенд сделал push → submit_result → done
     res = tools.submit_result(
         aid, {"git_push": "ok", "sha": "abc123"}, "done", db_path=db_path

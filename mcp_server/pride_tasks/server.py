@@ -53,7 +53,7 @@ def list_tasks(
 
     Args:
         status: один из todo|wip|needs_approval|review|done|blocked.
-        assignee: одна из ролей тимлид|бэкенд|qa|дмитрий.
+        assignee: одна из ролей тимлид|бэкенд|qa|пользователь.
         label: substring по labels (JSON-массиву).
         limit: максимум задач (по умолчанию 50, отсортированы по created_at DESC).
     """

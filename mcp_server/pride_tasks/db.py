@@ -131,7 +131,7 @@ CREATE INDEX IF NOT EXISTS idx_deps_blocker ON task_dependencies(depends_on);
 
 CREATE TABLE IF NOT EXISTS chat_messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  author TEXT NOT NULL,            -- 'дмитрий' | 'тимлид' | 'бэкенд' | 'qa' | 'system'
+  author TEXT NOT NULL,            -- 'пользователь' | 'тимлид' | 'бэкенд' | 'qa' | 'system'
   text TEXT NOT NULL,
   created_at INTEGER NOT NULL
 );
@@ -597,9 +597,9 @@ def list_roles(db_path: Path) -> list[dict[str, Any]]:
 
 
 def post_chat_message(db_path: Path, author: str, text: str) -> dict[str, Any]:
-    """Постит сообщение в общий чат (Дмитрий ↔ тимлид)."""
+    """Постит сообщение в общий чат (пользователь ↔ тимлид)."""
     _allowed = {
-        "дмитрий", "тимлид", "бэкенд", "qa",
+        "пользователь", "тимлид", "бэкенд", "qa",
         "архитектор", "frontend", "devops", "техписатель",
         "system",
     }

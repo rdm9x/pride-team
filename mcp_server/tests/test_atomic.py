@@ -40,7 +40,7 @@ def test_claim_race_exactly_one_winner(db_path: Path) -> None:
     def claimer(role: str) -> dict:
         return tools.claim_task(tid, role, db_path=db_path)
 
-    roles = ["бэкенд", "qa", "тимлид", "дмитрий"]
+    roles = ["бэкенд", "qa", "тимлид", "пользователь"]
     with ThreadPoolExecutor(max_workers=4) as ex:
         futures = [ex.submit(claimer, r) for r in roles]
         results = [f.result() for f in as_completed(futures)]

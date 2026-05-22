@@ -349,7 +349,7 @@
           <label>${i18n("task.field.assignee")}
             <select name="assignee">
               <option value=""${!t.assignee ? " selected" : ""}>${i18n("common.none_dash")}</option>
-              ${["тимлид", "бэкенд", "qa", "архитектор", "frontend", "devops", "техписатель", "дмитрий"].map((r) => `<option value="${r}"${r === t.assignee ? " selected" : ""}>${r}</option>`).join("")}
+              ${["тимлид", "бэкенд", "qa", "архитектор", "frontend", "devops", "техписатель", "пользователь"].map((r) => `<option value="${r}"${r === t.assignee ? " selected" : ""}>${r}</option>`).join("")}
             </select>
           </label>
           <label>${i18n("task.field.status")}
@@ -511,7 +511,7 @@
         await fetch("/api/tasks/" + t.id + "/comment", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ author: "дмитрий", text }),
+          body: JSON.stringify({ author: "пользователь", text }),
         });
         form.text.value = "";
         await openTaskModal(t.id);
@@ -889,7 +889,7 @@
       const item = document.createElement("div");
       item.className = "inbox-item";
       if ((t.labels || []).includes("destructive")) item.classList.add("destructive");
-      const author = t.assignee !== "дмитрий" ? t.assignee : (t.reporter || "—");
+      const author = t.assignee !== "пользователь" ? t.assignee : (t.reporter || "—");
       const tldr = extractTldr(t.description);
       item.innerHTML = `
         <div class="ttl" data-task-id="${t.id}">${escapeHtml(t.title)}</div>
@@ -929,7 +929,7 @@
       await fetch(`/api/tasks/${t.id}/comment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ author: "дмитрий", text: text.trim() }),
+        body: JSON.stringify({ author: "пользователь", text: text.trim() }),
       });
       // 2. Возвращаем задачу инициатору — теперь её увидит тимлид/бэкенд/qa
       //    при следующем запуске. С твоего стола она уходит.
@@ -966,7 +966,7 @@
         await fetch(`/api/tasks/${t.id}/comment`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ author: "дмитрий", text: comment.trim() }),
+          body: JSON.stringify({ author: "пользователь", text: comment.trim() }),
         });
       }
       await fetch(`/api/tasks/${t.id}`, {
@@ -1114,7 +1114,7 @@
   let lastChatId = 0;
 
   const AUTHOR_ICON = {
-    "дмитрий":    "👤",
+    "пользователь":    "👤",
     "тимлид":     "🧭",
     "бэкенд":     "🔧",
     "qa":         "✓",
@@ -1152,7 +1152,7 @@
     const latest = messages[messages.length - 1];
     lastChatId = latest.id;
     const newFromTeam = messages.filter(
-      (m) => m.id > lastSeenChatId && m.author !== "дмитрий"
+      (m) => m.id > lastSeenChatId && m.author !== "пользователь"
     );
     const chatCollapsed = document.querySelector(".app")?.classList.contains("chat-collapsed");
     const rail = document.getElementById("chat-expand-rail");
@@ -1228,7 +1228,7 @@
     const r = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ author: "дмитрий", text }),
+      body: JSON.stringify({ author: "пользователь", text }),
     });
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));

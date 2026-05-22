@@ -116,14 +116,14 @@ def test_chat_post_empty_author(db_path: Path) -> None:
 
 
 def test_chat_post_empty_text(db_path: Path) -> None:
-    res = tools.chat_post("дмитрий", "   ", db_path=db_path)
+    res = tools.chat_post("пользователь", "   ", db_path=db_path)
     assert res["статус"] == "error"
 
 
 def test_chat_post_happy(db_path: Path) -> None:
-    res = tools.chat_post("дмитрий", "привет", db_path=db_path)
+    res = tools.chat_post("пользователь", "привет", db_path=db_path)
     assert res["статус"] == "ok"
-    assert res["сообщение"]["author"] == "дмитрий"
+    assert res["сообщение"]["author"] == "пользователь"
 
 
 # === chat_recent ===
@@ -137,7 +137,7 @@ def test_chat_recent_empty(db_path: Path) -> None:
 
 
 def test_chat_recent_returns_messages(db_path: Path) -> None:
-    tools.chat_post("дмитрий", "a", db_path=db_path)
+    tools.chat_post("пользователь", "a", db_path=db_path)
     tools.chat_post("тимлид", "b", db_path=db_path)
     res = tools.chat_recent(db_path=db_path)
     assert res["всего"] == 2

@@ -65,7 +65,7 @@ def test_insert_task_full(db_path: Path) -> None:
         title="Полная",
         description="детально",
         assignee="бэкенд",
-        reporter="дмитрий",
+        reporter="пользователь",
         priority="P1",
         requires_approval=True,
         status="needs_approval",

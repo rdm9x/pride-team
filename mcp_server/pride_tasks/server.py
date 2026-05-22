@@ -48,6 +48,7 @@ def list_tasks(
     assignee: Optional[str] = None,
     label: Optional[str] = None,
     limit: int = 50,
+    department_id: Optional[str] = None,
 ) -> dict[str, Any]:
     """Список задач канбана с фильтрами.
 
@@ -56,8 +57,9 @@ def list_tasks(
         assignee: одна из ролей тимлид|бэкенд|qa|пользователь.
         label: substring по labels (JSON-массиву).
         limit: максимум задач (по умолчанию 50, отсортированы по created_at DESC).
+        department_id: фильтр по отделу. None (default) — все задачи.
     """
-    return tools.list_tasks(status=status, assignee=assignee, label=label, limit=limit)
+    return tools.list_tasks(status=status, assignee=assignee, label=label, limit=limit, department_id=department_id)
 
 
 @mcp.tool()
@@ -81,11 +83,14 @@ def create_task(
     requires_approval: bool = False,
     status: str = "todo",
     labels: Optional[list[str]] = None,
+    department_id: str = "dev",
 ) -> dict[str, Any]:
     """Создать задачу.
 
     Для approval-gate: status='needs_approval', requires_approval=True,
     labels=['approval', '<тип>'] (см. approval_gates.md).
+
+    department_id: отдел (по умолчанию 'dev').
     """
     return tools.create_task(
         title=title,
@@ -97,6 +102,7 @@ def create_task(
         requires_approval=requires_approval,
         status=status,
         labels=labels,
+        department_id=department_id,
     )
 
 
@@ -205,19 +211,32 @@ def notify_user(text: str, level: str = "info") -> dict[str, Any]:
 
 
 @mcp.tool()
-def chat_recent(since: int = 0, limit: int = 50) -> dict[str, Any]:
+def chat_recent(
+    since: int = 0,
+    limit: int = 50,
+    department_id: Optional[str] = "dev",
+) -> dict[str, Any]:
     """Прочитать чат пользователя с командой.
 
     Используй при старте сессии тимлида (СРАЗУ после list_tasks):
     если есть новые сообщения от пользователя — ответь через chat_post.
+
+    department_id='dev' (default) — канал отдела. None — глобальный канал.
     """
-    return tools.chat_recent(since=since, limit=limit)
+    return tools.chat_recent(since=since, limit=limit, department_id=department_id)
 
 
 @mcp.tool()
-def chat_post(author: str, text: str) -> dict[str, Any]:
-    """Отправить сообщение в чат (author — твоя роль)."""
-    return tools.chat_post(author, text)
+def chat_post(
+    author: str,
+    text: str,
+    department_id: Optional[str] = "dev",
+) -> dict[str, Any]:
+    """Отправить сообщение в чат (author — твоя роль).
+
+    department_id='dev' (default) — в канал отдела. None — в глобальный канал.
+    """
+    return tools.chat_post(author, text, department_id=department_id)
 
 
 @mcp.tool()
@@ -228,6 +247,40 @@ def parse_task_description(task_id: str) -> dict[str, Any]:
     Возвращает структурированный JSON с частями + исходный markdown для agent-mode.
     """
     return tools.parse_task_description(task_id)
+
+
+@mcp.tool()
+def list_departments() -> dict[str, Any]:
+    """Список активных отделов с количеством открытых и общих задач."""
+    return tools.list_departments()
+
+
+@mcp.tool()
+def get_department(department_id: str) -> dict[str, Any]:
+    """Детали одного отдела + список его ролей.
+
+    Args:
+        department_id: id отдела (например 'dev', 'marketing').
+    """
+    return tools.get_department(department_id)
+
+
+@mcp.tool()
+def create_department(
+    name: str,
+    description: str = "",
+    template_id: Optional[str] = None,
+    icon: str = "🗂",
+) -> dict[str, Any]:
+    """Создать новый отдел. id генерируется автоматически как slug из name.
+
+    Args:
+        name: название отдела (уникальное).
+        description: описание (опционально).
+        template_id: ссылка на шаблон (опционально).
+        icon: иконка (по умолчанию 🗂).
+    """
+    return tools.create_department(name, description=description, template_id=template_id, icon=icon)
 
 
 def main() -> None:

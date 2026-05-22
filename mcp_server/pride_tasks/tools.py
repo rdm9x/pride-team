@@ -8,11 +8,13 @@
 from __future__ import annotations
 
 import logging
+import re
+import unicodedata
 from pathlib import Path
 from typing import Any, Optional
 
 from pride_tasks import db, parser
-from pride_tasks.models import PRIORITIES, ROLES, STATUSES
+from pride_tasks.models import DEFAULT_DEPARTMENT_ID, PRIORITIES, ROLES, STATUSES
 
 logger = logging.getLogger(__name__)
 
@@ -55,15 +57,30 @@ def list_tasks(
     assignee: Optional[str] = None,
     label: Optional[str] = None,
     limit: int = 50,
+    department_id: Optional[str] = None,
     *,
     db_path: Optional[Path] = None,
 ) -> dict[str, Any]:
-    """Список задач канбана с фильтрами."""
+    """Список задач канбана с фильтрами.
+
+    department_id=None — возвращает ВСЕ задачи (глобальный view).
+    department_id='dev' — только задачи отдела dev.
+    """
 
     if status is not None and status not in STATUSES:
         return {"статус": "error", "status": "error", "причина": f"неизвестный status: {status}", "reason": f"неизвестный status: {status}"}
     path = _resolve_db_path(db_path)
-    tasks = db.list_tasks(path, status=status, assignee=assignee, label=label, limit=limit)
+    # _filter_department=True только если department_id явно передан (не None)
+    _filter = department_id is not None
+    tasks = db.list_tasks(
+        path,
+        status=status,
+        assignee=assignee,
+        label=label,
+        limit=limit,
+        department_id=department_id,
+        _filter_department=_filter,
+    )
     return {"статус": "ok", "всего": len(tasks), "задачи": tasks}
 
 
@@ -95,10 +112,14 @@ def create_task(
     requires_approval: bool = False,
     status: str = "todo",
     labels: Optional[list[str]] = None,
+    department_id: str = DEFAULT_DEPARTMENT_ID,
     *,
     db_path: Optional[Path] = None,
 ) -> dict[str, Any]:
-    """Создать задачу. Минимум — title."""
+    """Создать задачу. Минимум — title.
+
+    department_id по умолчанию 'dev' (backward compatible).
+    """
 
     if not title or not title.strip():
         return {"статус": "error", "status": "error", "причина": "title пустой", "reason": "title пустой"}
@@ -122,6 +143,7 @@ def create_task(
         requires_approval=requires_approval,
         status=status,
         labels=labels,
+        department_id=department_id,
     )
     return {"статус": "ok", "задача": task}
 
@@ -380,25 +402,35 @@ def notify_user(
 def chat_recent(
     since: int = 0,
     limit: int = 50,
+    department_id: Optional[str] = DEFAULT_DEPARTMENT_ID,
     *,
     db_path: Optional[Path] = None,
 ) -> dict[str, Any]:
-    """Прочитать последние сообщения чата пользователь↔тимлид."""
+    """Прочитать последние сообщения чата.
+
+    department_id='dev' (default) — канал отдела dev.
+    department_id=None — глобальный межотдельный канал (department_id IS NULL).
+    """
     path = _resolve_db_path(db_path)
-    msgs = db.list_chat_messages(path, since=since, limit=limit)
+    msgs = db.list_chat_messages(path, since=since, limit=limit, department_id=department_id)
     return {"статус": "ok", "всего": len(msgs), "сообщения": msgs}
 
 
 def chat_post(
     author: str,
     text: str,
+    department_id: Optional[str] = DEFAULT_DEPARTMENT_ID,
     *,
     db_path: Optional[Path] = None,
 ) -> dict[str, Any]:
-    """Отправить сообщение в общий чат. author — роль отправителя."""
+    """Отправить сообщение в чат. author — роль отправителя.
+
+    department_id='dev' (default) — в канал отдела dev.
+    department_id=None — в глобальный канал.
+    """
     path = _resolve_db_path(db_path)
     try:
-        msg = db.post_chat_message(path, author, text)
+        msg = db.post_chat_message(path, author, text, department_id=department_id)
     except ValueError as exc:
         return {"статус": "error", "status": "error", "причина": str(exc), "reason": str(exc)}
     return {"статус": "ok", "сообщение": msg}
@@ -412,7 +444,79 @@ def list_roles(*, db_path: Optional[Path] = None) -> dict[str, Any]:
     return {"статус": "ok", "всего": len(roles), "роли": roles}
 
 
-# === 9. parse_task_description ===
+# === 9. list_departments / get_department / create_department ===
+
+
+def _name_to_slug(name: str) -> str:
+    """Генерирует slug из имени: lowercase ASCII, пробелы → дефисы."""
+    # Убираем акценты / кириллицу транслитом через unicodedata (лучшее что есть без зависимостей)
+    normalized = unicodedata.normalize("NFKD", name)
+    ascii_str = normalized.encode("ascii", "ignore").decode("ascii")
+    slug = ascii_str.lower()
+    slug = re.sub(r"[^a-z0-9]+", "-", slug)
+    slug = slug.strip("-")
+    return slug or "dept"
+
+
+def list_departments(*, db_path: Optional[Path] = None) -> dict[str, Any]:
+    """Список активных отделов с counts (tasks_open, tasks_total)."""
+    path = _resolve_db_path(db_path)
+    departments = db.list_departments(path)
+    return {"статус": "ok", "всего": len(departments), "отделы": departments}
+
+
+def get_department(department_id: str, *, db_path: Optional[Path] = None) -> dict[str, Any]:
+    """Детали одного отдела + список ролей.
+
+    Args:
+        department_id: id отдела (например 'dev', 'marketing').
+    """
+    if not department_id:
+        return {"статус": "error", "status": "error", "причина": "department_id пустой", "reason": "department_id пустой"}
+    path = _resolve_db_path(db_path)
+    dept = db.get_department(path, department_id)
+    if dept is None:
+        return {"статус": "not_found", "department_id": department_id}
+    return {"статус": "ok", "отдел": dept}
+
+
+def create_department(
+    name: str,
+    description: str = "",
+    template_id: Optional[str] = None,
+    icon: str = "🗂",
+    *,
+    db_path: Optional[Path] = None,
+) -> dict[str, Any]:
+    """Создать новый отдел. id генерируется как slug из name (lowercase ASCII, пробелы→дефисы).
+
+    Args:
+        name: название отдела (уникальное).
+        description: описание (опционально).
+        template_id: ссылка на шаблон (опционально).
+        icon: иконка (по умолчанию 🗂).
+    """
+    if not name or not name.strip():
+        return {"статус": "error", "status": "error", "причина": "name пустой", "reason": "name пустой"}
+    dept_id = _name_to_slug(name.strip())
+    if not dept_id:
+        return {"статус": "error", "status": "error", "причина": "не удалось сгенерировать id из name", "reason": "не удалось сгенерировать id из name"}
+    path = _resolve_db_path(db_path)
+    try:
+        dept = db.create_department(
+            path,
+            dept_id=dept_id,
+            name=name.strip(),
+            description=description,
+            template_id=template_id,
+            icon=icon,
+        )
+    except ValueError as exc:
+        return {"статус": "error", "status": "error", "причина": str(exc), "reason": str(exc)}
+    return {"статус": "ok", "отдел": dept}
+
+
+# === 10. parse_task_description ===
 
 
 def parse_task_description(task_id: str, *, db_path: Optional[Path] = None) -> dict[str, Any]:

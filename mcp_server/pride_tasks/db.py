@@ -483,8 +483,14 @@ def list_tasks(
     assignee: Optional[str] = None,
     label: Optional[str] = None,
     limit: int = 50,
+    department_id: Optional[str] = None,
+    _filter_department: bool = False,
 ) -> list[dict[str, Any]]:
-    """Список задач с фильтрами. label — substring по JSON-массиву labels."""
+    """Список задач с фильтрами. label — substring по JSON-массиву labels.
+
+    department_id + _filter_department=True → фильтр по отделу.
+    Если _filter_department=False (по умолчанию) — фильтр по отделу не применяется.
+    """
 
     sql = "SELECT * FROM tasks WHERE 1=1"
     args: list[Any] = []
@@ -498,6 +504,12 @@ def list_tasks(
         # JSON-substring — для MVP достаточно. Идеально было бы json_each, но это сложнее.
         sql += " AND labels LIKE ?"
         args.append(f'%"{label}"%')
+    if _filter_department:
+        if department_id is None:
+            sql += " AND department_id IS NULL"
+        else:
+            sql += " AND department_id = ?"
+            args.append(department_id)
     sql += " ORDER BY created_at DESC LIMIT ?"
     args.append(limit)
     conn = _connect(db_path)
@@ -670,8 +682,13 @@ def list_roles(db_path: Path) -> list[dict[str, Any]]:
         conn.close()
 
 
-def post_chat_message(db_path: Path, author: str, text: str) -> dict[str, Any]:
-    """Постит сообщение в общий чат (пользователь ↔ тимлид)."""
+def post_chat_message(
+    db_path: Path,
+    author: str,
+    text: str,
+    department_id: Optional[str] = "dev",
+) -> dict[str, Any]:
+    """Постит сообщение в чат. department_id=None → глобальный межотдельный канал."""
     _allowed = {
         "пользователь", "тимлид", "бэкенд", "qa",
         "архитектор", "frontend", "devops", "техписатель",
@@ -687,32 +704,180 @@ def post_chat_message(db_path: Path, author: str, text: str) -> dict[str, Any]:
         try:
             conn.execute("BEGIN IMMEDIATE")
             cur = conn.execute(
-                "INSERT INTO chat_messages (author, text, created_at) VALUES (?, ?, ?)",
-                (author, text.strip(), now),
+                "INSERT INTO chat_messages (author, text, created_at, department_id) VALUES (?, ?, ?, ?)",
+                (author, text.strip(), now, department_id),
             )
             mid = cur.lastrowid
             conn.execute("COMMIT")
             cur = conn.execute("SELECT * FROM chat_messages WHERE id = ?", (mid,))
             r = cur.fetchone()
-            return {"id": r["id"], "author": r["author"], "text": r["text"], "created_at": r["created_at"]}
+            return {
+                "id": r["id"],
+                "author": r["author"],
+                "text": r["text"],
+                "created_at": r["created_at"],
+                "department_id": r["department_id"],
+            }
         finally:
             conn.close()
 
 
-def list_chat_messages(db_path: Path, *, since: int = 0, limit: int = 100) -> list[dict[str, Any]]:
-    """Лента чата. since — unix-ts, limit — максимум сообщений."""
+def list_chat_messages(
+    db_path: Path,
+    *,
+    since: int = 0,
+    limit: int = 100,
+    department_id: Optional[str] = "dev",
+) -> list[dict[str, Any]]:
+    """Лента чата. since — unix-ts, limit — максимум сообщений.
+    department_id=None → глобальный канал (WHERE department_id IS NULL).
+    """
     conn = _connect(db_path)
     try:
-        cur = conn.execute(
-            "SELECT * FROM chat_messages WHERE created_at >= ? ORDER BY id ASC LIMIT ?",
-            (since, limit),
-        )
+        if department_id is None:
+            cur = conn.execute(
+                "SELECT * FROM chat_messages WHERE created_at >= ? AND department_id IS NULL ORDER BY id ASC LIMIT ?",
+                (since, limit),
+            )
+        else:
+            cur = conn.execute(
+                "SELECT * FROM chat_messages WHERE created_at >= ? AND department_id = ? ORDER BY id ASC LIMIT ?",
+                (since, department_id, limit),
+            )
         return [
-            {"id": r["id"], "author": r["author"], "text": r["text"], "created_at": r["created_at"]}
+            {
+                "id": r["id"],
+                "author": r["author"],
+                "text": r["text"],
+                "created_at": r["created_at"],
+                "department_id": r["department_id"],
+            }
             for r in cur.fetchall()
         ]
     finally:
         conn.close()
+
+
+# === Departments helpers ===
+
+
+def _row_to_department(row: sqlite3.Row) -> dict[str, Any]:
+    d: dict[str, Any] = {
+        "id": row["id"],
+        "name": row["name"],
+        "description": row["description"],
+        "template_id": row["template_id"],
+        "icon": row["icon"],
+        "created_at": row["created_at"],
+        "archived_at": row["archived_at"],
+    }
+    # counts — опциональные поля если запрос включал агрегаты
+    keys = row.keys() if hasattr(row, "keys") else []
+    if "tasks_open" in keys:
+        d["tasks_open"] = row["tasks_open"]
+    if "tasks_total" in keys:
+        d["tasks_total"] = row["tasks_total"]
+    return d
+
+
+def list_departments(
+    db_path: Path,
+    *,
+    include_archived: bool = False,
+) -> list[dict[str, Any]]:
+    """Список отделов с counts (tasks_open, tasks_total)."""
+    conn = _connect(db_path)
+    try:
+        where = "" if include_archived else "WHERE d.archived_at IS NULL"
+        cur = conn.execute(
+            f"""
+            SELECT d.*,
+              COUNT(DISTINCT CASE WHEN t.status IN ('todo','wip') THEN t.id END) AS tasks_open,
+              COUNT(DISTINCT t.id) AS tasks_total
+            FROM departments d
+            LEFT JOIN tasks t ON t.department_id = d.id
+            {where}
+            GROUP BY d.id
+            ORDER BY d.name ASC
+            """
+        )
+        return [_row_to_department(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+def get_department(db_path: Path, dept_id: str) -> Optional[dict[str, Any]]:
+    """Метаданные отдела + список ролей, привязанных к нему."""
+    conn = _connect(db_path)
+    try:
+        cur = conn.execute(
+            """
+            SELECT d.*,
+              COUNT(DISTINCT CASE WHEN t.status IN ('todo','wip') THEN t.id END) AS tasks_open,
+              COUNT(DISTINCT t.id) AS tasks_total
+            FROM departments d
+            LEFT JOIN tasks t ON t.department_id = d.id
+            WHERE d.id = ?
+            GROUP BY d.id
+            """,
+            (dept_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        dept = _row_to_department(row)
+        # Роли этого отдела
+        cur = conn.execute(
+            "SELECT * FROM roles WHERE department_id = ? ORDER BY name ASC",
+            (dept_id,),
+        )
+        dept["roles"] = [_row_to_role(r) for r in cur.fetchall()]
+        return dept
+    finally:
+        conn.close()
+
+
+def create_department(
+    db_path: Path,
+    *,
+    dept_id: str,
+    name: str,
+    description: str = "",
+    template_id: Optional[str] = None,
+    icon: str = "🗂",
+) -> dict[str, Any]:
+    """Создать новый отдел. Ошибка если id или name уже занят."""
+    now = int(time.time())
+    with write_lock(db_path):
+        conn = _connect(db_path)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            # Проверяем уникальность id и name
+            existing_id = conn.execute(
+                "SELECT id FROM departments WHERE id = ?", (dept_id,)
+            ).fetchone()
+            if existing_id is not None:
+                conn.execute("ROLLBACK")
+                raise ValueError(f"Отдел с id={dept_id!r} уже существует")
+            existing_name = conn.execute(
+                "SELECT id FROM departments WHERE name = ?", (name,)
+            ).fetchone()
+            if existing_name is not None:
+                conn.execute("ROLLBACK")
+                raise ValueError(f"Отдел с name={name!r} уже существует")
+            conn.execute(
+                """
+                INSERT INTO departments (id, name, description, template_id, icon, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (dept_id, name, description, template_id, icon, now),
+            )
+            conn.execute("COMMIT")
+            cur = conn.execute("SELECT * FROM departments WHERE id = ?", (dept_id,))
+            row = cur.fetchone()
+            return _row_to_department(row)
+        finally:
+            conn.close()
 
 
 def record_claude_session(

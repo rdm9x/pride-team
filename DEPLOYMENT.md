@@ -108,7 +108,7 @@ Open `.env` with your editor (`nano .env`) and set at minimum:
 |---|---|---|
 | `ANTHROPIC_API_KEY` | yes (or `OPENAI_API_KEY`) | LLM provider credentials. Used by `llm/factory.py`. Get it from <https://console.anthropic.com/>. |
 | `PRIDE_DASHBOARD_HOST` | recommended | Bind address inside the container. Set to `0.0.0.0` so Docker can publish the port. |
-| `PRIDE_DASHBOARD_PORT` | optional | Defaults to `5000`. Keep it unless you have a reason to change it. |
+| `PRIDE_DASHBOARD_PORT` | optional | Defaults to `4999`. Keep it unless you have a reason to change it. |
 | `PRIDE_TASKS_DB` | optional | Defaults to `/app/data/tasks.db` (mounted volume). |
 | `PRIDE_DASHBOARD_LOG_LEVEL` | optional | `INFO` (default) or `DEBUG`. |
 
@@ -145,7 +145,7 @@ You should see one service (typically `web`) in state `running` and health
 Quick smoke test from the host:
 
 ```bash
-curl -fsS http://localhost:5000/healthz
+curl -fsS http://localhost:4999/healthz
 # expected: {"status":"ok"} or HTTP 200
 ```
 
@@ -204,7 +204,7 @@ Replace the contents with the snippet below. **USER-EDIT:** change
 }
 
 pride.example.com {
-  reverse_proxy localhost:5000
+  reverse_proxy localhost:4999
 
   encode zstd gzip
 
@@ -385,7 +385,7 @@ Create `/opt/devboard/scripts/healthcheck.sh` for an external monitor
 #!/usr/bin/env bash
 set -euo pipefail
 
-URL=${1:-http://localhost:5000/healthz}
+URL=${1:-http://localhost:4999/healthz}
 
 if curl -fsS --max-time 5 "$URL" >/dev/null; then
   echo "ok"
@@ -461,11 +461,11 @@ Causes and fixes:
 
 ### `502 Bad Gateway` from Caddy
 
-Caddy reaches the host but the app is not answering on `localhost:5000`. Check:
+Caddy reaches the host but the app is not answering on `localhost:4999`. Check:
 
 ```bash
 docker compose ps
-curl -v http://localhost:5000/healthz
+curl -v http://localhost:4999/healthz
 ```
 
 If `docker compose ps` shows the container as `unhealthy`, look at

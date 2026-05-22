@@ -1,10 +1,10 @@
 """Flask-дашборд малой команды devboard.
 
 Запуск:
-    cd /D.AI/команда/dashboard && uv run python app.py
+    cd devboard/dashboard && uv run python app.py
     или через ../commands/devboard-start.sh
 
-API — см. /D.AI/команда/детали_дашборда.md §API.
+API — см. AGENTS.md §REST endpoints.
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ log = logging.getLogger("pride_dashboard")
 
 # === Пути ===
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent  # /D.AI/команда
+_REPO_ROOT = Path(__file__).resolve().parent.parent  # devboard root
 _DATA_DIR = _REPO_ROOT / "data"
 _ROLES_DIR = _REPO_ROOT / "roles"
 _COMMANDS_DIR = _REPO_ROOT / "commands"
@@ -828,7 +828,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         data = request.get_json(silent=True) or {}
         depends_on = data.get("depends_on", "")
         if not depends_on:
-            return jsonify({"статус": "error", "причина": "depends_on пустой"}), 400
+            return jsonify({"статус": "error", "status": "error", "причина": "depends_on пустой", "reason": "depends_on пустой"}), 400
         res = tools.add_dependency(task_id, depends_on, db_path=_db())
         if res["статус"] != "ok":
             return jsonify(res), 400
@@ -867,10 +867,10 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         name = (data.get("name") or "").strip()
         description = (data.get("description") or "").strip()
         if not name:
-            return jsonify({"статус": "error", "причина": "name обязателен"}), 400
+            return jsonify({"статус": "error", "status": "error", "причина": "name обязателен", "reason": "name обязателен"}), 400
         import re as _re2
         if not _re2.match(r'^[a-z][a-z0-9-]{0,31}$', name):
-            return jsonify({"статус": "error", "причина": "name должен быть slug ^[a-z][a-z0-9-]{1,32}$"}), 400
+            return jsonify({"статус": "error", "status": "error", "причина": "name должен быть slug ^[a-z][a-z0-9-]{1,32}$", "reason": "name должен быть slug ^[a-z][a-z0-9-]{1,32}$"}), 400
         caps = {
             "llm": data.get("llm", "claude"),
             "model": data.get("model", ""),
@@ -884,7 +884,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         finally:
             conn.close()
         if existing:
-            return jsonify({"статус": "error", "причина": f"роль «{name}» уже существует"}), 409
+            return jsonify({"статус": "error", "status": "error", "причина": f"роль «{name}» уже существует", "reason": f"роль «{name}» уже существует"}), 409
         with db.write_lock(_db()):
             conn = db._connect(_db())
             try:
@@ -1475,7 +1475,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         try:
             msg = db.post_chat_message(_db(), author, text)
         except ValueError as exc:
-            return jsonify({"статус": "error", "причина": str(exc)}), 400
+            return jsonify({"статус": "error", "status": "error", "причина": str(exc), "reason": str(exc)}), 400
         return jsonify({"статус": "ok", "сообщение": msg}), 201
 
     @app.get("/api/inbox")
@@ -1552,14 +1552,14 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         data = request.get_json(silent=True) or {}
         rel_path = (data.get("path") or "").strip()
         if not rel_path:
-            return jsonify({"статус": "error", "причина": "path обязателен"}), 400
+            return jsonify({"статус": "error", "status": "error", "причина": "path обязателен", "reason": "path обязателен"}), 400
         # Безопасность: разрешаем только data/ — не допускаем path traversal
         target = (_REPO_ROOT / rel_path).resolve()
         data_resolved = (_DATA_DIR).resolve()
         try:
             target.relative_to(data_resolved)
         except ValueError:
-            return jsonify({"статус": "error", "причина": "доступ только к папке data/"}), 403
+            return jsonify({"статус": "error", "status": "error", "причина": "доступ только к папке data/", "reason": "доступ только к папке data/"}), 403
         if not target.exists():
             target.mkdir(parents=True, exist_ok=True)
         try:
@@ -1570,7 +1570,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             else:
                 subprocess.Popen(["xdg-open", str(target)])
         except Exception as exc:  # noqa: BLE001
-            return jsonify({"статус": "error", "причина": str(exc)}), 500
+            return jsonify({"статус": "error", "status": "error", "причина": str(exc), "reason": str(exc)}), 500
         return jsonify({"статус": "ok", "path": str(target)})
 
     @app.get("/healthz")
@@ -1702,7 +1702,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
 
 def main() -> None:
     app = create_app()
-    port = int(os.environ.get("PRIDE_DASHBOARD_PORT", "5000"))
+    port = int(os.environ.get("PRIDE_DASHBOARD_PORT", "4999"))
     host = os.environ.get("PRIDE_DASHBOARD_HOST", "127.0.0.1")
     log.info("Flask дашборд: http://%s:%d", host, port)
     app.run(host=host, port=port, debug=False, threaded=True)

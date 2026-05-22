@@ -1,6 +1,8 @@
 ---
 schema_version: 1
 name: designer
+name_en: Designer
+slug: designer
 description: UI/UX Designer — ASCII wireframes, accessibility audits, UX copy proposals.
 llm: claude
 model: claude-sonnet-4-6

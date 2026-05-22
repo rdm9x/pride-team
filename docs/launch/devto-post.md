@@ -26,7 +26,7 @@ The fourth — the one I felt most — is no parallelism. While the model writes
 
 ## What I actually built
 
-A Flask app on `127.0.0.1:5000` backed by a SQLite file. Five columns — Inbox, Todo, WIP, Review, Done. You add a task, hit "Run team", and a Claude session boots up with the `team lead` role prompt. It reads the card, decomposes into subtasks, creates child cards, and dispatches to other roles. Each subtask gets its own Claude session loaded with the matching role markdown.
+A Flask app on `127.0.0.1:4999` backed by a SQLite file. Five columns — Inbox, Todo, WIP, Review, Done. You add a task, hit "Run team", and a Claude session boots up with the `team lead` role prompt. It reads the card, decomposes into subtasks, creates child cards, and dispatches to other roles. Each subtask gets its own Claude session loaded with the matching role markdown.
 
 The roles talk through an MCP server called `pride-tasks` that exposes the kanban as a set of tools — `list_tasks`, `claim_task`, `add_comment`, `submit_result`, `chat_post`, a handful more. From the agents' point of view the kanban is another tool channel. From mine, it's a source of truth I can open in a browser or read with `sqlite3`.
 

@@ -59,7 +59,7 @@ graph LR
     end
 
     subgraph Flask["Flask dashboard (port 5000)"]
-        REST["REST API<br/>/api/tasks /api/chat<br/>/api/team/* /api/inbox"]
+        REST["REST API<br/>/api/tasks /api/chat /api/inbox<br/>/api/team/* /api/roles<br/>/api/settings/static-info (GET)<br/>/api/stats/aggregates (GET)<br/>/api/demo (POST, DELETE)"]
         SSE["SSE /api/team/stream"]
         Spawner[Team-process spawner<br/>subprocess.Popen]
         AutoMon[Auto-monitor thread]
@@ -392,7 +392,7 @@ Three things you'll plausibly want to add. The code is organized so each is a on
 A role is **a markdown file in [`роли/`](роли/)**. That's it. No code changes.
 
 1. Copy an existing prompt as a starting point (`роли/бэкенд.md` is a good template for code-writing roles, `роли/qa.md` for testing roles, `роли/техписатель.md` for docs).
-2. Edit the frontmatter (`роль:`, `описание_короткое:`).
+2. Edit the frontmatter: required fields are `тип`, `роль`, `проект`, `name`, `name_en` (English display name, added in Sprint 2), `description_короткое`, `schema_version`. See [ADR-002](docs/adr/0002-role-format.md) for the full spec.
 3. Write the system prompt. Sections that matter: *Specialization*, *Tools you have*, *What NOT to touch*, *Communication discipline*, *Algorithm*, *Completion*.
 4. Add the new role name to `ROLES` in [`mcp_сервер/pride_tasks/models.py`](mcp_сервер/pride_tasks/models.py) so it passes validation.
 5. (Optional) Insert a row into the `roles` table so it shows up on the *Roles* page in the UI.
@@ -442,7 +442,7 @@ Architecture decisions live in [`docs/adr/`](docs/adr/). One Markdown file per d
 | ID | Title | Status | Date |
 |---|---|---|---|
 | [ADR-001](docs/adr/0001-llm-provider.md) | `LLMProvider` interface — Anthropic-style messages, lazy SDKs, MCP bridge inside providers | Accepted | 2026-05-21 |
-| ADR-002 | Role-prompt frontmatter format (`llm`, `model`, `temperature`) — *coming with E6.6* | Draft | — |
+| [ADR-002](docs/adr/0002-role-format.md) | Role-prompt frontmatter format (`llm`, `model`, `temperature`, `name_en`) | Accepted | 2026-05-22 |
 
 The ADR template is short on purpose: Context → Decision → Consequences → Alternatives → Implementation plan → Open questions → References. See ADR-001 for the canonical example.
 

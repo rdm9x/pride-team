@@ -1,6 +1,8 @@
 ---
 schema_version: 1
 name: security-auditor
+name_en: Security Auditor
+slug: security-auditor
 description: Security Auditor — OWASP code review, secrets detection, dependency audit.
 llm: claude
 model: claude-sonnet-4-6

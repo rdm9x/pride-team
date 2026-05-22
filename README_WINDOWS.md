@@ -25,7 +25,7 @@
 powershell -ExecutionPolicy Bypass -File команды\devboard-start.ps1
 ```
 
-Открой в браузере: http://127.0.0.1:5000
+Открой в браузере: http://127.0.0.1:4999
 
 ## Остановка
 

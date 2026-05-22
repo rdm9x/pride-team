@@ -1,6 +1,8 @@
 ---
 schema_version: 1
 name: data-analyst
+name_en: Data Analyst
+slug: data-analyst
 description: Data Analyst — analyses task metrics, logs, latency data, writes summaries.
 llm: claude
 model: claude-sonnet-4-6

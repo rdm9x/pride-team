@@ -66,7 +66,7 @@ Start the dashboard to see your changes:
 
 ```bash
 ./команды/devboard-start.sh
-open http://127.0.0.1:5000
+open http://127.0.0.1:4999
 ```
 
 ---

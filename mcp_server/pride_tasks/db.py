@@ -1,13 +1,13 @@
 """SQLite-слой канбана pride-tasks.
 
-Один файл БД (по умолчанию /D.AI/команда/data/tasks.db).
+Один файл БД (по умолчанию devboard/data/tasks.db).
 Соединения создаются на каждый вызов — для thread-safety. Write-операции
 сериализуются через `BEGIN IMMEDIATE` (SQLite reserved lock) + fcntl
 эксклюзивный lock на отдельный файл `tasks.db.lock` — повторяет паттерн
 client_card._atomic_modify для гарантии «никаких lost-update» при
 параллельных claim_task / submit_result / update_task.
 
-Схема — см. /D.AI/команда/КОНЦЕПТ.md §4.
+Схема — см. AGENTS.md §mcp_server.
 """
 
 from __future__ import annotations

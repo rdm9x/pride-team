@@ -2,10 +2,10 @@
 
 Запуск:
     python -m pride_tasks.server          # stdio для Claude Code
-    или через .mcp.json в /D.AI/команда/
+    или через .mcp.json в корне devboard
 
 Переменные окружения:
-    PRIDE_TASKS_DB — путь к SQLite (по умолчанию /D.AI/команда/data/tasks.db).
+    PRIDE_TASKS_DB — путь к SQLite (по умолчанию devboard/data/tasks.db).
 """
 
 from __future__ import annotations

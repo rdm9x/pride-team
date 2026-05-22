@@ -32,7 +32,7 @@
         <span class="ico">📊</span>
         <span class="lbl" data-i18n="nav.stats">Статистика</span>
       </button>
-      <button class="nav-item" data-view="roles" aria-label="Управление ролями" title="Управление ролями" data-i18n-attr="title:nav.roles_title">
+      <button class="nav-item" data-view="roles" aria-label="Manage roles" title="Manage roles" data-i18n-attr="title:nav.roles_title,aria-label:nav.roles_title">
         <span class="ico">🎭</span>
         <span class="lbl" data-i18n="nav.roles">Роли</span>
         <span class="badge" id="nav-roles-count">0</span>
@@ -84,35 +84,35 @@
         <button id="btn-topbar-demo"
                 class="btn btn-demo"
                 data-i18n="demo.btn_load"
-                title="Загрузить демо-данные"
-                data-i18n-attr="title:demo.confirm_title"
-                aria-label="Загрузить демо-данные">Загрузить демо</button>
+                title="Load example data?"
+                data-i18n-attr="title:demo.confirm_title,aria-label:demo.btn_load"
+                aria-label="Load demo">Загрузить демо</button>
         <button id="btn-topbar-demo-clear"
                 class="btn btn-demo-clear"
                 data-i18n="demo.btn_clear"
-                title="Очистить демо-данные"
-                data-i18n-attr="title:demo.btn_clear"
-                aria-label="Очистить демо-данные"
+                title="Clear demo"
+                data-i18n-attr="title:demo.btn_clear,aria-label:demo.btn_clear"
+                aria-label="Clear demo"
                 hidden>Очистить демо</button>
-        <input id="search" type="text" placeholder="Поиск по заголовку…"
+        <input id="search" type="text" placeholder="Search by title…"
                data-i18n-attr="placeholder:topbar.search_placeholder">
       </div>
       <div class="topbar-right">
         <div class="locale-switcher" role="group" aria-label="Language" data-i18n-attr="aria-label:topbar.locale_aria">
-          <button type="button" data-locale="ru" aria-pressed="false" title="Русский" data-i18n-attr="title:topbar.locale.ru_title">🇷🇺 RU</button>
+          <button type="button" data-locale="ru" aria-pressed="false" title="Russian" data-i18n-attr="title:topbar.locale.ru_title">🇷🇺 RU</button>
           <button type="button" data-locale="en" aria-pressed="false" title="English" data-i18n-attr="title:topbar.locale.en_title">🇬🇧 EN</button>
         </div>
-        <div class="theme-toggle" role="group" aria-label="Тема"
+        <div class="theme-toggle" role="group" aria-label="Theme"
              data-i18n-attr="aria-label:topbar.theme_aria">
-          <button data-theme-set="light" title="Светлая тема"
+          <button data-theme-set="light" title="Light theme"
                   data-i18n-attr="title:topbar.theme_light">☀</button>
-          <button data-theme-set="dark" title="Тёмная тема"
+          <button data-theme-set="dark" title="Dark theme"
                   data-i18n-attr="title:topbar.theme_dark">🌙</button>
         </div>
         <span id="team-status" class="status stopped" data-i18n="team.status.stopped">⏸ Стоит</span>
         <label class="auto-toggle"
                data-i18n-attr="title:topbar.auto_title"
-               title="Авто-режим: тимлид сам запустит следующую сессию когда есть работа">
+               title="Auto mode: the team-lead starts the next session on their own when there's work">
           <input type="checkbox" id="auto-mode-toggle">
           <span data-i18n="topbar.auto_label">🤖 Авто</span>
         </label>
@@ -154,7 +154,7 @@
       <div class="board">
         <section class="column" data-status="todo">
           <h2 data-i18n-attr="title:kanban.column.todo_title"
-              title="Задачи ещё не взяты в работу"><span data-i18n="kanban.column.todo">К работе</span> <span class="count" data-count="todo">0</span></h2>
+              title="Tasks not picked up yet"><span data-i18n="kanban.column.todo">К работе</span> <span class="count" data-count="todo">0</span></h2>
           <div class="cards" data-cards="todo"></div>
           <div class="kanban-empty" data-empty="todo" hidden>
             <svg class="kanban-empty-illu" viewBox="0 0 80 80" width="80" height="80" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -169,7 +169,7 @@
         </section>
         <section class="column" data-status="wip">
           <h2 data-i18n-attr="title:kanban.column.wip_title"
-              title="Сейчас в работе у команды"><span data-i18n="kanban.column.wip">В работе</span> <span class="count" data-count="wip">0</span></h2>
+              title="What the team is working on now"><span data-i18n="kanban.column.wip">В работе</span> <span class="count" data-count="wip">0</span></h2>
           <div class="cards" data-cards="wip"></div>
           <div class="kanban-empty" data-empty="wip" hidden>
             <svg class="kanban-empty-illu" viewBox="0 0 80 80" width="80" height="80" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -183,12 +183,12 @@
         </section>
         <section class="column warn" data-status="needs_approval">
           <h2 data-i18n-attr="title:kanban.column.needs_approval_title"
-              title="Требует твоего одобрения"><span class="ico">⚠</span> <span data-i18n="kanban.column.needs_approval">Нужно одобрение</span> <span class="count" data-count="needs_approval">0</span></h2>
+              title="Waiting for your approval"><span class="ico">⚠</span> <span data-i18n="kanban.column.needs_approval">Нужно одобрение</span> <span class="count" data-count="needs_approval">0</span></h2>
           <div class="cards" data-cards="needs_approval"></div>
         </section>
         <section class="column" data-status="review">
           <h2 data-i18n-attr="title:kanban.column.review_title"
-              title="Команда закончила, ждёт приёмки"><span data-i18n="kanban.column.review">На приёмке</span> <span class="count" data-count="review">0</span></h2>
+              title="Team finished, waiting for your sign-off"><span data-i18n="kanban.column.review">На приёмке</span> <span class="count" data-count="review">0</span></h2>
           <div class="cards" data-cards="review"></div>
           <div class="kanban-empty" data-empty="review" hidden>
             <svg class="kanban-empty-illu" viewBox="0 0 80 80" width="80" height="80" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -201,7 +201,7 @@
         </section>
         <section class="column" data-status="done">
           <h2 data-i18n-attr="title:kanban.column.done_title"
-              title="Закрытые задачи (старше 7 дней — в Архиве)"><span data-i18n="kanban.column.done">Готово</span> <span class="count" data-count="done">0</span></h2>
+              title="Closed tasks (older than 7 days go to Archive)"><span data-i18n="kanban.column.done">Готово</span> <span class="count" data-count="done">0</span></h2>
           <div class="cards" data-cards="done"></div>
           <div class="kanban-empty" data-empty="done" hidden>
             <svg class="kanban-empty-illu" viewBox="0 0 80 80" width="80" height="80" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -326,7 +326,7 @@
                 <span class="settings-row-hint" data-i18n="settings.team.auto_hint">Тимлид сам запускает сессии при наличии задач</span>
               </div>
               <div class="settings-row-control">
-                <label class="settings-toggle" title="Авто-режим" data-i18n-attr="title:settings.team.auto_label">
+                <label class="settings-toggle" title="Auto mode" data-i18n-attr="title:settings.team.auto_label">
                   <input type="checkbox" id="settings-auto-mode">
                   <span class="settings-toggle-track"></span>
                 </label>
@@ -410,9 +410,9 @@
       <div class="view-header">
         <h1 data-i18n="roles.title">Роли</h1>
         <button id="btn-new-role" class="primary"
-                aria-label="Добавить новую роль"
-                title="Добавить роль"
-                data-i18n-attr="title:roles.addRoleTitle"
+                aria-label="Add new role"
+                title="Add new role"
+                data-i18n-attr="title:roles.addRoleTitle,aria-label:roles.addRoleTitle"
                 data-i18n="roles.addRole">+ Новая роль</button>
       </div>
       <div id="roles-body" class="roles-body">
@@ -428,11 +428,11 @@
           <strong data-i18n="live.title">Live-вывод тимлида</strong>
           <span class="muted" id="live-hint" data-i18n="live.hint">когда команда работает — здесь поток событий</span>
         </button>
-        <div class="theme-toggle live-mode-toggle" role="group" aria-label="Режим Live-вывода"
+        <div class="theme-toggle live-mode-toggle" role="group" aria-label="Live output mode"
              data-i18n-attr="aria-label:live.mode_aria">
-          <button data-live-mode="human" title="Только человекочитаемое: о чём думает тимлид и что делает"
+          <button data-live-mode="human" title="Human-readable only: what the team-lead thinks and does"
                   data-i18n-attr="title:live.mode.human_title">👤</button>
-          <button data-live-mode="raw" title="Полный поток stream-json + все tool-вызовы"
+          <button data-live-mode="raw" title="Full stream-json + every tool call"
                   data-i18n-attr="title:live.mode.raw_title">🤖</button>
         </div>
       </div>
@@ -444,7 +444,7 @@
   <aside class="chat" id="chat">
     <header>
       <strong><span class="ico">💬</span> <span data-i18n="chat.title">Чат с тимлидом</span></strong>
-      <button id="chat-collapse" class="chat-collapse-btn" title="Свернуть чат"
+      <button id="chat-collapse" class="chat-collapse-btn" title="Collapse chat"
               data-i18n-attr="title:chat.collapse_title">→</button>
     </header>
     <div id="chat-body" class="chat-body">
@@ -453,11 +453,11 @@
               data-i18n-attr="aria-label:chat.scroll_to_bottom">⬇</button>
     </div>
     <form id="chat-form" class="chat-form">
-      <input id="chat-input" name="text" placeholder="Спроси тимлида…" autocomplete="off"
+      <input id="chat-input" name="text" placeholder="Ask the team-lead…" autocomplete="off"
              data-i18n-attr="placeholder:chat.placeholder">
       <button type="submit">→</button>
     </form>
-    <button id="chat-expand-rail" class="chat-expand-rail" title="Развернуть чат"
+    <button id="chat-expand-rail" class="chat-expand-rail" title="Expand chat"
             data-i18n-attr="title:chat.expand_title">
       <span class="ico">💬</span>
       <span class="rail-label" data-i18n="chat.rail_label">Чат</span>
@@ -568,7 +568,8 @@
   <div class="modal-content modal-role-content">
     <header>
       <span id="modal-role-title" data-i18n="roles.modalTitle.new">Новая роль</span>
-      <button class="close" id="btn-role-modal-close" aria-label="Закрыть" title="Закрыть">✕</button>
+      <button class="close" id="btn-role-modal-close" aria-label="Close" title="Close"
+              data-i18n-attr="aria-label:common.close,title:common.close">✕</button>
     </header>
     <form id="form-role" class="modal-body">
       <div class="roles-form-grid">
@@ -576,13 +577,15 @@
           <span data-i18n="roles.field.name">Имя (slug)</span>
           <input name="name" id="role-field-name" pattern="^[a-z][a-z0-9\-]{0,31}$" required maxlength="32"
                  placeholder="my-role" autocomplete="off"
-                 title="Только строчные латинские буквы, цифры и дефис. Начало — буква.">
+                 title="Lowercase a–z, 0–9, hyphens only. Must start with a letter."
+                 data-i18n-attr="title:roles.field.nameTooltip">
           <span class="roles-field-hint" data-i18n="roles.field.nameHint">Только a–z, 0–9, дефис. Начало — буква.</span>
         </label>
         <label class="roles-field-full">
           <span data-i18n="roles.field.description">Описание</span>
           <input name="description" id="role-field-description" maxlength="100"
-                 placeholder="Краткое описание роли (до 100 символов)">
+                 placeholder="Brief role description (up to 100 chars)"
+                 data-i18n-attr="placeholder:roles.field.descriptionPlaceholder">
         </label>
         <label>
           <span data-i18n="roles.field.llm">LLM-провайдер</span>
@@ -597,21 +600,21 @@
           <div id="role-model-container" class="role-model-container">
             <!-- Claude models -->
             <select id="role-model-claude" class="role-model-select" data-for-llm="claude"
-                    aria-label="Модель Claude" data-i18n-attr="aria-label:roles.field.modelClaude">
+                    aria-label="Claude model" data-i18n-attr="aria-label:roles.field.modelClaude">
               <option value="claude-opus-4-7">claude-opus-4-7 (most capable)</option>
               <option value="claude-sonnet-4-6" selected>claude-sonnet-4-6 (fast, recommended)</option>
               <option value="claude-haiku-4-5-20251001">claude-haiku-4-5 (lightweight)</option>
             </select>
             <!-- OpenAI models -->
             <select id="role-model-openai" class="role-model-select" data-for-llm="openai" hidden
-                    aria-label="Модель OpenAI" data-i18n-attr="aria-label:roles.field.modelOpenAI">
+                    aria-label="OpenAI model" data-i18n-attr="aria-label:roles.field.modelOpenAI">
               <option value="gpt-4o">gpt-4o (best quality)</option>
               <option value="gpt-4o-mini">gpt-4o-mini (fast, cheaper)</option>
             </select>
             <!-- Ollama models -->
             <div id="role-model-ollama" class="role-model-ollama-wrap" data-for-llm="ollama" hidden>
               <select id="role-model-ollama-select" class="role-model-select"
-                      aria-label="Модель Ollama" data-i18n-attr="aria-label:roles.field.modelOllama">
+                      aria-label="Ollama model" data-i18n-attr="aria-label:roles.field.modelOllama">
                 <option value="llama3.1">llama3.1</option>
                 <option value="qwen2.5-coder">qwen2.5-coder</option>
                 <option value="mistral">mistral</option>
@@ -634,7 +637,8 @@
         <label class="roles-field-full">
           <span data-i18n="roles.field.systemPrompt">Системный промт</span>
           <textarea name="system_prompt" id="role-field-system-prompt" rows="8"
-                    placeholder="Описание роли, поведение, обязанности…"></textarea>
+                    placeholder="Role description, behaviour, responsibilities…"
+                    data-i18n-attr="placeholder:roles.field.systemPromptPlaceholder"></textarea>
         </label>
       </div>
       <div class="actions">
@@ -650,7 +654,8 @@
   <div class="modal-content" style="width: 440px;">
     <header>
       <span id="demo-confirm-title" data-i18n="demo.confirm_title">Загрузить демо-данные?</span>
-      <button class="close" id="btn-demo-confirm-close" aria-label="Закрыть">✕</button>
+      <button class="close" id="btn-demo-confirm-close" aria-label="Close"
+              data-i18n-attr="aria-label:common.close">✕</button>
     </header>
     <div class="modal-body">
       <p id="demo-confirm-body" style="margin-bottom: 20px;" data-i18n="demo.confirm_body">Это создаст ~5 демо-задач. Удалить можно кнопкой «Очистить демо».</p>

@@ -3,7 +3,7 @@
 import sys
 from pathlib import Path
 
-# Чтобы тесты находили модуль hello.py при запуске из /D.AI/команда/.
+# Чтобы тесты находили модуль hello.py при запуске из devboard/.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from hello import greet  # noqa: E402

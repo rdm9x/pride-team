@@ -5,6 +5,26 @@ All notable changes to **devboard** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] / v1.4 (local)
+
+### Added
+
+- **i18n coverage** (S4.1): wrapped ~28 hardcoded Russian `title`/`aria-label`/`placeholder` attributes in `kanban.html` and `app.js` with `data-i18n-attr` — all tooltips now follow UI locale.
+- **`name_en` in example roles** (S4.8): all 6 `roles/examples/*.md` now have `name_en` and `slug` frontmatter fields; passes role validator.
+- **AGENTS.md caveats** (S4.6): added 4 entries to "Частые подводные камни" — Settings, Statistics, i18n public API, plain-language mode.
+- **README features** (S4.4): `README.md` and `README.ru.md` now mention Settings tab, Statistics tab, dual-language i18n, and plain-language mode.
+
+### Changed
+
+- **Port unified to 4999** (S4.3): `dashboard/app.py` default, `.env.example`, `devboard-start.sh`, `README.md`, `README.ru.md`, `CONTRIBUTING.md`, `DEPLOYMENT.md`, `README_WINDOWS.md`, `setup.py`, `docs/launch/devto-post.md`.
+- **Error responses** (S4.2): backend (`app.py`, `tools.py`) now returns both `{"причина": …, "reason": …}` dual-key; frontend reads `err.причина || err.reason`.
+- **`ARCHITECTURE.md`** (S4.5): ADR-002 → Accepted, new endpoints (`/api/settings/static-info`, `/api/stats/aggregates`, `/api/demo`), `name_en` mentioned in roles frontmatter section.
+
+### Fixed
+
+- **Stale path refs** (S4.7): removed all `/D.AI/команда` from docstrings/comments in `app.py`, `server.py`, `db.py`, `devboard-work.sh`, `roles/*.md`, `approval_gates.md`.
+- **Orphaned TODO** (S4.9): removed `TODO(E2.3)` comment from `locale-switcher.js` — `i18n-loader.js` (E2.3) is long done.
+
 ## [Unreleased] / v1.3 (local)
 
 ### Added

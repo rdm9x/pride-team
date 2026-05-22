@@ -33,7 +33,8 @@
     "save": "Сохранить",
     "create": "Создать",
     "add": "Добавить",
-    "none_dash": "— нет —"
+    "none_dash": "— нет —",
+    "close": "Закрыть"
   },
   "page": {
     "title": "devboard · малая команда"
@@ -116,6 +117,7 @@
     "card": {
       "ago_suffix": "назад",
       "has_deps": "есть зависимости",
+      "model_tooltip": "Модель LLM для этой задачи: {model}",
       "age": {
         "sec": "с",
         "min": "м",
@@ -375,6 +377,9 @@
       "modelOpenAI": "Модель OpenAI",
       "modelOllama": "Модель Ollama",
       "modelOllamaCustom": "или введите название модели…",
+      "nameTooltip": "Только строчные латинские буквы, цифры и дефис. Начало — буква.",
+      "descriptionPlaceholder": "Краткое описание роли (до 100 символов)",
+      "systemPromptPlaceholder": "Описание роли, поведение, обязанности…",
       "temperature": "Temperature",
       "maxTokens": "Max tokens",
       "systemPrompt": "Системный промт"

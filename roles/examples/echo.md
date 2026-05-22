@@ -1,6 +1,8 @@
 ---
 schema_version: 1
 name: echo
+name_en: Echo
+slug: echo
 description: Minimal echo role for smoke-testing LLM providers. Returns input verbatim.
 llm: claude
 model: claude-haiku-4-5-20251001

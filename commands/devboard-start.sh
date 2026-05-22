@@ -29,7 +29,7 @@ fi
 if [[ -f "$PID_FILE" ]]; then
     OLD_PID="$(cat "$PID_FILE")"
     if kill -0 "$OLD_PID" 2>/dev/null; then
-        echo "Дашборд уже работает (pid=$OLD_PID). http://127.0.0.1:5000"
+        echo "Дашборд уже работает (pid=$OLD_PID). http://127.0.0.1:4999"
         exit 0
     fi
     rm -f "$PID_FILE"

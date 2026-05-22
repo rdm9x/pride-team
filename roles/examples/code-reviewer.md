@@ -1,6 +1,8 @@
 ---
 schema_version: 1
 name: code-reviewer
+name_en: Code Reviewer
+slug: code-reviewer
 description: Code Reviewer — reviews PRs for correctness, quality, and style consistency.
 llm: claude
 model: claude-sonnet-4-6

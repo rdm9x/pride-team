@@ -18,6 +18,18 @@ Most coding agents run as a single loop in your terminal. `devboard` runs as a *
 
 Built for solo developers who want agent-driven delivery without giving up the board, the audit trail, or the approval gates.
 
+## Features
+
+- **Kanban board** — tasks move through TO DO → WIP → NEEDS APPROVAL → REVIEW → DONE. You approve risky operations; agents handle the rest.
+- **Live log** — stream-json from the Claude session is parsed into human-readable lines and pushed to the browser via SSE.
+- **Approval gates** — `git push`, `ssh`, `systemctl restart`, and other risky operations require explicit user approval before any agent runs them.
+- **Model router** — picks `haiku`, `sonnet`, or `opus` based on task complexity. No tokens wasted on routing.
+- **Settings tab** — configure language, teamlead mode, and model preferences in-dashboard. No manual `.env` edits needed for common options.
+- **Statistics tab** — task throughput, team velocity, and role performance analytics, all from the same SQLite data.
+- **Dual-language i18n** — both the dashboard UI and agent output switch between RU and EN. One toggle covers everything.
+- **Plain-language mode** — the Team Lead simplifies its output for non-technical product owners. Toggle in Settings; no prompt editing required.
+- **Multi-role team** — Team Lead, Backend, QA ship by default. Architect, Frontend, DevOps, and Tech Writer roles are drop-in extras.
+
 ## Quickstart
 
 **Requirements:** Python 3.11+, an Anthropic subscription with `claude` CLI installed.
@@ -29,7 +41,7 @@ Built for solo developers who want agent-driven delivery without giving up the b
 Запустить devboard.bat       # Windows       (double-click in Explorer)
 ```
 
-The launcher installs dependencies on first run, starts the Flask dashboard, and opens `http://127.0.0.1:5000` in your browser.
+The launcher installs dependencies on first run, starts the Flask dashboard, and opens `http://127.0.0.1:4999` in your browser.
 
 ### Option B — shell
 
@@ -38,7 +50,7 @@ git clone https://github.com/rdm9x/devboard.git
 cd devboard
 python3 setup.py            # one-time: creates venvs, installs deps
 ./команды/devboard-start.sh
-open http://127.0.0.1:5000
+open http://127.0.0.1:4999
 ```
 
 ### Option C — Docker
@@ -47,7 +59,7 @@ open http://127.0.0.1:5000
 cp .env.example .env
 # edit .env, set ANTHROPIC_API_KEY (or OPENAI_API_KEY / OLLAMA_URL)
 docker compose up -d
-open http://localhost:5000
+open http://localhost:4999
 ```
 
 Data lives in `./data` (bind-mounted into the container) and survives
@@ -89,12 +101,14 @@ Architecture details live in [ARCHITECTURE.md](ARCHITECTURE.md) (added in **E4.3
 
 ## Configuration
 
-Set these in `.env` or your shell before launching.
+Language, teamlead mode, and model preference can be changed in the **Settings tab** inside the dashboard — no file editing needed for common options.
+
+For lower-level setup, set these in `.env` or your shell before launching.
 
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
 | `ANTHROPIC_API_KEY` | yes | — | Auth for the Team Lead and subagents. Subscription tokens via `claude` CLI also work. |
-| `PRIDE_DASHBOARD_PORT` | no | `5000` | Flask dashboard port. |
+| `PRIDE_DASHBOARD_PORT` | no | `4999` | Flask dashboard port. |
 | `PRIDE_DB_PATH` | no | `data/tasks.db` | SQLite kanban location. |
 | `OPENAI_API_KEY` | no | — | Optional fallback model for cost-sensitive subtasks. |
 | `OLLAMA_URL` | no | — | Optional local model endpoint, e.g. `http://localhost:11434`. |

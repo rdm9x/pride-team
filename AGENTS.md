@@ -46,6 +46,8 @@ dashboard/
 │   │   ├── ru.json        Русские строки
 │   │   └── en.json        Английские строки
 │   └── js/
+│       ├── i18n.js        i18n-loader: window.t(), setLocale(), applyI18nToDOM()
+│       ├── locale-switcher.js  UI-переключатель языка интерфейса
 │       └── tour.js        Onboarding-тур
 ├── templates/
 │   └── kanban.html        ЕДИНСТВЕННЫЙ шаблон (SPA). Все views = `<section data-view>`
@@ -206,6 +208,10 @@ bash commands/devboard-test.sh
 4. **Subagent через Task tool не имеет MCP**. После Task tool **тимлид сам** делает `update_task` для всех подзадач.
 5. **БД в `.gitignore`** — `data/tasks.db` не уезжает на GitHub. Новый пользователь получает чистую БД через `setup.py`.
 6. **На macOS порт 5000 занят AirPlay Receiver** → используем **4999**.
+7. **Settings tab** (v1.2) — читает `/api/settings/static-info` (GET): возвращает список доступных моделей, автолимиты, путь к backups. Сюда же сохраняется `output_locale` и `user_expertise` (POST `/api/settings`).
+8. **Statistics tab** (v1.3) — читает `/api/stats/aggregates` (GET): агрегаты по задачам (по статусам, ролям, приоритетам). Ответ кешируется сервером по диапазону дат.
+9. **i18n** (v1.2) — строки в `dashboard/static/i18n/{ru,en}.json`. Загружает и применяет `dashboard/static/js/i18n.js` (API: `window.t(key)`, `setLocale(lang)`, `applyI18nToDOM()`). При добавлении нового ключа — синхронно в оба файла.
+10. **Plain-language mode** (v1.3) — управляется через Settings (`user_expertise: non-tech`), сохраняется в `data/.user_expertise`. `devboard-work.sh` передаёт значение тимлид-роли, которая переключается на упрощённые объяснения для нетехнического пользователя.
 
 ---
 

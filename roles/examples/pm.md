@@ -1,6 +1,8 @@
 ---
 schema_version: 1
 name: pm
+name_en: Product Manager
+slug: product-manager
 description: Product Manager — writes user stories, acceptance criteria, prioritizes backlog.
 llm: claude
 model: claude-sonnet-4-6

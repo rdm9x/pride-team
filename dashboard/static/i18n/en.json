@@ -33,7 +33,8 @@
     "save": "Save",
     "create": "Create",
     "add": "Add",
-    "none_dash": "— none —"
+    "none_dash": "— none —",
+    "close": "Close"
   },
   "page": {
     "title": "devboard · small team"
@@ -116,6 +117,7 @@
     "card": {
       "ago_suffix": "ago",
       "has_deps": "has dependencies",
+      "model_tooltip": "LLM model for this task: {model}",
       "age": {
         "sec": "s",
         "min": "m",
@@ -375,6 +377,9 @@
       "modelOpenAI": "OpenAI model",
       "modelOllama": "Ollama model",
       "modelOllamaCustom": "or type model name…",
+      "nameTooltip": "Lowercase a–z, 0–9, hyphens only. Must start with a letter.",
+      "descriptionPlaceholder": "Brief role description (up to 100 chars)",
+      "systemPromptPlaceholder": "Role description, behaviour, responsibilities…",
       "temperature": "Temperature",
       "maxTokens": "Max tokens",
       "systemPrompt": "System prompt"

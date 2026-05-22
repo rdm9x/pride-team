@@ -6,7 +6,7 @@
 #
 # Используется `claude --print` (non-interactive) с:
 #  - системным промтом тимлида (roles/тимлид.md);
-#  - MCP pride-tasks через .mcp.json в /D.AI/команда/;
+#  - MCP pride-tasks через .mcp.json в корне devboard;
 #  - permission-mode=bypassPermissions (нужно для авто-выполнения tool-ов
 #    в headless-режиме без человека-оператора). Approval-gate'ы реализованы
 #    НА УРОВНЕ ROLE PROMPTS: тимлид/бэкенд обязаны создавать needs_approval-

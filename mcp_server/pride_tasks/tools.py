@@ -32,7 +32,7 @@ def list_tasks(
     """Список задач канбана с фильтрами."""
 
     if status is not None and status not in STATUSES:
-        return {"статус": "error", "причина": f"неизвестный status: {status}"}
+        return {"статус": "error", "status": "error", "причина": f"неизвестный status: {status}", "reason": f"неизвестный status: {status}"}
     path = _resolve_db_path(db_path)
     tasks = db.list_tasks(path, status=status, assignee=assignee, label=label, limit=limit)
     return {"статус": "ok", "всего": len(tasks), "задачи": tasks}
@@ -45,7 +45,7 @@ def get_task(task_id: str, *, db_path: Optional[Path] = None) -> dict[str, Any]:
     """Прочитать задачу с историей комментов и подзадачами."""
 
     if not task_id:
-        return {"статус": "error", "причина": "task_id пустой"}
+        return {"статус": "error", "status": "error", "причина": "task_id пустой", "reason": "task_id пустой"}
     path = _resolve_db_path(db_path)
     task = db.get_task(path, task_id, with_history=True)
     if task is None:
@@ -72,16 +72,16 @@ def create_task(
     """Создать задачу. Минимум — title."""
 
     if not title or not title.strip():
-        return {"статус": "error", "причина": "title пустой"}
+        return {"статус": "error", "status": "error", "причина": "title пустой", "reason": "title пустой"}
     if status not in STATUSES:
-        return {"статус": "error", "причина": f"неизвестный status: {status}"}
+        return {"статус": "error", "status": "error", "причина": f"неизвестный status: {status}", "reason": f"неизвестный status: {status}"}
     if priority not in PRIORITIES:
-        return {"статус": "error", "причина": f"неизвестный priority: {priority}"}
+        return {"статус": "error", "status": "error", "причина": f"неизвестный priority: {priority}", "reason": f"неизвестный priority: {priority}"}
     if assignee is not None and assignee not in ROLES:
-        return {"статус": "error", "причина": f"неизвестная роль assignee: {assignee}"}
+        return {"статус": "error", "status": "error", "причина": f"неизвестная роль assignee: {assignee}", "reason": f"неизвестная роль assignee: {assignee}"}
     path = _resolve_db_path(db_path)
     if parent_id and db.get_task(path, parent_id) is None:
-        return {"статус": "error", "причина": f"parent_id {parent_id} не существует"}
+        return {"статус": "error", "status": "error", "причина": f"parent_id {parent_id} не существует", "reason": f"parent_id {parent_id} не существует"}
     task = db.insert_task(
         path,
         title=title.strip(),
@@ -115,13 +115,13 @@ def update_task(
     """Обновить поля задачи. Передавай только то, что меняется."""
 
     if not task_id:
-        return {"статус": "error", "причина": "task_id пустой"}
+        return {"статус": "error", "status": "error", "причина": "task_id пустой", "reason": "task_id пустой"}
     if status is not None and status not in STATUSES:
-        return {"статус": "error", "причина": f"неизвестный status: {status}"}
+        return {"статус": "error", "status": "error", "причина": f"неизвестный status: {status}", "reason": f"неизвестный status: {status}"}
     if priority is not None and priority not in PRIORITIES:
-        return {"статус": "error", "причина": f"неизвестный priority: {priority}"}
+        return {"статус": "error", "status": "error", "причина": f"неизвестный priority: {priority}", "reason": f"неизвестный priority: {priority}"}
     if assignee is not None and assignee not in ROLES:
-        return {"статус": "error", "причина": f"неизвестная роль assignee: {assignee}"}
+        return {"статус": "error", "status": "error", "причина": f"неизвестная роль assignee: {assignee}", "reason": f"неизвестная роль assignee: {assignee}"}
 
     fields: dict[str, Any] = {}
     if status is not None:
@@ -157,9 +157,9 @@ def claim_task(
     """Атомарно взять задачу в работу. Защищено fcntl + BEGIN IMMEDIATE."""
 
     if not task_id:
-        return {"статус": "error", "причина": "task_id пустой"}
+        return {"статус": "error", "status": "error", "причина": "task_id пустой", "reason": "task_id пустой"}
     if assignee not in ROLES:
-        return {"статус": "error", "причина": f"неизвестная роль: {assignee}"}
+        return {"статус": "error", "status": "error", "причина": f"неизвестная роль: {assignee}", "reason": f"неизвестная роль: {assignee}"}
     path = _resolve_db_path(db_path)
     result = db.claim_task(path, task_id, assignee)
     if not result["ok"]:
@@ -167,6 +167,7 @@ def claim_task(
             "статус": "конфликт" if result["reason"] == "conflict" else "not_found",
             "task_id": task_id,
             "причина": result.get("reason"),
+            "reason": result.get("reason"),
             "текущий_assignee": result.get("current_assignee"),
         }
     return {"статус": "ok", "задача": result["task"]}
@@ -185,11 +186,11 @@ def add_comment(
     """Добавить запись в историю задачи."""
 
     if not task_id:
-        return {"статус": "error", "причина": "task_id пустой"}
+        return {"статус": "error", "status": "error", "причина": "task_id пустой", "reason": "task_id пустой"}
     if author not in ROLES:
-        return {"статус": "error", "причина": f"неизвестный author: {author}"}
+        return {"статус": "error", "status": "error", "причина": f"неизвестный author: {author}", "reason": f"неизвестный author: {author}"}
     if not text or not text.strip():
-        return {"статус": "error", "причина": "text пустой"}
+        return {"статус": "error", "status": "error", "причина": "text пустой", "reason": "text пустой"}
     path = _resolve_db_path(db_path)
     try:
         comment = db.add_comment(path, task_id, author, text.strip())
@@ -211,11 +212,11 @@ def submit_result(
     """Закрыть подзадачу: сохранить результат и сменить статус."""
 
     if not task_id:
-        return {"статус": "error", "причина": "task_id пустой"}
+        return {"статус": "error", "status": "error", "причина": "task_id пустой", "reason": "task_id пустой"}
     if not isinstance(result, dict):
-        return {"статус": "error", "причина": "result должен быть dict"}
+        return {"статус": "error", "status": "error", "причина": "result должен быть dict", "reason": "result должен быть dict"}
     if new_status is not None and new_status not in STATUSES:
-        return {"статус": "error", "причина": f"неизвестный new_status: {new_status}"}
+        return {"статус": "error", "status": "error", "причина": f"неизвестный new_status: {new_status}", "reason": f"неизвестный new_status: {new_status}"}
     path = _resolve_db_path(db_path)
     updated = db.submit_result(path, task_id, result, new_status)
     if updated is None:
@@ -238,11 +239,12 @@ def add_dependency(
     чтобы не пытаться делать B пока A не сделана.
     """
     if not task_id or not depends_on:
-        return {"статус": "error", "причина": "task_id и depends_on обязательны"}
+        return {"статус": "error", "status": "error", "причина": "task_id и depends_on обязательны", "reason": "task_id и depends_on обязательны"}
     path = _resolve_db_path(db_path)
     res = db.add_dependency(path, task_id, depends_on)
     if not res["ok"]:
-        return {"статус": "error", "причина": res.get("reason", "неизвестно")}
+        _reason = res.get("reason", "неизвестно")
+        return {"статус": "error", "status": "error", "причина": _reason, "reason": _reason}
     return {"статус": "ok"}
 
 
@@ -265,7 +267,7 @@ def get_dependencies(
 ) -> dict[str, Any]:
     """Что блокирует эту задачу и что она блокирует."""
     if not task_id:
-        return {"статус": "error", "причина": "task_id пустой"}
+        return {"статус": "error", "status": "error", "причина": "task_id пустой", "reason": "task_id пустой"}
     path = _resolve_db_path(db_path)
     return {
         "статус": "ok",
@@ -298,13 +300,13 @@ def notify_user(
 
     alerter = alerts.from_env()
     if alerter is None:
-        return {"статус": "skip", "причина": "TELEGRAM_BOT_TOKEN/CHAT_ID не настроены"}
+        return {"статус": "skip", "причина": "TELEGRAM_BOT_TOKEN/CHAT_ID не настроены", "reason": "TELEGRAM_BOT_TOKEN/CHAT_ID не настроены"}
     if not text or not text.strip():
-        return {"статус": "error", "причина": "text пустой"}
+        return {"статус": "error", "status": "error", "причина": "text пустой", "reason": "text пустой"}
     try:
         alerter.send(text.strip(), level=level)
     except alerts.TelegramAlertError as exc:
-        return {"статус": "error", "причина": str(exc)}
+        return {"статус": "error", "status": "error", "причина": str(exc), "reason": str(exc)}
     return {"статус": "ok"}
 
 
@@ -331,7 +333,7 @@ def chat_post(
     try:
         msg = db.post_chat_message(path, author, text)
     except ValueError as exc:
-        return {"статус": "error", "причина": str(exc)}
+        return {"статус": "error", "status": "error", "причина": str(exc), "reason": str(exc)}
     return {"статус": "ok", "сообщение": msg}
 
 

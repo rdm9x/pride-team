@@ -144,8 +144,8 @@
 
   // ===================== i18n helper =====================
   // Proxy к window.t (загружается i18n.js после app.js, вызовы идут позже)
-  function i18n(key) {
-    return (typeof window.t === "function") ? window.t(key) : key;
+  function i18n(key, params) {
+    return (typeof window.t === "function") ? window.t(key, params) : key;
   }
 
   // locale-aware date formatter
@@ -189,7 +189,7 @@
     const linkIcon = t._has_deps ? `<span class="link-icon ico" title="${i18n("kanban.card.has_deps")}">🔗</span>` : "";
     const model = pickModelForTask(t);
     const modelChip = model
-      ? `<span class="model ${model}" title="Модель LLM для этой задачи: ${model}">${model}</span>`
+      ? `<span class="model ${model}" title="${i18n("kanban.card.model_tooltip", { model })}">${model}</span>`
       : "";
     card.innerHTML = `
       <div class="meta">
@@ -294,7 +294,7 @@
       });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
-        alert(i18n("kanban.move_failed") + (err.причина || r.status));
+        alert(i18n("kanban.move_failed") + (err.причина || err.reason || r.status));
       }
       refresh();
     });
@@ -480,7 +480,7 @@
         });
         if (!r.ok) {
           const err = await r.json().catch(() => ({}));
-          alert(i18n("modal.task.save_failed") + (err.причина || r.status));
+          alert(i18n("modal.task.save_failed") + (err.причина || err.reason || r.status));
           return;
         }
         await openTaskModal(t.id);
@@ -503,7 +503,7 @@
         });
         if (!r.ok) {
           const err = await r.json().catch(() => ({}));
-          alert(i18n("modal.task.dep_failed") + (err.причина || r.status));
+          alert(i18n("modal.task.dep_failed") + (err.причина || err.reason || r.status));
           return;
         }
         depForm.depends_on.value = "";
@@ -574,7 +574,7 @@
     });
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
-      alert(i18n("modal.task.create_failed") + (err.причина || r.status));
+      alert(i18n("modal.task.create_failed") + (err.причина || err.reason || r.status));
       return;
     }
     closeModal("modal-new");
@@ -1507,7 +1507,7 @@
     });
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
-      alert(i18n("chat.send_failed") + (err.причина || r.status));
+      alert(i18n("chat.send_failed") + (err.причина || err.reason || r.status));
       input.value = text;
       return;
     }
@@ -1664,7 +1664,7 @@
     });
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
-      alert(i18n("modal.task.create_failed") + (err.причина || r.status));
+      alert(i18n("modal.task.create_failed") + (err.причина || err.reason || r.status));
       return;
     }
     closeRoleModal();
@@ -1677,7 +1677,7 @@
     const r = await fetch(`/api/roles/${encodeURIComponent(name)}`, { method: "DELETE" });
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
-      alert(i18n("roles.error.deleteFailed") + (err.причина || r.status));
+      alert(i18n("roles.error.deleteFailed") + (err.причина || err.reason || r.status));
     }
     loadRoles();
   }

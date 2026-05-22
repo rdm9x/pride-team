@@ -1127,6 +1127,15 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
 
     @app.post("/api/team/start")
     def api_team_start() -> Any:
+        body = request.get_json(silent=True) or {}
+        output_locale = body.get("output_locale", "ru")
+        # Принимаем только ru | en; всё остальное → ru
+        if output_locale not in ("ru", "en"):
+            output_locale = "ru"
+        # Сохраняем locale рядом с БД (data/ в prod, tmp_path в тестах)
+        locale_file = _db().parent / ".output_locale"
+        locale_file.parent.mkdir(exist_ok=True)
+        locale_file.write_text(output_locale)
         res = _start_team_process()
         if not res["ok"]:
             return jsonify({"статус": "error", **res}), 409

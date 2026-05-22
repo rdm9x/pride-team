@@ -45,6 +45,20 @@ TASK_PROMPT='Старт сессии тимлида.
 
 cd "$REPO_ROOT"
 
+# === Output locale ===
+# Читаем output locale (записывается dashboard/app.py из localStorage фронта)
+OUTPUT_LOCALE="ru"
+if [ -f "$REPO_ROOT/data/.output_locale" ]; then
+    OUTPUT_LOCALE=$(cat "$REPO_ROOT/data/.output_locale" | tr -d '[:space:]')
+fi
+
+# Формируем append-system-prompt для языка вывода
+if [ "$OUTPUT_LOCALE" = "en" ]; then
+    LANG_PROMPT="OUTPUT LANGUAGE: Reply in English. This applies to: chat messages, task titles/descriptions/comments you write, all conversational text. Code, file paths, identifiers remain in their original form."
+else
+    LANG_PROMPT="OUTPUT LANGUAGE: Отвечай на русском языке. Это касается: сообщений в чат, названий задач, описаний, комментариев. Код, пути файлов, идентификаторы оставляй как есть."
+fi
+
 # === Авто-роутер моделей ===
 # Перед стартом тимлида решаем какую модель использовать на этой сессии.
 # Алгоритмический (без LLM, без расходов). Подробности — в router.py.
@@ -69,6 +83,7 @@ fi
 
 exec claude \
     --append-system-prompt "$TEAMLEAD_PROMPT" \
+    --append-system-prompt "$LANG_PROMPT" \
     --permission-mode bypassPermissions \
     --model "$MODEL_ALIAS" \
     --mcp-config "$REPO_ROOT/.mcp.json" \

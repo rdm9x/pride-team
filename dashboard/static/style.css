@@ -1772,6 +1772,289 @@ input[type="checkbox"] {
   }
 }
 
+/* ============================================================ Statistics view */
+
+.stats-range-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.stats-tab {
+  padding: 6px 18px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.stats-tab:hover { background: var(--surface-3); color: var(--text); }
+.stats-tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.stats-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+@media (max-width: 680px) {
+  .stats-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.stats-kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: var(--glass-shadow);
+  position: relative;
+  overflow: hidden;
+  /* gradient border wow-effect */
+  background-clip: padding-box;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.stats-kpi-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--accent-soft), var(--blue-soft), transparent);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: destination-out;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.stats-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px var(--accent-soft);
+}
+
+.stats-kpi-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  font-weight: 600;
+}
+
+.stats-kpi-value {
+  font-size: 36px;
+  font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.stats-kpi-unit {
+  font-size: 16px;
+  color: var(--text-3);
+  margin-left: 2px;
+}
+
+.stats-section {
+  margin-bottom: 28px;
+}
+
+.stats-section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+
+.stats-loading {
+  color: var(--text-3);
+  font-style: italic;
+  padding: 20px 0;
+}
+
+.stats-empty {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* Stats table */
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.stats-table th,
+.stats-table td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--divider);
+  color: var(--text);
+}
+.stats-table thead th {
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.stats-table tbody tr:last-child td { border-bottom: none; }
+.stats-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Bar charts for roles */
+.stats-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stats-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.stats-bar-label {
+  width: 110px;
+  flex-shrink: 0;
+  color: var(--text-2);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stats-bar-track {
+  flex: 1;
+  height: 10px;
+  background: var(--surface-3);
+  border-radius: 999px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.stats-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--blue));
+  border-radius: 999px;
+  transition: width 0.6s ease;
+  min-width: 2px;
+}
+
+.stats-bar-val {
+  color: var(--text-3);
+  font-size: 11px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Heatmap */
+.stats-heatmap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.stats-heatmap-cell {
+  width: 34px;
+  height: 34px;
+  background: var(--accent);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  transition: transform 0.1s;
+}
+.stats-heatmap-cell:hover { transform: scale(1.15); }
+
+.stats-heatmap-hour {
+  font-size: 10px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+:root[data-theme="dark"] .stats-heatmap-hour { mix-blend-mode: screen; }
+
+/* Top achievements */
+.stats-top-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.stats-top-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: var(--glass-shadow);
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.stats-top-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px var(--accent-soft);
+}
+
+.stats-top-ico { font-size: 22px; }
+.stats-top-label { font-size: 11px; color: var(--text-3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+.stats-top-val { font-size: 14px; color: var(--text); font-weight: 600; }
+
+/* ============================================================ Toggle group (Settings) */
+
+.toggle-group {
+  display: inline-flex;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px;
+  gap: 0;
+}
+
+.toggle-btn {
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+  cursor: pointer;
+  box-shadow: none;
+  transition: background 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+.toggle-btn:hover { color: var(--text); }
+.toggle-btn.active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+.toggle-btn.active:hover { background: var(--accent-hover); color: #fff; }
+
 /* ============================================================ Demo mode buttons */
 
 .btn-demo {

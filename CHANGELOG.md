@@ -5,6 +5,18 @@ All notable changes to **devboard** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] / v1.3 (local)
+
+### Added
+
+- **Statistics tab** (S3.2): new sidebar entry with 5 sections — KPI cards (sessions, turns, cost, files, lines, hours), model breakdown table with inline bars, role activity bars, 24h hourly heatmap, top achievements. Zero external dependencies; vanilla CSS animations. Backend: `GET /api/stats/aggregates?range=today|24h|week|all` with 60s cache.
+- **Sidebar reorder** (S3.3): Board → Inbox → Statistics → Roles → Archive → Settings. Default view on first load is Board; `last_view` persisted in localStorage.
+- **Plain-language mode** (S3.4): `user_expertise` toggle in Settings (Developer / Non-developer). Stored in `localStorage`; sent to `POST /api/team/start`; saved in `data/.user_expertise`; read by `commands/devboard-work.sh` which adds a `--append-system-prompt` block for non-technical users.
+
+### Removed
+
+- **Usage section from Settings** (S3.1): moved to the dedicated Statistics tab. Settings now has 5 sections (Language / Theme / Team / Backups / Danger zone).
+
 ## [Unreleased] / v1.2 (local)
 
 ### Added

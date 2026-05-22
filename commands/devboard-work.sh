@@ -52,6 +52,14 @@ if [ -f "$REPO_ROOT/data/.output_locale" ]; then
     OUTPUT_LOCALE=$(cat "$REPO_ROOT/data/.output_locale" | tr -d '[:space:]')
 fi
 
+# === User expertise (S3.4) ===
+# Читаем профиль пользователя, записанный dashboard/app.py при POST /api/team/start
+DEVBOARD_USER_EXPERTISE="non-tech"
+if [ -f "$REPO_ROOT/data/.user_expertise" ]; then
+    DEVBOARD_USER_EXPERTISE=$(cat "$REPO_ROOT/data/.user_expertise" | tr -d '[:space:]')
+fi
+export DEVBOARD_USER_EXPERTISE
+
 # Формируем append-system-prompt для языка вывода
 if [ "$OUTPUT_LOCALE" = "en" ]; then
     LANG_PROMPT="OUTPUT LANGUAGE: Reply in English. This applies to: chat messages, task titles/descriptions/comments you write, all conversational text. Code, file paths, identifiers remain in their original form."
@@ -81,13 +89,40 @@ else
     echo "$DECISION"
 fi
 
-exec claude \
-    --append-system-prompt "$TEAMLEAD_PROMPT" \
-    --append-system-prompt "$LANG_PROMPT" \
-    --permission-mode bypassPermissions \
-    --model "$MODEL_ALIAS" \
-    --mcp-config "$REPO_ROOT/.mcp.json" \
-    --output-format stream-json \
-    --verbose \
-    --include-partial-messages \
-    --print "$TASK_PROMPT"
+# === Non-tech user profile prompt ===
+# Если пользователь не технический — добавляем инструкции упрощённого языка.
+if [ "$DEVBOARD_USER_EXPERTISE" = "non-tech" ]; then
+    EXPERTISE_PROMPT='USER PROFILE: non-technical
+
+Write in plain language:
+- Explain technical terms on first mention in parentheses.
+- For user actions — step by step, like for a beginner.
+- Avoid abbreviations (CI, MCP, PR, ADR) without explanation.
+- If asking user for a decision — offer concrete options, not open questions.
+- Before escalating "need your decision" — try to offer a sensible default.
+
+If the user starts using technical terms themselves — switch to technical language.'
+
+    exec claude \
+        --append-system-prompt "$TEAMLEAD_PROMPT" \
+        --append-system-prompt "$LANG_PROMPT" \
+        --append-system-prompt "$EXPERTISE_PROMPT" \
+        --permission-mode bypassPermissions \
+        --model "$MODEL_ALIAS" \
+        --mcp-config "$REPO_ROOT/.mcp.json" \
+        --output-format stream-json \
+        --verbose \
+        --include-partial-messages \
+        --print "$TASK_PROMPT"
+else
+    exec claude \
+        --append-system-prompt "$TEAMLEAD_PROMPT" \
+        --append-system-prompt "$LANG_PROMPT" \
+        --permission-mode bypassPermissions \
+        --model "$MODEL_ALIAS" \
+        --mcp-config "$REPO_ROOT/.mcp.json" \
+        --output-format stream-json \
+        --verbose \
+        --include-partial-messages \
+        --print "$TASK_PROMPT"
+fi

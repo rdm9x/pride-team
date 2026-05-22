@@ -45,7 +45,8 @@
     "archive": "Архив",
     "settings": "Настройки",
     "roles": "Роли",
-    "roles_title": "Управление ролями"
+    "roles_title": "Управление ролями",
+    "stats": "Статистика"
   },
   "sidebar": {
     "team": "Команда",
@@ -201,6 +202,11 @@
       "light": "☀ Светлая",
       "dark": "🌙 Тёмная"
     },
+    "expertise": {
+      "label": "Уровень технической экспертизы",
+      "tech": "Разработчик",
+      "nontech": "Не разработчик"
+    },
     "team": {
       "title": "Команда",
       "auto_label": "Авто-режим",
@@ -221,15 +227,6 @@
       "open_label": "Открыть папку",
       "open_btn": "Открыть папку"
     },
-    "usage": {
-      "title": "Использование",
-      "today_label": "Сегодня",
-      "placeholder": "N сессий сегодня",
-      "sessions_unit": "сессий",
-      "detail_label": "Подробная статистика",
-      "detail_btn": "Подробнее",
-      "sprint3_placeholder": "Подробная статистика — Sprint 3"
-    },
     "danger": {
       "title": "Опасная зона",
       "reset_tour_label": "Сбросить онбординг-тур",
@@ -240,6 +237,32 @@
       "clear_storage_hint": "Удалить все настройки UI из localStorage",
       "clear_storage_btn": "Очистить",
       "clear_storage_confirm": "Удалить все настройки UI из localStorage? Страница перезагрузится."
+    }
+  },
+  "stats": {
+    "range": {
+      "today": "Сегодня",
+      "24h": "24ч",
+      "week": "Неделя",
+      "all": "Всё"
+    },
+    "sessions": "Сессии",
+    "turns": "Турны",
+    "cost": "Стоимость",
+    "files": "Файлов",
+    "lines": "Строк",
+    "hours": "Часов работы",
+    "models": {
+      "title": "Расход по моделям"
+    },
+    "roles": {
+      "title": "По ролям"
+    },
+    "heatmap": {
+      "title": "Активность по часам"
+    },
+    "top": {
+      "title": "Топ достижения"
     }
   },
   "usage": {

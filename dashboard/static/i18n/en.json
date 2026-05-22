@@ -45,7 +45,8 @@
     "archive": "Archive",
     "settings": "Settings",
     "roles": "Roles",
-    "roles_title": "Manage roles"
+    "roles_title": "Manage roles",
+    "stats": "Statistics"
   },
   "sidebar": {
     "team": "Team",
@@ -201,6 +202,11 @@
       "light": "☀ Light",
       "dark": "🌙 Dark"
     },
+    "expertise": {
+      "label": "Technical expertise level",
+      "tech": "Developer",
+      "nontech": "Non-developer"
+    },
     "team": {
       "title": "Team",
       "auto_label": "Auto mode",
@@ -221,15 +227,6 @@
       "open_label": "Open folder",
       "open_btn": "Open folder"
     },
-    "usage": {
-      "title": "Usage",
-      "today_label": "Today",
-      "placeholder": "N sessions today",
-      "sessions_unit": "sessions",
-      "detail_label": "Detailed stats",
-      "detail_btn": "Details",
-      "sprint3_placeholder": "Detailed stats — Sprint 3"
-    },
     "danger": {
       "title": "Danger zone",
       "reset_tour_label": "Reset onboarding tour",
@@ -240,6 +237,32 @@
       "clear_storage_hint": "Remove all UI settings from localStorage",
       "clear_storage_btn": "Clear",
       "clear_storage_confirm": "Remove all UI settings from localStorage? The page will reload."
+    }
+  },
+  "stats": {
+    "range": {
+      "today": "Today",
+      "24h": "24h",
+      "week": "Week",
+      "all": "All"
+    },
+    "sessions": "Sessions",
+    "turns": "Turns",
+    "cost": "Cost",
+    "files": "Files",
+    "lines": "Lines",
+    "hours": "Hours worked",
+    "models": {
+      "title": "Model usage"
+    },
+    "roles": {
+      "title": "By role"
+    },
+    "heatmap": {
+      "title": "Hourly activity"
+    },
+    "top": {
+      "title": "Top achievements"
     }
   },
   "usage": {

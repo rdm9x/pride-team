@@ -115,15 +115,21 @@
 
   // ===================== Views & navigation =====================
 
-  let currentView = "inbox";
+  const _defaultView = "board";
+  let currentView = localStorage.getItem("last_view") || _defaultView;
+
   function switchView(name) {
     currentView = name;
+    localStorage.setItem("last_view", name);
     $$(".nav-item").forEach((b) => b.classList.toggle("active", b.dataset.view === name));
     $$(".view").forEach((v) => (v.hidden = v.dataset.view !== name));
     if (name === "archive") loadArchive();
     if (name === "settings") loadSettings();
     if (name === "roles") loadRoles();
+    if (name === "stats") loadStats();
   }
+  // Apply initial view from localStorage
+  switchView(currentView);
   $$(".nav-item").forEach((b) =>
     b.addEventListener("click", () => switchView(b.dataset.view)),
   );
@@ -769,7 +775,12 @@
     refreshTeamStatus();
   });
   $("#btn-start").addEventListener("click", async () => {
-    const r = await fetch("/api/team/start", { method: "POST" });
+    const expertise = localStorage.getItem("user_expertise") || "non-tech";
+    const r = await fetch("/api/team/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_expertise: expertise }),
+    });
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
       alert(i18n("team.start_failed") + (err.reason || r.status));
@@ -1095,19 +1106,6 @@
       }
     } catch (_) {}
 
-    // Load usage today
-    try {
-      const r = await fetch("/api/usage");
-      if (r.ok) {
-        const u = await r.json();
-        const todayEl = $("#settings-usage-today");
-        if (todayEl) {
-          const today = u.today || {};
-          const n = today.sessions || 0;
-          todayEl.textContent = n + " " + i18n("settings.usage.sessions_unit");
-        }
-      }
-    } catch (_) {}
   }
 
   // --- S2.1: Wire settings controls (once on DOMContentLoaded) ---
@@ -1183,14 +1181,6 @@
       });
     }
 
-    // Usage detail button — Sprint 3 placeholder
-    const btnUsageDetail = $("#btn-usage-detail");
-    if (btnUsageDetail) {
-      btnUsageDetail.addEventListener("click", () => {
-        alert(i18n("settings.usage.sprint3_placeholder"));
-      });
-    }
-
     // Danger zone: reset tour
     const btnResetTour = $("#btn-reset-tour");
     if (btnResetTour) {
@@ -1207,6 +1197,21 @@
         if (!confirm(i18n("settings.danger.clear_storage_confirm"))) return;
         localStorage.clear();
         location.reload();
+      });
+    }
+
+    // Expertise toggle
+    const expertiseGroup = $("#expertise-toggle-group");
+    if (expertiseGroup) {
+      const saved = localStorage.getItem("user_expertise") || "non-tech";
+      expertiseGroup.querySelectorAll(".toggle-btn").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.expertise === saved);
+        btn.addEventListener("click", () => {
+          localStorage.setItem("user_expertise", btn.dataset.expertise);
+          expertiseGroup.querySelectorAll(".toggle-btn").forEach((b) =>
+            b.classList.toggle("active", b === btn)
+          );
+        });
       });
     }
 
@@ -1756,6 +1761,147 @@
       console.error("loadRoles:", e);
     }
   }
+
+  // ===================== Statistics view =====================
+
+  let _statsRange = "today";
+
+  async function loadStats(range) {
+    if (range) _statsRange = range;
+    // Update active tab
+    $$(".stats-tab").forEach((tab) =>
+      tab.classList.toggle("active", tab.dataset.range === _statsRange)
+    );
+
+    const kpiGrid = $("#statsKpiGrid");
+    const modelsEl = $("#statsModels");
+    const rolesEl = $("#statsRoles");
+    const heatmapEl = $("#statsHeatmap");
+    const topEl = $("#statsTop");
+    if (!kpiGrid) return;
+
+    // Loading state
+    kpiGrid.innerHTML = `<div class="stats-loading">${i18n("roles.loading")}</div>`;
+    if (modelsEl) modelsEl.innerHTML = "";
+    if (rolesEl) rolesEl.innerHTML = "";
+    if (heatmapEl) heatmapEl.innerHTML = "";
+    if (topEl) topEl.innerHTML = "";
+
+    let data;
+    try {
+      const r = await fetch("/api/stats/aggregates?range=" + _statsRange);
+      if (!r.ok) throw new Error("stats " + r.status);
+      data = await r.json();
+    } catch (e) {
+      kpiGrid.innerHTML = `<div class="stats-loading" style="color:var(--red)">${e.message}</div>`;
+      return;
+    }
+
+    // --- KPI cards ---
+    const kpiDefs = [
+      { key: "sessions",      label: i18n("stats.sessions"),  value: data.sessions      || 0, unit: "" },
+      { key: "turns",         label: i18n("stats.turns"),     value: data.turns         || 0, unit: "" },
+      { key: "cost_usd",      label: i18n("stats.cost"),      value: "$" + (data.cost_usd || 0).toFixed(2), unit: "" },
+      { key: "files_changed", label: i18n("stats.files"),     value: data.files_changed || 0, unit: "" },
+      { key: "lines_written", label: i18n("stats.lines"),     value: data.lines_written || 0, unit: "" },
+      { key: "hours_worked",  label: i18n("stats.hours"),     value: (data.hours_worked || 0).toFixed(1), unit: "h" },
+    ];
+    kpiGrid.innerHTML = kpiDefs.map((k) => `
+      <div class="stats-kpi-card">
+        <div class="stats-kpi-label">${escapeHtml(k.label)}</div>
+        <div class="stats-kpi-value">${escapeHtml(String(k.value))}${k.unit ? '<span class="stats-kpi-unit">' + k.unit + '</span>' : ''}</div>
+      </div>
+    `).join("");
+
+    // --- Models table ---
+    if (modelsEl) {
+      const models = data.models || [];
+      let html = `<h3 class="stats-section-title">${i18n("stats.models.title")}</h3>`;
+      if (models.length === 0) {
+        html += `<div class="stats-empty">—</div>`;
+      } else {
+        html += `<table class="stats-table">
+          <thead><tr>
+            <th>Model</th><th class="num">Sessions</th><th class="num">Input tk</th><th class="num">Output tk</th><th class="num">Cost</th>
+          </tr></thead>
+          <tbody>
+          ${models.map((m) => `<tr>
+            <td><code>${escapeHtml(m.model || "—")}</code></td>
+            <td class="num">${m.sessions || 0}</td>
+            <td class="num">${(m.input_tokens || 0).toLocaleString()}</td>
+            <td class="num">${(m.output_tokens || 0).toLocaleString()}</td>
+            <td class="num">$${(m.cost_usd || 0).toFixed(2)}</td>
+          </tr>`).join("")}
+          </tbody>
+        </table>`;
+      }
+      modelsEl.innerHTML = html;
+    }
+
+    // --- Roles bar chart ---
+    if (rolesEl) {
+      const roles = data.roles || [];
+      let html = `<h3 class="stats-section-title">${i18n("stats.roles.title")}</h3>`;
+      if (roles.length === 0) {
+        html += `<div class="stats-empty">—</div>`;
+      } else {
+        const maxDone = Math.max(...roles.map((r) => r.done || 0), 1);
+        html += `<div class="stats-bars">` + roles.map((r) => {
+          const pct = Math.round(((r.done || 0) / maxDone) * 100);
+          return `<div class="stats-bar-row">
+            <span class="stats-bar-label">${escapeHtml(displayRole(r.name))}</span>
+            <div class="stats-bar-track"><div class="stats-bar" style="width:${pct}%"></div></div>
+            <span class="stats-bar-val">${r.done || 0} done · ${r.wip || 0} wip · ${r.todo || 0} todo</span>
+          </div>`;
+        }).join("") + `</div>`;
+      }
+      rolesEl.innerHTML = html;
+    }
+
+    // --- Heatmap 24h ---
+    if (heatmapEl) {
+      const hourly = data.hourly_activity || [];
+      const maxCount = Math.max(...hourly.map((h) => h.count || 0), 1);
+      let html = `<h3 class="stats-section-title">${i18n("stats.heatmap.title")}</h3>`;
+      html += `<div class="stats-heatmap">`;
+      for (let h = 0; h < 24; h++) {
+        const entry = hourly.find((x) => x.hour === h) || { hour: h, count: 0 };
+        const opacity = entry.count > 0 ? 0.15 + 0.85 * (entry.count / maxCount) : 0.06;
+        html += `<div class="stats-heatmap-cell" title="${h}:00 — ${entry.count}" style="opacity:${opacity.toFixed(2)}">
+          <span class="stats-heatmap-hour">${h}</span>
+        </div>`;
+      }
+      html += `</div>`;
+      heatmapEl.innerHTML = html;
+    }
+
+    // --- Top achievements ---
+    if (topEl) {
+      const top = data.top || {};
+      let html = `<h3 class="stats-section-title">${i18n("stats.top.title")}</h3>`;
+      html += `<div class="stats-top-grid">`;
+      if (top.longest_turn) {
+        html += `<div class="stats-top-card"><div class="stats-top-ico">🏆</div><div class="stats-top-label">Longest session</div><div class="stats-top-val">${top.longest_turn.turns} turns</div></div>`;
+      }
+      if (top.most_expensive_day) {
+        html += `<div class="stats-top-card"><div class="stats-top-ico">💰</div><div class="stats-top-label">Most expensive day</div><div class="stats-top-val">${escapeHtml(top.most_expensive_day.date)} · $${(top.most_expensive_day.cost || 0).toFixed(2)}</div></div>`;
+      }
+      if (top.fastest_task) {
+        html += `<div class="stats-top-card"><div class="stats-top-ico">⚡</div><div class="stats-top-label">Fastest task</div><div class="stats-top-val">${top.fastest_task.minutes} min</div></div>`;
+      }
+      if (top.most_productive_role) {
+        html += `<div class="stats-top-card"><div class="stats-top-ico">🚀</div><div class="stats-top-label">Most productive</div><div class="stats-top-val">${escapeHtml(displayRole(top.most_productive_role))}</div></div>`;
+      }
+      html += `</div>`;
+      topEl.innerHTML = html;
+    }
+  }
+
+  // Wire stats-tab clicks
+  document.addEventListener("click", (e) => {
+    const tab = e.target.closest(".stats-tab");
+    if (tab) loadStats(tab.dataset.range);
+  });
 
   // ===================== Refresh loop =====================
   let inFlight = false;

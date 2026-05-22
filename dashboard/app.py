@@ -1136,6 +1136,15 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         locale_file = _db().parent / ".output_locale"
         locale_file.parent.mkdir(exist_ok=True)
         locale_file.write_text(output_locale)
+
+        # S3.4: user_expertise — сохраняем рядом с БД, devboard-work.sh читает
+        user_expertise = body.get("user_expertise", "non-tech")
+        if user_expertise not in ("non-tech", "tech"):
+            user_expertise = "non-tech"
+        expertise_file = _db().parent / ".user_expertise"
+        expertise_file.parent.mkdir(exist_ok=True)
+        expertise_file.write_text(user_expertise)
+
         res = _start_team_process()
         if not res["ok"]:
             return jsonify({"статус": "error", **res}), 409
@@ -1189,6 +1198,220 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
     @app.get("/api/usage")
     def api_usage() -> Any:
         return jsonify(db.usage_summary(_db()))
+
+    # === Stats aggregates ===
+
+    # Кэш для /api/stats/aggregates: dict keyed by range → (timestamp, payload)
+    _stats_cache: dict[str, tuple[float, Any]] = {}
+    _STATS_TTL = 60.0  # секунд
+
+    @app.get("/api/stats/aggregates")
+    def api_stats_aggregates() -> Any:
+        """Агрегированная статистика по диапазону.
+
+        ?range=today|24h|week|all  (default: 24h)
+        Результат кэшируется 60 с.
+        """
+        rng = request.args.get("range", "24h")
+        if rng not in ("today", "24h", "week", "all"):
+            rng = "24h"
+
+        now_ts = time.time()
+        cached = _stats_cache.get(rng)
+        if cached and (now_ts - cached[0]) < _STATS_TTL:
+            return jsonify(cached[1])
+
+        # WHERE-фрагмент по finished_at (unix timestamp).
+        # where_clause  — полный WHERE для одиночных запросов (или пустая строка)
+        # where_and     — AND-условие для добавления к существующему WHERE
+        if rng == "today":
+            where_clause = "WHERE date(finished_at, 'unixepoch', 'localtime') = date('now', 'localtime')"
+            where_and = "AND date(finished_at, 'unixepoch', 'localtime') = date('now', 'localtime')"
+        elif rng == "24h":
+            where_clause = "WHERE finished_at >= strftime('%s', 'now', '-24 hours')"
+            where_and = "AND finished_at >= strftime('%s', 'now', '-24 hours')"
+        elif rng == "week":
+            where_clause = "WHERE finished_at >= strftime('%s', 'now', '-7 days')"
+            where_and = "AND finished_at >= strftime('%s', 'now', '-7 days')"
+        else:
+            where_clause = ""
+            where_and = ""
+
+        conn = db._connect(_db())  # type: ignore
+        try:
+            # Основные счётчики сессий
+            row = conn.execute(
+                f"""
+                SELECT
+                    COUNT(*) AS sessions,
+                    COALESCE(SUM(num_turns), 0) AS turns,
+                    COALESCE(SUM(total_cost_usd), 0.0) AS cost_usd,
+                    COALESCE(SUM(duration_ms) / 1000.0 / 3600.0, 0.0) AS hours_worked
+                FROM claude_sessions {where_clause}
+                """
+            ).fetchone()
+            sessions = row["sessions"] or 0
+            turns = row["turns"] or 0
+            cost_usd = round(float(row["cost_usd"] or 0), 4)
+            hours_worked = round(float(row["hours_worked"] or 0), 2)
+
+            # Разбивка по моделям
+            model_rows = conn.execute(
+                f"""
+                SELECT
+                    model,
+                    COUNT(*) AS sessions,
+                    COALESCE(SUM(input_tokens), 0) AS input_tokens,
+                    COALESCE(SUM(output_tokens), 0) AS output_tokens,
+                    COALESCE(SUM(total_cost_usd), 0.0) AS cost_usd
+                FROM claude_sessions
+                WHERE model IS NOT NULL {where_and}
+                GROUP BY model
+                ORDER BY cost_usd DESC
+                """
+            ).fetchall()
+            models = [
+                {
+                    "model": r["model"],
+                    "sessions": r["sessions"],
+                    "input_tokens": r["input_tokens"],
+                    "output_tokens": r["output_tokens"],
+                    "cost_usd": round(float(r["cost_usd"]), 4),
+                }
+                for r in model_rows
+            ]
+
+            # Самая длинная сессия (по num_turns)
+            longest_row = conn.execute(
+                f"""
+                SELECT id AS session_id, COALESCE(num_turns, 0) AS turns
+                FROM claude_sessions {where_clause}
+                ORDER BY num_turns DESC
+                LIMIT 1
+                """
+            ).fetchone()
+            longest_turn = (
+                {"session_id": str(longest_row["session_id"]), "turns": longest_row["turns"]}
+                if longest_row
+                else None
+            )
+
+            # Самый дорогой день
+            expensive_row = conn.execute(
+                f"""
+                SELECT
+                    date(finished_at, 'unixepoch', 'localtime') AS day,
+                    SUM(total_cost_usd) AS cost
+                FROM claude_sessions {where_clause}
+                GROUP BY day
+                ORDER BY cost DESC
+                LIMIT 1
+                """
+            ).fetchone()
+            most_expensive_day = (
+                {"date": expensive_row["day"], "cost": round(float(expensive_row["cost"]), 4)}
+                if expensive_row and expensive_row["day"]
+                else None
+            )
+
+            # Счётчики задач по ролям
+            role_rows = conn.execute(
+                """
+                SELECT
+                    COALESCE(assignee, 'unknown') AS name,
+                    SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) AS done,
+                    SUM(CASE WHEN status = 'wip' THEN 1 ELSE 0 END) AS wip,
+                    SUM(CASE WHEN status = 'todo' THEN 1 ELSE 0 END) AS todo
+                FROM tasks
+                WHERE assignee NOT IN ('пользователь', 'user')
+                GROUP BY assignee
+                ORDER BY done DESC
+                """
+            ).fetchall()
+            roles = [
+                {"name": r["name"], "done": r["done"], "wip": r["wip"], "todo": r["todo"]}
+                for r in role_rows
+            ]
+
+            # most_productive_role
+            most_productive_role = roles[0]["name"] if roles else None
+
+            # Fastest task: min time between created_at → completed_at (only done tasks)
+            fastest_row = conn.execute(
+                """
+                SELECT id,
+                    ROUND((completed_at - created_at) / 60.0, 1) AS minutes
+                FROM tasks
+                WHERE status = 'done'
+                    AND completed_at IS NOT NULL
+                    AND created_at IS NOT NULL
+                    AND completed_at > created_at
+                ORDER BY minutes ASC
+                LIMIT 1
+                """
+            ).fetchone()
+            fastest_task = (
+                {"id": fastest_row["id"], "minutes": float(fastest_row["minutes"])}
+                if fastest_row
+                else None
+            )
+
+            # Hourly activity: 0-23 — число сессий финишировавших в этот час
+            hour_rows = conn.execute(
+                f"""
+                SELECT
+                    CAST(strftime('%H', finished_at, 'unixepoch', 'localtime') AS INTEGER) AS hour,
+                    COUNT(*) AS count
+                FROM claude_sessions {where_clause}
+                GROUP BY hour
+                """
+            ).fetchall()
+            hour_map = {r["hour"]: r["count"] for r in hour_rows}
+            hourly_activity = [{"hour": h, "count": hour_map.get(h, 0)} for h in range(24)]
+
+        finally:
+            conn.close()
+
+        # Лёгкий парсинг team.log для files_changed / lines_written / chat_chars
+        files_changed = 0
+        lines_written = 0
+        chat_chars = 0
+        try:
+            if _LIVE_LOG.exists():
+                import re as _re_log
+                _tool_write_re = _re_log.compile(r'"name"\s*:\s*"(Write|Edit)"')
+                _lines_re = _re_log.compile(r'"new_string"\s*:\s*"((?:[^"\\]|\\.)*)"')
+                _chat_re = _re_log.compile(r'"text"\s*:\s*"((?:[^"\\]|\\.)*)"')
+                content = _LIVE_LOG.read_text(encoding="utf-8", errors="ignore")
+                files_changed = len(_tool_write_re.findall(content))
+                for m in _lines_re.finditer(content):
+                    lines_written += m.group(1).count("\\n") + 1
+                for m in _chat_re.finditer(content):
+                    chat_chars += len(m.group(1))
+        except Exception as exc:  # noqa: BLE001
+            log.debug("stats: не смог распарсить team.log: %s", exc)
+
+        payload: dict[str, Any] = {
+            "range": rng,
+            "sessions": sessions,
+            "turns": turns,
+            "cost_usd": cost_usd,
+            "files_changed": files_changed,
+            "lines_written": lines_written,
+            "chat_chars": chat_chars,
+            "hours_worked": hours_worked,
+            "models": models,
+            "roles": roles,
+            "hourly_activity": hourly_activity,
+            "top": {
+                "longest_turn": longest_turn,
+                "most_expensive_day": most_expensive_day,
+                "fastest_task": fastest_task,
+                "most_productive_role": most_productive_role,
+            },
+        }
+        _stats_cache[rng] = (now_ts, payload)
+        return jsonify(payload)
 
     @app.get("/api/team/silence")
     def api_team_silence() -> Any:

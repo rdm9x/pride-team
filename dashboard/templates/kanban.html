@@ -18,15 +18,24 @@
     </div>
 
     <nav class="nav">
-      <button class="nav-item active" data-view="inbox">
+      <button class="nav-item active" data-view="board">
+        <span class="ico">🗂</span>
+        <span class="lbl" data-i18n="nav.board">Доска</span>
+        <span class="badge" id="nav-board-count">0</span>
+      </button>
+      <button class="nav-item" data-view="inbox">
         <span class="ico">📥</span>
         <span class="lbl" data-i18n="nav.inbox">Inbox</span>
         <span class="badge" id="nav-inbox-count">0</span>
       </button>
-      <button class="nav-item" data-view="board">
-        <span class="ico">🗂</span>
-        <span class="lbl" data-i18n="nav.board">Доска</span>
-        <span class="badge" id="nav-board-count">0</span>
+      <button class="nav-item" data-view="stats">
+        <span class="ico">📊</span>
+        <span class="lbl" data-i18n="nav.stats">Статистика</span>
+      </button>
+      <button class="nav-item" data-view="roles" aria-label="Управление ролями" title="Управление ролями" data-i18n-attr="title:nav.roles_title">
+        <span class="ico">🎭</span>
+        <span class="lbl" data-i18n="nav.roles">Роли</span>
+        <span class="badge" id="nav-roles-count">0</span>
       </button>
       <button class="nav-item" data-view="archive">
         <span class="ico">📦</span>
@@ -36,11 +45,6 @@
       <button class="nav-item" data-view="settings">
         <span class="ico">⚙</span>
         <span class="lbl" data-i18n="nav.settings">Настройки</span>
-      </button>
-      <button class="nav-item" data-view="roles" aria-label="Управление ролями" title="Управление ролями" data-i18n-attr="title:nav.roles_title">
-        <span class="ico">🎭</span>
-        <span class="lbl" data-i18n="nav.roles">Роли</span>
-        <span class="badge" id="nav-roles-count">0</span>
       </button>
     </nav>
 
@@ -118,7 +122,7 @@
     </header>
 
     <!-- View: Inbox -->
-    <section class="view view-inbox" data-view="inbox">
+    <section class="view view-inbox" data-view="inbox" hidden>
       <div class="view-header">
         <h1 data-i18n="inbox.title">Тебе на стол</h1>
         <span class="muted" id="inbox-total-hint" data-i18n="inbox.total.zero">0 задач требуют тебя</span>
@@ -140,7 +144,7 @@
     </section>
 
     <!-- View: Board (kanban) -->
-    <section class="view view-board" data-view="board" hidden>
+    <section class="view view-board" data-view="board">
       <div class="view-header">
         <h1 data-i18n="kanban.title">Доска</h1>
         <label class="muted toggle">
@@ -218,6 +222,27 @@
       </div>
       <div id="archive-body" class="archive-body"></div>
     </section>
+
+    <!-- View: Statistics -->
+    <div class="view" data-view="stats" hidden>
+      <!-- Секция 1: переключатель диапазона -->
+      <div class="stats-range-tabs">
+        <button class="stats-tab active" data-range="today" data-i18n="stats.range.today">Сегодня</button>
+        <button class="stats-tab" data-range="24h" data-i18n="stats.range.24h">24ч</button>
+        <button class="stats-tab" data-range="week" data-i18n="stats.range.week">Неделя</button>
+        <button class="stats-tab" data-range="all" data-i18n="stats.range.all">Всё</button>
+      </div>
+      <!-- Секция 1: KPI карточки -->
+      <div class="stats-kpi-grid" id="statsKpiGrid"></div>
+      <!-- Секция 2: Расход по моделям -->
+      <div class="stats-section" id="statsModels"></div>
+      <!-- Секция 3: По ролям -->
+      <div class="stats-section" id="statsRoles"></div>
+      <!-- Секция 4: Heatmap 24h -->
+      <div class="stats-section" id="statsHeatmap"></div>
+      <!-- Секция 5: Top достижения -->
+      <div class="stats-section" id="statsTop"></div>
+    </div>
 
     <!-- View: Settings -->
     <section class="view view-settings" data-view="settings" hidden>
@@ -327,6 +352,17 @@
                   <option value="sonnet">sonnet</option>
                   <option value="opus">opus</option>
                 </select>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span data-i18n="settings.expertise.label">Уровень технической экспертизы</span>
+              </div>
+              <div class="settings-row-control">
+                <div class="toggle-group" id="expertise-toggle-group">
+                  <button class="toggle-btn" data-expertise="tech" data-i18n="settings.expertise.tech">Разработчик</button>
+                  <button class="toggle-btn active" data-expertise="non-tech" data-i18n="settings.expertise.nontech">Не разработчик</button>
+                </div>
               </div>
             </div>
           </div>

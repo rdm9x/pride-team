@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Optional
 
-from pride_tasks import db
+from pride_tasks import db, parser
 from pride_tasks.models import PRIORITIES, ROLES, STATUSES
 
 
@@ -343,3 +343,35 @@ def list_roles(*, db_path: Optional[Path] = None) -> dict[str, Any]:
     path = _resolve_db_path(db_path)
     roles = db.list_roles(path)
     return {"статус": "ok", "всего": len(roles), "роли": roles}
+
+
+# === 9. parse_task_description ===
+
+
+def parse_task_description(task_id: str, *, db_path: Optional[Path] = None) -> dict[str, Any]:
+    """Распарсить description задачи на структурированные части.
+
+    Извлекает:
+    - TL;DR (одна строка)
+    - Шаги (## Что делать, ## Steps, и т.д.)
+    - Acceptance criteria (## Acceptance, ## Acceptance Criteria и т.д.)
+    - Варианты ответов (для кнопок)
+    - Исходный markdown (для agent-mode)
+
+    Используется фронтенду для user-friendly отображения задач.
+    """
+    if not task_id:
+        return {"статус": "error", "status": "error", "причина": "task_id пустой", "reason": "task_id пустой"}
+
+    path = _resolve_db_path(db_path)
+    task = db.get_task(path, task_id)
+    if task is None:
+        return {"статус": "not_found", "task_id": task_id}
+
+    description = task.get("description", "")
+    parsed = parser.parse_task_description(description)
+
+    return {
+        "статус": "ok",
+        "parsed": parsed.to_dict(),
+    }

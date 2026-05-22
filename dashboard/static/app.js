@@ -323,8 +323,9 @@
     // TL;DR — крупно и выделено
     if (parsed.tldr) {
       parts.push(`
-        <div class="reader-mode-tldr">
-          <strong>${escapeHtml(parsed.tldr)}</strong>
+        <div class="task-tldr" id="task-tldr-text">
+          <div class="task-tldr-label">${i18n("task.reader.tldr")}</div>
+          <div class="task-tldr-content">${escapeHtml(parsed.tldr)}</div>
         </div>
       `);
     }
@@ -335,9 +336,9 @@
         .map((step) => `<li>${escapeHtml(step)}</li>`)
         .join("");
       parts.push(`
-        <div class="reader-mode-section">
-          <h4>Что делать</h4>
-          <ul class="steps-list">${stepsList}</ul>
+        <div class="task-steps" id="task-steps-list">
+          <div class="task-steps-label">${i18n("task.reader.steps")}</div>
+          <ul class="task-steps-ul">${stepsList}</ul>
         </div>
       `);
     }
@@ -347,16 +348,13 @@
       const checkboxes = parsed.acceptance
         .map((item) => {
           const checked = item.checked ? "checked" : "";
-          return `<div class="acceptance-item">
-            <input type="checkbox" disabled ${checked}>
-            <span>${escapeHtml(item.label)}</span>
-          </div>`;
+          return `<li><label><input type="checkbox" ${checked}> ${escapeHtml(item.label)}</label></li>`;
         })
         .join("");
       parts.push(`
-        <div class="reader-mode-section">
-          <h4>Acceptance</h4>
-          <div class="acceptance-list">${checkboxes}</div>
+        <div class="task-acceptance" id="task-acceptance-list">
+          <div class="task-acceptance-label">${i18n("task.reader.acceptance")}</div>
+          <ul class="task-accept-ul">${checkboxes}</ul>
         </div>
       `);
     }
@@ -372,20 +370,18 @@
         .join("");
       parts.push(`
         <div class="reader-mode-section">
-          <h4>Варианты</h4>
+          <div class="task-steps-label">${i18n("task.reader.options") || "Варианты"}</div>
           <div class="options-buttons">${optionsBtns}</div>
         </div>
       `);
     }
 
-    // Кнопка раскрыть полный текст
-    if (parsed.raw_markdown) {
-      parts.push(`
-        <button type="button" class="tech-details-btn" id="btn-show-agent-mode">
-          Технические детали
-        </button>
-      `);
-    }
+    // Кнопка раскрыть технические детали (raw)
+    parts.push(`
+      <button type="button" class="btn-toggle-raw" id="btn-toggle-raw">
+        ${i18n("task.reader.show_raw")}
+      </button>
+    `);
 
     return parts.length > 0 ? `<div class="reader-mode">${parts.join("")}</div>` : null;
   }
@@ -396,10 +392,8 @@
       return null;
     }
     return `
-      <div class="agent-mode" hidden>
-        <h4>Raw Markdown</h4>
-        <pre class="raw-markdown">${escapeHtml(parsed.raw_markdown)}</pre>
-        <button type="button" id="btn-hide-agent-mode">Скрыть</button>
+      <div id="task-raw-description" class="task-description-raw" style="display:none">
+        ${escapeHtml(parsed.raw_markdown)}
       </div>
     `;
   }
@@ -658,11 +652,26 @@
     }
   }
 
-  // Reader mode: переключение между user-mode и agent-mode
+  // Reader mode: переключение между user-mode и raw-mode (S5.5)
   function bindReaderMode(parsed) {
     if (!parsed) return;
 
     const root = $("#modal-task-body");
+
+    // Toggle raw (S5.5) — кнопка «Технические детали ↓» / «↑ Свернуть»
+    const btnToggleRaw = root.querySelector("#btn-toggle-raw");
+    const rawEl = root.querySelector("#task-raw-description");
+    if (btnToggleRaw && rawEl) {
+      btnToggleRaw.addEventListener("click", () => {
+        const isVisible = rawEl.style.display !== "none";
+        rawEl.style.display = isVisible ? "none" : "block";
+        btnToggleRaw.textContent = isVisible
+          ? i18n("task.reader.show_raw")
+          : i18n("task.reader.hide_raw");
+      });
+    }
+
+    // Совместимость: старые кнопки show/hide agent-mode
     const btnShowAgent = root.querySelector("#btn-show-agent-mode");
     const btnHideAgent = root.querySelector("#btn-hide-agent-mode");
     const readerMode = root.querySelector(".reader-mode");

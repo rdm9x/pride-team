@@ -220,6 +220,16 @@ def chat_post(author: str, text: str) -> dict[str, Any]:
     return tools.chat_post(author, text)
 
 
+@mcp.tool()
+def parse_task_description(task_id: str) -> dict[str, Any]:
+    """Распарсить description задачи на структурированные части (TL;DR, шаги, acceptance).
+
+    Используется фронтенду для красивого отображения задач в user-mode.
+    Возвращает структурированный JSON с частями + исходный markdown для agent-mode.
+    """
+    return tools.parse_task_description(task_id)
+
+
 def main() -> None:
     log.info("pride-tasks MCP-сервер стартует (stdio)")
     mcp.run()

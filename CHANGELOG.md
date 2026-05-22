@@ -5,6 +5,14 @@ All notable changes to **devboard** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] / v2.0-alpha.1 (departments backend)
+
+### Added
+
+- **Departments data model** (S8.1, ADR-003): new `departments` table in SQLite; `department_id` column added to `tasks`, `roles`, `chat_messages`; `ensure_dev_department()` migrates all existing data to the default `dev` department; `scripts/migrate_v2_departments.py` with idempotent run and `--rollback` support.
+- **MCP-tools: department support** (S8.2): `create_task`, `list_tasks`, `chat_post`, `chat_recent` accept optional `department_id` (default `'dev'`); three new tools — `list_departments`, `get_department`, `create_department`.
+- **REST API: /api/departments** (S8.3): `GET /api/departments`, `GET /api/departments/<id>`, `POST /api/departments`, `PATCH /api/departments/<id>/archive`; `GET /api/tasks` and `GET /api/chat` now accept `?department=<id>` with backward-compatible fallback to `'dev'`.
+
 ## [Unreleased] / v1.6 (local)
 
 ### Fixed

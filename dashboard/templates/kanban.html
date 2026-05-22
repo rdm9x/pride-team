@@ -218,6 +218,9 @@
         <p class="muted"><span data-i18n="settings.backups.intro">Делаются раз в час пока работает дашборд. Хранятся 7 дней. Папка: </span><code>data/backups/</code></p>
         <h3 data-i18n="settings.tg.title">Telegram-алерты</h3>
         <p class="muted" id="tg-status" data-i18n="settings.tg.status_unknown">Состояние неизвестно.</p>
+        <h3 data-i18n="settings.onboarding.title">Onboarding</h3>
+        <p class="muted" data-i18n="settings.onboarding.desc">Replay the quick-start tour.</p>
+        <button id="btn-replay-tour" class="btn btn-secondary" data-i18n="settings.onboarding.replay">Replay tour</button>
       </div>
     </section>
 
@@ -406,7 +409,7 @@
         </label>
         <label>
           <span data-i18n="roles.field.model">Модель</span>
-          <input name="model" id="role-field-model" placeholder="claude-sonnet-4-5" maxlength="80">
+          <input name="model" id="role-field-model" placeholder="claude-sonnet-4-6" maxlength="80">
         </label>
         <label>
           <span data-i18n="roles.field.temperature">Temperature</span>

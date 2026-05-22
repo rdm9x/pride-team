@@ -195,6 +195,11 @@
     "tg": {
       "title": "Telegram alerts",
       "status_unknown": "Status unknown."
+    },
+    "onboarding": {
+      "title": "Onboarding",
+      "desc": "Replay the quick-start tour.",
+      "replay": "Replay tour"
     }
   },
   "usage": {

@@ -542,6 +542,13 @@
   );
   $("#search").addEventListener("input", () => refresh());
 
+  // ===================== Settings: Replay tour =====================
+  document.getElementById('btn-replay-tour')?.addEventListener('click', () => {
+    if (window.PrideTour) {
+      window.PrideTour.reset();
+    }
+  });
+
   // ===================== Team controls =====================
   async function refreshTeamStatus() {
     const r = await fetch("/api/team/status");

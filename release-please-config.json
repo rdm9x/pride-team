@@ -1,0 +1,33 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "simple",
+  "include-component-in-tag": false,
+  "include-v-in-tag": true,
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": false,
+  "changelog-path": "CHANGELOG.md",
+  "changelog-type": "default",
+  "draft": false,
+  "prerelease": false,
+  "packages": {
+    ".": {
+      "package-name": "pride-team",
+      "changelog-path": "CHANGELOG.md",
+      "release-type": "simple",
+      "extra-files": []
+    }
+  },
+  "changelog-sections": [
+    { "type": "feat",     "section": "Added",   "hidden": false },
+    { "type": "fix",      "section": "Fixed",   "hidden": false },
+    { "type": "perf",     "section": "Changed", "hidden": false },
+    { "type": "refactor", "section": "Changed", "hidden": false },
+    { "type": "revert",   "section": "Changed", "hidden": false },
+    { "type": "docs",     "section": "Changed", "hidden": true  },
+    { "type": "style",    "section": "Changed", "hidden": true  },
+    { "type": "chore",    "section": "Changed", "hidden": true  },
+    { "type": "test",     "section": "Changed", "hidden": true  },
+    { "type": "build",    "section": "Changed", "hidden": true  },
+    { "type": "ci",       "section": "Changed", "hidden": true  }
+  ]
+}

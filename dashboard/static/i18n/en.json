@@ -1,0 +1,367 @@
+{
+  "onboarding": {
+    "tour": {
+      "skip": "Skip",
+      "prev": "Back",
+      "next": "Next",
+      "finish": "Done",
+      "step1": {
+        "title": "Hi! Meet your AI team",
+        "body": "Seven roles — team-lead, backend, frontend, QA, architect, DevOps, tech-writer — collaborate on tasks as a single team. A quick minute to show you how it works."
+      },
+      "step2": {
+        "title": "Create tasks here",
+        "body": "Click «+ New task», describe what needs doing. The team-lead will break it down and delegate."
+      },
+      "step3": {
+        "title": "Roles live in roles/*.md",
+        "body": "Each role has its own system prompt under roles/. Want to tweak behaviour? Edit that role's markdown file."
+      },
+      "step4": {
+        "title": "Launch the team-lead — they'll dispatch work",
+        "body": "«▶ Start team» — the team-lead reads the board, picks the next task and starts delegating. «⏹ Stop» ends the session."
+      },
+      "step5": {
+        "title": "The board updates in real time",
+        "body": "The «In progress» column lights up as soon as the team picks up work. No refresh needed. You're set!"
+      }
+    }
+  },
+  "common": {
+    "cancel": "Cancel",
+    "ok": "OK",
+    "save": "Save",
+    "create": "Create",
+    "add": "Add",
+    "none_dash": "— none —"
+  },
+  "page": {
+    "title": "pride-team · small team"
+  },
+  "nav": {
+    "brand": "Praid",
+    "inbox": "Inbox",
+    "board": "Board",
+    "archive": "Archive",
+    "settings": "Status",
+    "roles": "Roles",
+    "roles_title": "Manage roles"
+  },
+  "sidebar": {
+    "team": "Team",
+    "role": {
+      "teamlead": "team-lead",
+      "backend": "backend",
+      "qa": "qa",
+      "architect": "architect",
+      "frontend": "frontend",
+      "devops": "devops",
+      "tech_writer": "tech-writer"
+    }
+  },
+  "topbar": {
+    "new_task": "+ New task",
+    "search_placeholder": "Search by title…",
+    "theme_aria": "Theme",
+    "theme_light": "Light theme",
+    "theme_dark": "Dark theme",
+    "auto_label": "🤖 Auto",
+    "auto_title": "Auto mode: the team-lead starts the next session on their own when there's work",
+    "btn_start": "▶ Start team",
+    "btn_stop": "⏹ Stop",
+    "locale_aria": "Interface language",
+    "locale": {
+      "ru_title": "Russian",
+      "en_title": "English"
+    }
+  },
+  "team": {
+    "status": {
+      "stopped": "⏸ Stopped",
+      "running": "🟢 Running",
+      "auto_paused": "⏳ Auto-paused"
+    },
+    "auto": {
+      "enabled": "Auto mode on. Last hour: {n} sessions",
+      "paused": "Auto mode on. Paused now: {reason}. Last hour: {n}"
+    },
+    "silence": {
+      "title": "Team-lead ended the session but left no summary",
+      "label": "team-lead is silent"
+    },
+    "router": {
+      "title": "Model the router will pick",
+      "tooltip": "Auto model router.\nPick: {alias}\n{reason}\nTasks: {total} (arch {arch}, trivial {triv}, epics {epics})"
+    },
+    "start_failed": "Could not start: "
+  },
+  "kanban": {
+    "title": "Board",
+    "show_empty": "show empty columns",
+    "column": {
+      "todo": "To do",
+      "todo_title": "Tasks not picked up yet",
+      "wip": "In progress",
+      "wip_title": "What the team is working on now",
+      "needs_approval": "Needs approval",
+      "needs_approval_title": "Waiting for your approval",
+      "review": "Review",
+      "review_title": "Team finished, waiting for your sign-off",
+      "done": "Done",
+      "done_title": "Closed tasks (older than 7 days go to Archive)"
+    },
+    "col_empty": "empty — drop a card here",
+    "move_failed": "Could not move: ",
+    "card": {
+      "ago_suffix": "ago",
+      "has_deps": "has dependencies",
+      "age": {
+        "sec": "s",
+        "min": "m",
+        "hour": "h",
+        "day": "d"
+      }
+    },
+    "empty": {
+      "todo": "No tasks yet — create the first one",
+      "wip": "Nobody's working — assign a task",
+      "review": "Review queue is empty — work is done",
+      "done": "Nothing closed yet — keep going",
+      "cta": {
+        "create_task": "+ Create task"
+      }
+    }
+  },
+  "status": {
+    "todo": "To do",
+    "wip": "In progress",
+    "needs_approval": "Needs approval",
+    "review": "Review",
+    "done": "Done",
+    "blocked": "Blocked"
+  },
+  "inbox": {
+    "title": "Your desk",
+    "total": {
+      "zero": "0 tasks need you",
+      "empty": "nothing needs you right now",
+      "count": "{n} tasks need you"
+    },
+    "group": {
+      "approvals": "Needs approval",
+      "reviews": "Accept work",
+      "questions": "Team questions"
+    },
+    "notify": {
+      "approvals": "⚠ Needs approval",
+      "reviews": "📋 Accept work",
+      "questions": "💬 Team question"
+    },
+    "empty_hint": "empty",
+    "from_prefix": "from ",
+    "action": {
+      "approve": "✓ Approve",
+      "reject": "✗ Reject",
+      "accept": "✓ Accept",
+      "rework": "↻ Rework",
+      "reply": "Reply",
+      "open": "Open"
+    },
+    "reply": {
+      "title": "Reply to «{title}»",
+      "placeholder": "What do you want to tell the team…"
+    },
+    "reject": {
+      "title": "Reason for rejection (optional)",
+      "placeholder": "You can leave it blank…"
+    },
+    "rework": {
+      "title": "What to rework?",
+      "placeholder": "Describe what's off and what to change…"
+    }
+  },
+  "archive": {
+    "title": "Archive",
+    "hint": "Closed tasks older than 7 days",
+    "empty": "Archive is empty. Closed tasks land here after 7 days."
+  },
+  "settings": {
+    "title": "System status",
+    "intro": "Summary of subscription, models, database and backups.",
+    "backups": {
+      "title": "DB backups",
+      "intro": "Taken hourly while the dashboard is running. Kept for 7 days. Folder: "
+    },
+    "tg": {
+      "title": "Telegram alerts",
+      "status_unknown": "Status unknown."
+    }
+  },
+  "usage": {
+    "title": "Claude subscription usage",
+    "badge": {
+      "title": "Subscription usage. Click for details",
+      "empty": "— sessions",
+      "short": "{n} turns · ${cost}"
+    },
+    "table": {
+      "window": "Window",
+      "sessions": "Sessions",
+      "turns": "Turns",
+      "cost": "~Cost"
+    },
+    "row": {
+      "last5h": "Last 5 hours",
+      "today": "Today (since 00:00)",
+      "last24h": "Last 24 hours",
+      "total": "All time"
+    },
+    "models": {
+      "title": "Models",
+      "unit_sessions": "sessions",
+      "unit_turns": "turns",
+      "empty": "empty so far"
+    },
+    "note": {
+      "line1": "<code>Session</code> — one team-lead run. <code>Turn</code> — a prompt→reply pair (subscription limits count these). <code>Input</code> includes cache reads.",
+      "line2": "Reference: Pro ≈45 turns/5h · Max 5x ≈225 · Max 20x ≈900."
+    }
+  },
+  "live": {
+    "title": "Team-lead live output",
+    "hint": "while the team is working — events stream here",
+    "mode_aria": "Live output mode",
+    "mode": {
+      "human_title": "Human-readable only: what the team-lead thinks and does",
+      "raw_title": "Full stream-json + every tool call"
+    }
+  },
+  "chat": {
+    "title": "Chat with team-lead",
+    "collapse_title": "Collapse chat",
+    "expand_title": "Expand chat",
+    "rail_label": "Chat",
+    "placeholder": "Ask the team-lead…",
+    "empty": "nothing yet. Drop a message — the team-lead will see it on the next run.",
+    "send_failed": "Could not send: "
+  },
+  "modal": {
+    "confirm": {
+      "title": "Confirm action"
+    },
+    "new": {
+      "title": "New task",
+      "field": {
+        "title": "Title",
+        "description": "Description",
+        "priority": "Priority",
+        "assignee": "Assignee"
+      },
+      "description_placeholder": "**TL;DR**: one-line summary\n\nDetails:\n..."
+    },
+    "assignee": {
+      "teamlead": "team-lead",
+      "backend": "backend",
+      "architect": "architect",
+      "tech_writer": "tech-writer"
+    },
+    "task": {
+      "delete_confirm": "Delete task «{title}»?",
+      "save_failed": "Could not save: ",
+      "dep_failed": "Could not do it: ",
+      "create_failed": "Error: "
+    }
+  },
+  "roles": {
+    "title": "Roles",
+    "addRole": "+ New role",
+    "addRoleTitle": "Add new role",
+    "loading": "Loading…",
+    "empty": "No roles yet — create the first one with «+ New role».",
+    "modalTitle": {
+      "new": "New role",
+      "edit": "Edit role"
+    },
+    "field": {
+      "name": "Name (slug)",
+      "nameHint": "Lowercase a–z, 0–9, hyphens only. Must start with a letter.",
+      "description": "Description",
+      "llm": "LLM provider",
+      "model": "Model",
+      "temperature": "Temperature",
+      "maxTokens": "Max tokens",
+      "systemPrompt": "System prompt"
+    },
+    "col": {
+      "name": "Name",
+      "description": "Description",
+      "llm": "LLM",
+      "model": "Model",
+      "actions": "Actions"
+    },
+    "btn": {
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "confirm": {
+      "delete": "Delete role «{name}»?"
+    },
+    "error": {
+      "saveFailed": "Error: ",
+      "deleteFailed": "Could not delete: "
+    }
+  },
+  "task": {
+    "meta": {
+      "unassigned": "unassigned",
+      "edit_title": "Edit fields",
+      "edit_btn": "✎ Edit",
+      "created_updated": "created {created} · updated {updated}"
+    },
+    "section": {
+      "description": "Description",
+      "edit": "Editing",
+      "deps": "Dependencies",
+      "subtasks": "Subtasks ({n})",
+      "result": "Team result",
+      "history": "History"
+    },
+    "field": {
+      "assignee": "Assignee",
+      "status": "Status"
+    },
+    "deps": {
+      "blocked_by": "Blocked by:",
+      "blocking": "Blocking:",
+      "none": "none",
+      "add_placeholder": "id of blocking task (e.g. abc123)",
+      "add_btn": "+ Dependency"
+    },
+    "subtasks": {
+      "none": "no subtasks",
+      "no_assignee": "—"
+    },
+    "result": {
+      "none": "empty so far"
+    },
+    "history": {
+      "quiet": "quiet so far…"
+    },
+    "comment": {
+      "placeholder": "comment from Dmitry…"
+    },
+    "btn": {
+      "claim": "Take it",
+      "delete": "Delete",
+      "send_review": "Send to review",
+      "block": "Block",
+      "back_to_queue": "Back to queue",
+      "approve": "✓ Approve",
+      "reject": "✗ Reject",
+      "accept": "✓ Accept",
+      "rework": "↻ Rework",
+      "reopen": "Reopen",
+      "unblock": "Unblock"
+    }
+  }
+}

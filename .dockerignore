@@ -1,0 +1,74 @@
+# VCS
+.git
+.gitignore
+.github
+
+# Python build/cache artefacts
+**/__pycache__
+**/*.py[cod]
+**/*.egg-info
+.pytest_cache
+**/.pytest_cache
+
+# Venv'ы и установки (создаются заново внутри образа)
+**/.venv
+.venv
+
+# Coverage
+.coverage
+.coverage.*
+coverage.xml
+htmlcov
+**/htmlcov
+
+# Локальная БД и логи (создаются в рантайме на volume)
+data/*.db
+data/*.db.lock
+data/*.log
+data/*.pid
+data/backups
+
+# Тесты и smoke (не нужны в проде)
+tests/
+**/tests/
+smoke/
+
+# Документация (раздувает образ)
+docs/
+README*.md
+ARCHITECTURE.md
+CHANGELOG.md
+CONTRIBUTING.md
+LICENSE
+NOTICE
+approval_gates.md
+детали_дашборда.md
+КОНЦЕПТ.md
+НАЧНИ_ЗДЕСЬ.md
+ПРОМТ*.md
+
+# Локальные хелперы (не нужны в контейнере)
+*.command
+*.bat
+calculator.html
+
+# Артефакты сборки / архивы
+*.zip
+*.tar.gz
+dist/
+build/
+
+# MCP-конфиг с абсолютными путями хоста
+.mcp.json
+
+# OS junk
+.DS_Store
+**/.DS_Store
+
+# IDE
+.idea
+.vscode
+
+# Docker-инфраструктура (избегаем рекурсии)
+Dockerfile
+.dockerignore

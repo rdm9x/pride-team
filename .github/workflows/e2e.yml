@@ -1,0 +1,46 @@
+name: e2e
+
+# Playwright-сюита — отдельный workflow от основного CI.
+# Запускаем только на main и по ручному триггеру: e2e в десятки раз
+# медленнее unit-тестов (chromium-install + Flask-startup), не стоит блокировать
+# каждый PR.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+          pip install -r дашборд/pyproject.toml || true
+          pip install -r mcp_сервер/pyproject.toml || true
+
+      - name: Install Playwright browsers
+        run: python -m playwright install --with-deps chromium
+
+      - name: Run e2e tests
+        run: pytest tests/e2e/ -v --tb=short
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          if-no-files-found: ignore

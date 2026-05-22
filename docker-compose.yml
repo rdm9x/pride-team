@@ -1,0 +1,38 @@
+# docker-compose.yml — pride-team
+#
+# Single-service local/VPS deployment. Wraps the production Dockerfile
+# (multi-stage, non-root, healthcheck на /healthz, EXPOSE 5000).
+#
+# Использование:
+#   cp .env.example .env
+#   # отредактируй .env (минимум ANTHROPIC_API_KEY)
+#   docker compose up -d
+#   open http://localhost:5000
+#
+# Данные SQLite (data/tasks.db) сохраняются на хосте через bind-mount ./data.
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pride-team:latest
+    container_name: pride-team
+    ports:
+      - "5000:5000"
+    volumes:
+      # БД и runtime-артефакты переживают пересоздание контейнера.
+      # Контейнер пишет от non-root pride (UID 1000) — на хосте каталог
+      # должен принадлежать UID 1000 (см. DEPLOYMENT.md §9, troubleshooting).
+      - ./data:/app/data
+    env_file:
+      - .env
+    restart: unless-stopped
+    # Дублируем HEALTHCHECK из Dockerfile, чтобы compose ps показывал health
+    # сразу, даже если образ собран без HEALTHCHECK-директивы (e.g. devbuild).
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:5000/healthz"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3

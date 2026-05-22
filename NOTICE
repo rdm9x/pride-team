@@ -1,0 +1,8 @@
+pride-team
+Copyright (c) 2026 Dmitry Rudich
+
+This product uses Anthropic Claude (via the `claude` CLI) as its underlying
+large language model. See Anthropic's Acceptable Use Policy:
+https://www.anthropic.com/legal/aup
+
+Third-party components are distributed under their respective licenses.

@@ -1,0 +1,28 @@
+[project]
+name = "pride-team-dashboard"
+version = "0.1.0"
+description = "Flask-дашборд малой команды pride-team. Канбан + кнопка запуска тимлида."
+requires-python = ">=3.11"
+dependencies = [
+    "flask>=3.0",
+    "pride-tasks",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+]
+
+[tool.uv.sources]
+pride-tasks = { path = "../mcp_сервер", editable = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["dashboard"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

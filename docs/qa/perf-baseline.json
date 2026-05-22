@@ -1,0 +1,68 @@
+{
+  "env": {
+    "python": "3.13.11",
+    "sqlite_lib": "3.51.0",
+    "sqlite_module": "2.6.0",
+    "os": "Darwin 25.5.0 (arm64)",
+    "cpu": "Apple M3",
+    "ram": "8 GB"
+  },
+  "load": {
+    "tasks": 1000,
+    "chat_messages": 5000,
+    "db_size_mb": 1.33
+  },
+  "results": [
+    {
+      "endpoint": "list_tasks",
+      "sla_ms": 200.0,
+      "verdict": "PASS",
+      "label": "list_tasks(limit=50)",
+      "n": 100,
+      "min_ms": 0.6449170032283291,
+      "max_ms": 5.589042004430667,
+      "mean_ms": 0.7529046396666672,
+      "p50_ms": 0.7003335049375892,
+      "p95_ms": 0.7599292068334762,
+      "p99_ms": 0.8258213427325245
+    },
+    {
+      "endpoint": "get_task",
+      "sla_ms": 100.0,
+      "verdict": "PASS",
+      "label": "get_task(random, with_history=True)",
+      "n": 100,
+      "min_ms": 0.5466669972520322,
+      "max_ms": 1.015166999422945,
+      "mean_ms": 0.6117537895624992,
+      "p50_ms": 0.5962920113233849,
+      "p95_ms": 0.6971089474973269,
+      "p99_ms": 0.731655751587823
+    },
+    {
+      "endpoint": "chat_recent",
+      "sla_ms": 100.0,
+      "verdict": "PASS",
+      "label": "chat_recent(limit=50)",
+      "n": 100,
+      "min_ms": 0.31679200765211135,
+      "max_ms": 0.8165420003933832,
+      "mean_ms": 0.3574971010675654,
+      "p50_ms": 0.3417709958739579,
+      "p95_ms": 0.4088294597750064,
+      "p99_ms": 0.4393104327027686
+    }
+  ],
+  "extras": {
+    "chat_post_plus_recent": {
+      "label": "chat_post + chat_recent(limit=50)",
+      "n": 100,
+      "min_ms": 0.9398330003023148,
+      "max_ms": 1.280415992368944,
+      "mean_ms": 1.0240391388651915,
+      "p50_ms": 1.011687498248648,
+      "p95_ms": 1.1367020466423128,
+      "p99_ms": 1.180963569204323
+    }
+  }
+}

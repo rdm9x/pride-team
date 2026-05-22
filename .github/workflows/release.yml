@@ -1,0 +1,49 @@
+name: release
+
+# Авто-релизы через release-please.
+#
+# Как это работает:
+#   1. На каждый push в main release-please смотрит коммиты с последнего тега.
+#   2. Если есть feat:/fix:/BREAKING — открывает/обновляет release-PR:
+#      "chore(main): release X.Y.Z". В нём — bump version.txt и обновлённый
+#      CHANGELOG.md (секция [Unreleased] заменяется на [X.Y.Z] - YYYY-MM-DD).
+#   3. Когда maintainer мержит release-PR — action создаёт annotated git tag
+#      vX.Y.Z и GitHub Release с телом из CHANGELOG.
+#
+# Почему release-please, а не semantic-release:
+#   - semantic-release требует package.json (это node-based tool), а проект
+#     чисто Python без top-level pyproject.toml.
+#   - release-please официально поддерживается Google, нативно умеет в
+#     Keep a Changelog формат, и режим "simple" (version.txt) не требует
+#     никаких build-инструментов.
+#   - PR-based flow даёт человеческий approval-gate перед каждым тегом,
+#     что соответствует подходу проекта (approval_gates.md).
+
+on:
+  push:
+    branches: [main]
+  # Ручной триггер — удобно, если хочется форсировать пересборку release-PR
+  # после правки .release-please-manifest.json или конфига.
+  workflow_dispatch:
+
+permissions:
+  contents: write        # создать тег + GitHub Release
+  pull-requests: write   # открыть и обновлять release-PR
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          # Конфиги вынесены в корень репо — release-please-config.json
+          # описывает release-type и пути к CHANGELOG, manifest хранит
+          # текущую версию пакетов. См. документацию:
+          # https://github.com/googleapis/release-please/blob/main/docs/manifest-releaser.md
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          # GITHUB_TOKEN с permissions выше достаточен для public-репо.
+          # Для приватного репо или если потребуется триггерить downstream
+          # workflows на push тега — заменить на PAT с repo scope.
+          token: ${{ secrets.GITHUB_TOKEN }}

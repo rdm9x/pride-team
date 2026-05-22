@@ -1,0 +1,19 @@
+# Dev-зависимости для прогона тестов и coverage обоих подпроектов.
+# Установка через uv:
+#   cd mcp_сервер && uv pip install -r ../requirements-dev.txt
+#   cd дашборд   && uv pip install -r ../requirements-dev.txt
+# (рабочие зависимости приходят из pyproject.toml каждого подпроекта).
+pytest>=8
+pytest-cov>=5
+coverage>=7
+ruff
+
+# E6.4: OpenAIProvider тестируется без сети (моки openai SDK),
+# но сам SDK должен импортироваться при прогоне тестов.
+openai>=1.0.0
+
+# E2E (tests/e2e/, см. README в каталоге):
+#   pip install -r requirements-dev.txt
+#   playwright install chromium
+playwright>=1.40
+pytest-playwright>=0.5

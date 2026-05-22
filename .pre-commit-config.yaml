@@ -1,0 +1,69 @@
+# Pre-commit hooks для pride-team.
+#
+# Установка для разработчика:
+#   pip install pre-commit
+#   pre-commit install
+#
+# Ручной прогон по всему репо:
+#   pre-commit run --all-files
+#
+# CI (E5.3): тот же `pre-commit run --all-files` в GitHub Actions.
+#
+# Ruff-конфиги живут per-package в `mcp_сервер/pyproject.toml` и
+# `дашборд/pyproject.toml` (line-length = 100, target = py311). Хуки
+# подхватывают ближайший pyproject.toml автоматически.
+
+minimum_pre_commit_version: "3.5.0"
+
+# Папки/файлы, которые хуки игнорируют для всего конфига.
+# Синхронизировано с .gitignore + .dockerignore.
+exclude: |
+  (?x)^(
+      \.venv/.*
+    | htmlcov/.*
+    | \.pytest_cache/.*
+    | data/.*
+    | .*\.egg-info/.*
+    | __pycache__/.*
+  )$
+
+repos:
+  # --- Базовая гигиена файлов ---------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: check-yaml
+        # Разрешаем многодокументные YAML (k8s-style), хотя сейчас не используем.
+        args: [--allow-multiple-documents]
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        # Rule of thumb для OSS-репо: 500 KB. Большие артефакты — через LFS / релизы.
+        args: [--maxkb=500]
+
+  # --- Python lint + format ----------------------------------------------
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.7.4
+    hooks:
+      - id: ruff
+        name: ruff check (--fix)
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+        name: ruff format
+
+  # --- Типизация (опционально) -------------------------------------------
+  # mypy выключен до появления согласованного top-level mypy.ini / pyproject
+  # с [tool.mypy]. Включить — снять комментарий и добавить нужные
+  # additional_dependencies (pydantic, flask-stubs, mcp и т.д.).
+  #
+  # - repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: v1.13.0
+  #   hooks:
+  #     - id: mypy
+  #       files: ^(mcp_сервер|дашборд|llm)/
+  #       additional_dependencies:
+  #         - pydantic>=2.5
+  #         - mcp>=1.0.0

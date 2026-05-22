@@ -1,0 +1,8 @@
+# Runtime-зависимости pride-team для Docker-сборки.
+# Источник: дашборд/pyproject.toml + mcp_сервер/pyproject.toml.
+# Dev-deps (pytest, ruff, coverage) — см. requirements-dev.txt, в образ НЕ кладём.
+
+flask>=3.0
+mcp>=1.0.0
+openai>=1.0.0
+pydantic>=2.5

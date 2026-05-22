@@ -1190,7 +1190,17 @@
     if (btnResetTour) {
       btnResetTour.addEventListener("click", () => {
         localStorage.removeItem("onboarding_completed");
+        localStorage.removeItem("onboarding_completed_at");
         alert(i18n("settings.danger.reset_tour_done"));
+      });
+    }
+
+    // Danger zone: restart wizard
+    const btnResetWizard = $("#btn-reset-wizard");
+    if (btnResetWizard) {
+      btnResetWizard.addEventListener("click", () => {
+        localStorage.removeItem("first_run_done");
+        location.reload();
       });
     }
 
@@ -1947,6 +1957,230 @@
     if (currentView === "settings") loadSettings();
     if (currentView === "archive") loadArchive();
   });
+
+  // ===================== First-run wizard =====================
+
+  (function () {
+    const WIZARD_DONE_KEY = "first_run_done";
+    let _wizardStep = 1;
+    const WIZARD_STEPS = 4;
+
+    // Pending selections before saving (saved per step)
+    let _wizardUILocale = localStorage.getItem("locale") || "ru";
+    let _wizardOutputLocale = localStorage.getItem("output_locale") || _wizardUILocale;
+    let _wizardExpertise = localStorage.getItem("user_expertise") || "non-tech";
+    let _wizardTheme = localStorage.getItem("devboard-theme") || "dark";
+
+    function wizardEl(id) { return document.getElementById(id); }
+
+    function goToWizardStep(n) {
+      _wizardStep = Math.max(1, Math.min(WIZARD_STEPS, n));
+      // Show/hide steps
+      document.querySelectorAll(".wizard-step").forEach((s) => {
+        s.classList.toggle("active", parseInt(s.dataset.step, 10) === _wizardStep);
+      });
+      // Update dots
+      document.querySelectorAll(".wizard-dot").forEach((d) => {
+        d.classList.toggle("active", parseInt(d.dataset.dot, 10) <= _wizardStep);
+      });
+      // Update progress bar
+      const bar = wizardEl("wizard-progress-bar");
+      if (bar) bar.style.width = ((_wizardStep / WIZARD_STEPS) * 100) + "%";
+      // Update progress bar aria
+      const prog = document.querySelector(".wizard-progress");
+      if (prog) prog.setAttribute("aria-valuenow", _wizardStep);
+      // Nav buttons
+      const prevBtn = wizardEl("wizard-prev");
+      const nextBtn = wizardEl("wizard-next");
+      const nav = wizardEl("wizard-nav");
+      if (prevBtn) prevBtn.hidden = _wizardStep === 1;
+      if (_wizardStep < WIZARD_STEPS) {
+        if (nav) nav.hidden = false;
+        if (nextBtn) nextBtn.hidden = false;
+      } else {
+        // Step 4 — Done: hide main nav, show inline buttons
+        if (nav) nav.hidden = true;
+      }
+      // Step-specific sync
+      if (_wizardStep === 1) syncWizardLangUI();
+      if (_wizardStep === 2) syncWizardExpertiseUI();
+      if (_wizardStep === 3) syncWizardThemeUI();
+      // Accessibility: focus title
+      const title = document.querySelector(".wizard-step.active .wizard-title");
+      if (title) setTimeout(() => title.focus(), 50);
+    }
+
+    function syncWizardLangUI() {
+      // UI locale
+      document.querySelectorAll("[data-wizard-ui-locale]").forEach((b) => {
+        const active = b.dataset.wizardUiLocale === _wizardUILocale;
+        b.classList.toggle("active", active);
+        b.setAttribute("aria-pressed", String(active));
+      });
+      // Output locale
+      document.querySelectorAll("[data-wizard-output-locale]").forEach((b) => {
+        const active = b.dataset.wizardOutputLocale === _wizardOutputLocale;
+        b.classList.toggle("active", active);
+        b.setAttribute("aria-pressed", String(active));
+      });
+    }
+
+    function syncWizardExpertiseUI() {
+      document.querySelectorAll(".wizard-expertise-card").forEach((card) => {
+        card.classList.toggle("active", card.dataset.wizardExpertise === _wizardExpertise);
+        const radio = card.querySelector("input[type=radio]");
+        if (radio) radio.checked = card.dataset.wizardExpertise === _wizardExpertise;
+      });
+    }
+
+    function syncWizardThemeUI() {
+      document.querySelectorAll("[data-wizard-theme]").forEach((b) => {
+        const active = b.dataset.wizardTheme === _wizardTheme;
+        b.classList.toggle("active", active);
+        b.setAttribute("aria-pressed", String(active));
+      });
+    }
+
+    function applyWizardSelections() {
+      // Apply UI locale
+      localStorage.setItem("locale", _wizardUILocale);
+      if (typeof window.setLocale === "function") window.setLocale(_wizardUILocale);
+      document.documentElement.setAttribute("lang", _wizardUILocale);
+      // Sync topbar locale switcher
+      document.querySelectorAll(".locale-switcher [data-locale]").forEach((b) => {
+        b.setAttribute("aria-pressed", b.dataset.locale === _wizardUILocale ? "true" : "false");
+      });
+      // Apply output locale
+      localStorage.setItem("output_locale", _wizardOutputLocale);
+      // Apply expertise
+      localStorage.setItem("user_expertise", _wizardExpertise);
+      // Apply theme
+      applyTheme(_wizardTheme);
+      // Sync settings page if open
+      const uiSel = document.getElementById("settings-ui-locale");
+      if (uiSel) uiSel.value = _wizardUILocale;
+      const outSel = document.getElementById("settings-output-locale");
+      if (outSel) outSel.value = _wizardOutputLocale;
+      const expertGroup = document.getElementById("expertise-toggle-group");
+      if (expertGroup) {
+        expertGroup.querySelectorAll(".toggle-btn").forEach((b) =>
+          b.classList.toggle("active", b.dataset.expertise === _wizardExpertise)
+        );
+      }
+    }
+
+    function finishWizard(startTourAfter) {
+      applyWizardSelections();
+      localStorage.setItem(WIZARD_DONE_KEY, "true");
+      const overlay = wizardEl("first-run-wizard");
+      if (overlay) {
+        overlay.style.opacity = "0";
+        overlay.style.transition = "opacity 0.18s ease";
+        setTimeout(() => { overlay.style.display = "none"; }, 200);
+      }
+      if (startTourAfter) {
+        // Give i18n a moment to settle after locale change
+        setTimeout(() => {
+          if (typeof window.startTour === "function") {
+            window.startTour();
+          } else if (window.PrideTour) {
+            window.PrideTour.reset();
+          }
+        }, 300);
+      }
+    }
+
+    function initFirstRunWizard() {
+      if (localStorage.getItem(WIZARD_DONE_KEY) === "true") return;
+      const overlay = wizardEl("first-run-wizard");
+      if (!overlay) return;
+
+      // Show overlay
+      overlay.style.display = "flex";
+      goToWizardStep(1);
+
+      // --- Step 1: Language buttons ---
+      document.querySelectorAll("[data-wizard-ui-locale]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          _wizardUILocale = btn.dataset.wizardUiLocale;
+          // Auto-sync output locale to match
+          _wizardOutputLocale = _wizardUILocale;
+          syncWizardLangUI();
+          // Apply locale immediately so i18n updates
+          if (typeof window.setLocale === "function") window.setLocale(_wizardUILocale);
+          document.documentElement.setAttribute("lang", _wizardUILocale);
+          localStorage.setItem("locale", _wizardUILocale);
+        });
+      });
+      document.querySelectorAll("[data-wizard-output-locale]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          _wizardOutputLocale = btn.dataset.wizardOutputLocale;
+          syncWizardLangUI();
+        });
+      });
+
+      // --- Step 2: Expertise cards ---
+      document.querySelectorAll(".wizard-expertise-card").forEach((card) => {
+        card.addEventListener("click", () => {
+          _wizardExpertise = card.dataset.wizardExpertise;
+          syncWizardExpertiseUI();
+        });
+      });
+
+      // --- Step 3: Theme cards ---
+      document.querySelectorAll("[data-wizard-theme]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          _wizardTheme = btn.dataset.wizardTheme;
+          applyTheme(_wizardTheme);
+          syncWizardThemeUI();
+        });
+      });
+
+      // --- Nav: Next ---
+      const nextBtn = wizardEl("wizard-next");
+      if (nextBtn) {
+        nextBtn.addEventListener("click", () => {
+          if (_wizardStep < WIZARD_STEPS) goToWizardStep(_wizardStep + 1);
+        });
+      }
+
+      // --- Nav: Prev ---
+      const prevBtn = wizardEl("wizard-prev");
+      if (prevBtn) {
+        prevBtn.addEventListener("click", () => {
+          if (_wizardStep > 1) goToWizardStep(_wizardStep - 1);
+        });
+      }
+
+      // --- Step 4: Start tour ---
+      const startTourBtn = wizardEl("wizard-start-tour");
+      if (startTourBtn) {
+        startTourBtn.addEventListener("click", () => finishWizard(true));
+      }
+
+      // --- Step 4: Skip ---
+      const skipBtn = wizardEl("wizard-finish-skip");
+      if (skipBtn) {
+        skipBtn.addEventListener("click", () => finishWizard(false));
+      }
+
+      // --- Keyboard: Escape closes (skips) ---
+      document.addEventListener("keydown", function onWizardKey(e) {
+        if (e.key === "Escape" && localStorage.getItem(WIZARD_DONE_KEY) !== "true") {
+          finishWizard(false);
+          document.removeEventListener("keydown", onWizardKey);
+        }
+      });
+    }
+
+    // Auto-init on DOMContentLoaded (or immediately if DOM ready)
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initFirstRunWizard);
+    } else {
+      // Slight delay to let i18n.js initialize first
+      setTimeout(initFirstRunWizard, 0);
+    }
+  })();
 
   refresh();
   setInterval(refresh, REFRESH_MS);

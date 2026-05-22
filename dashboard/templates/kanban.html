@@ -402,6 +402,43 @@
           </div>
         </div>
 
+        <!-- Section 5: Danger Zone -->
+        <div class="settings-section settings-section-danger">
+          <div class="settings-section-header">
+            <span class="settings-section-icon">⚠</span>
+            <h2 class="settings-section-title" data-i18n="settings.danger.title">Опасная зона</h2>
+          </div>
+          <div class="settings-section-body">
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span data-i18n="settings.danger.reset_tour_label">Сбросить онбординг-тур</span>
+                <span class="settings-row-hint" data-i18n="settings.danger.reset_tour_hint">Тур покажется снова при следующем открытии</span>
+              </div>
+              <div class="settings-row-control">
+                <button id="btn-reset-tour" class="settings-btn settings-btn-danger" data-i18n="settings.danger.reset_tour_btn">Сбросить тур</button>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span data-i18n="settings.danger.reset_wizard_label">Перезапустить онбординг</span>
+                <span class="settings-row-hint" data-i18n="settings.danger.reset_wizard_hint">Визард настройки покажется снова при следующем открытии</span>
+              </div>
+              <div class="settings-row-control">
+                <button id="btn-reset-wizard" class="settings-btn settings-btn-danger" data-i18n="settings.danger.reset_wizard_btn">Перезапустить онбординг</button>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span data-i18n="settings.danger.clear_storage_label">Очистить локальное состояние</span>
+                <span class="settings-row-hint" data-i18n="settings.danger.clear_storage_hint">Удалить все настройки UI из localStorage</span>
+              </div>
+              <div class="settings-row-control">
+                <button id="btn-clear-storage" class="settings-btn settings-btn-danger" data-i18n="settings.danger.clear_storage_btn">Очистить</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div><!-- /.settings-page -->
     </section>
 
@@ -666,6 +703,428 @@
     </div>
   </div>
 </div>
+
+<!-- ============== First-run wizard ============== -->
+<div id="first-run-wizard" class="wizard-overlay" role="dialog" aria-modal="true"
+     aria-labelledby="wizard-title" style="display:none">
+  <div class="wizard-container">
+    <!-- Progress bar -->
+    <div class="wizard-progress" role="progressbar" aria-valuemin="1" aria-valuemax="4" aria-valuenow="1">
+      <div class="wizard-progress-bar" id="wizard-progress-bar"></div>
+    </div>
+
+    <!-- Step indicators -->
+    <div class="wizard-step-dots" aria-hidden="true">
+      <span class="wizard-dot active" data-dot="1"></span>
+      <span class="wizard-dot" data-dot="2"></span>
+      <span class="wizard-dot" data-dot="3"></span>
+      <span class="wizard-dot" data-dot="4"></span>
+    </div>
+
+    <!-- Steps -->
+    <div class="wizard-steps">
+
+      <!-- Step 1: Language -->
+      <div class="wizard-step active" data-step="1">
+        <h2 id="wizard-title" class="wizard-title" data-i18n="wizard.step1.title">Выберите язык интерфейса</h2>
+
+        <div class="wizard-lang-grid">
+          <button type="button" class="wizard-lang-btn active" data-wizard-ui-locale="ru" aria-pressed="true">
+            <span class="wizard-lang-flag">🇷🇺</span>
+            <span class="wizard-lang-name">Русский</span>
+          </button>
+          <button type="button" class="wizard-lang-btn" data-wizard-ui-locale="en" aria-pressed="false">
+            <span class="wizard-lang-flag">🇬🇧</span>
+            <span class="wizard-lang-name">English</span>
+          </button>
+        </div>
+
+        <p class="wizard-sublabel" data-i18n="wizard.step1.subtitle_output">Язык вывода команды</p>
+        <p class="wizard-hint" data-i18n="wizard.step1.output_hint">Рекомендуется: совпадает с языком интерфейса</p>
+
+        <div class="wizard-lang-grid wizard-output-grid">
+          <button type="button" class="wizard-lang-btn active" data-wizard-output-locale="ru" aria-pressed="true">
+            <span class="wizard-lang-flag">🇷🇺</span>
+            <span class="wizard-lang-name">Русский</span>
+          </button>
+          <button type="button" class="wizard-lang-btn" data-wizard-output-locale="en" aria-pressed="false">
+            <span class="wizard-lang-flag">🇬🇧</span>
+            <span class="wizard-lang-name">English</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 2: Expertise -->
+      <div class="wizard-step" data-step="2">
+        <h2 class="wizard-title" data-i18n="wizard.step2.title">Расскажите о себе</h2>
+
+        <div class="wizard-expertise-grid" role="radiogroup" aria-label="Expertise">
+          <label class="wizard-expertise-card" data-wizard-expertise="tech">
+            <input type="radio" name="wizard-expertise" value="tech" class="sr-only">
+            <div class="wizard-expertise-inner">
+              <span class="wizard-expertise-ico">💻</span>
+              <div>
+                <div class="wizard-expertise-label" data-i18n="wizard.step2.tech_label">Я разработчик</div>
+                <div class="wizard-expertise-hint" data-i18n="wizard.step2.tech_hint">Технические детали, полные логи, имена инструментов</div>
+              </div>
+            </div>
+          </label>
+          <label class="wizard-expertise-card active" data-wizard-expertise="non-tech">
+            <input type="radio" name="wizard-expertise" value="non-tech" checked class="sr-only">
+            <div class="wizard-expertise-inner">
+              <span class="wizard-expertise-ico">🙋</span>
+              <div>
+                <div class="wizard-expertise-label" data-i18n="wizard.step2.nontech_label">Я не разработчик (рекомендуется)</div>
+                <div class="wizard-expertise-hint" data-i18n="wizard.step2.nontech_hint">Простые объяснения, акцент на результате</div>
+              </div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Step 3: Theme -->
+      <div class="wizard-step" data-step="3">
+        <h2 class="wizard-title" data-i18n="wizard.step3.title">Тема оформления</h2>
+
+        <div class="wizard-theme-grid">
+          <button type="button" class="wizard-theme-card" data-wizard-theme="light" aria-pressed="false">
+            <div class="wizard-theme-preview wizard-theme-preview-light">
+              <div class="wtp-bar"></div>
+              <div class="wtp-content">
+                <div class="wtp-card"></div>
+                <div class="wtp-card"></div>
+              </div>
+            </div>
+            <span class="wizard-theme-label" data-i18n="wizard.step3.light_label">Светлая</span>
+          </button>
+          <button type="button" class="wizard-theme-card" data-wizard-theme="dark" aria-pressed="false">
+            <div class="wizard-theme-preview wizard-theme-preview-dark">
+              <div class="wtp-bar"></div>
+              <div class="wtp-content">
+                <div class="wtp-card"></div>
+                <div class="wtp-card"></div>
+              </div>
+            </div>
+            <span class="wizard-theme-label" data-i18n="wizard.step3.dark_label">Тёмная</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 4: Done -->
+      <div class="wizard-step" data-step="4">
+        <div class="wizard-done-ico" aria-hidden="true">🎉</div>
+        <h2 class="wizard-title" data-i18n="wizard.step4.title">Готово!</h2>
+        <p class="wizard-body" data-i18n="wizard.step4.body">Всё настроено. Можно начать тур по интерфейсу или сразу приступить к работе.</p>
+        <p class="wizard-tip" data-i18n="wizard.step4.tip">Настройки всегда можно изменить в разделе «Настройки».</p>
+
+        <div class="wizard-done-actions">
+          <button type="button" id="wizard-start-tour" class="primary wizard-start-tour-btn"
+                  data-i18n="wizard.btn_start_tour">Начать тур</button>
+          <button type="button" id="wizard-finish-skip" class="wizard-skip-btn"
+                  data-i18n="wizard.btn_skip">Пропустить</button>
+        </div>
+      </div>
+    </div><!-- /.wizard-steps -->
+
+    <!-- Nav buttons (shown on steps 1–3) -->
+    <div class="wizard-nav" id="wizard-nav">
+      <button type="button" id="wizard-prev" class="wizard-nav-btn wizard-nav-prev"
+              data-i18n="wizard.btn_prev" hidden>← Назад</button>
+      <button type="button" id="wizard-next" class="wizard-nav-btn wizard-nav-next primary"
+              data-i18n="wizard.btn_next">Дальше →</button>
+    </div>
+  </div>
+</div>
+
+<style>
+/* ============ First-run wizard ============ */
+.wizard-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: wizardFadeIn 0.18s ease;
+}
+@keyframes wizardFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.wizard-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 44px 48px 36px;
+  max-width: 560px;
+  width: 90%;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.36);
+  animation: wizardSlideUp 0.18s ease;
+}
+@keyframes wizardSlideUp {
+  from { transform: translateY(18px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+/* Progress bar */
+.wizard-progress {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+.wizard-progress-bar {
+  height: 100%;
+  background: var(--accent, #6b7ee8);
+  border-radius: 2px;
+  transition: width 0.22s ease;
+  width: 25%;
+}
+/* Step dots */
+.wizard-step-dots {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 28px;
+}
+.wizard-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-2);
+  transition: background 0.15s;
+}
+.wizard-dot.active {
+  background: var(--accent, #6b7ee8);
+}
+/* Steps */
+.wizard-step { display: none; }
+.wizard-step.active { display: block; }
+/* Title */
+.wizard-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 20px;
+  line-height: 1.25;
+}
+.wizard-sublabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin: 20px 0 4px;
+}
+.wizard-hint {
+  font-size: 12px;
+  color: var(--text-3);
+  margin: 0 0 12px;
+}
+/* Language grid */
+.wizard-lang-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.wizard-lang-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 12px;
+  border: 2px solid var(--border-2);
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  font-size: 14px;
+}
+.wizard-lang-btn:hover {
+  border-color: var(--accent, #6b7ee8);
+  background: var(--surface-3);
+}
+.wizard-lang-btn.active,
+.wizard-lang-btn[aria-pressed="true"] {
+  border-color: var(--accent, #6b7ee8);
+  background: var(--surface-3);
+  box-shadow: 0 0 0 3px rgba(107, 126, 232, 0.15);
+}
+.wizard-lang-flag { font-size: 28px; line-height: 1; }
+.wizard-lang-name { font-size: 13px; font-weight: 500; }
+/* Expertise grid */
+.wizard-expertise-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+.wizard-expertise-card {
+  display: block;
+  padding: 16px 18px;
+  border: 2px solid var(--border-2);
+  border-radius: 12px;
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.wizard-expertise-card:hover {
+  border-color: var(--accent, #6b7ee8);
+  background: var(--surface-3);
+}
+.wizard-expertise-card.active {
+  border-color: var(--accent, #6b7ee8);
+  background: var(--surface-3);
+  box-shadow: 0 0 0 3px rgba(107, 126, 232, 0.15);
+}
+.wizard-expertise-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.wizard-expertise-ico { font-size: 24px; line-height: 1; margin-top: 2px; }
+.wizard-expertise-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.wizard-expertise-hint {
+  font-size: 12px;
+  color: var(--text-3);
+}
+/* Theme grid */
+.wizard-theme-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 4px;
+}
+.wizard-theme-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  border: 2px solid var(--border-2);
+  border-radius: 12px;
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.wizard-theme-card:hover {
+  border-color: var(--accent, #6b7ee8);
+}
+.wizard-theme-card.active,
+.wizard-theme-card[aria-pressed="true"] {
+  border-color: var(--accent, #6b7ee8);
+  box-shadow: 0 0 0 3px rgba(107, 126, 232, 0.15);
+}
+.wizard-theme-preview {
+  width: 100%;
+  height: 80px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,0.08);
+}
+.wizard-theme-preview-light { background: #f6f4ee; }
+.wizard-theme-preview-dark  { background: #262524; }
+.wizard-theme-preview-light .wtp-bar  { height: 12px; background: #e8e4da; }
+.wizard-theme-preview-dark  .wtp-bar  { height: 12px; background: #2e2d2b; }
+.wtp-content { display: flex; gap: 6px; padding: 8px; }
+.wizard-theme-preview-light .wtp-card { flex: 1; height: 44px; background: #fff; border-radius: 4px; }
+.wizard-theme-preview-dark  .wtp-card { flex: 1; height: 44px; background: #383734; border-radius: 4px; }
+.wizard-theme-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+/* Done step */
+.wizard-done-ico {
+  font-size: 48px;
+  text-align: center;
+  margin-bottom: 12px;
+  animation: wizardBounce 0.4s ease;
+}
+@keyframes wizardBounce {
+  0%   { transform: scale(0.6); opacity: 0; }
+  70%  { transform: scale(1.1); }
+  100% { transform: scale(1);   opacity: 1; }
+}
+.wizard-body {
+  font-size: 15px;
+  color: var(--text-2);
+  line-height: 1.55;
+  margin: 0 0 10px;
+}
+.wizard-tip {
+  font-size: 12px;
+  color: var(--text-3);
+  margin: 0 0 24px;
+}
+.wizard-done-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.wizard-start-tour-btn {
+  padding: 10px 24px;
+  font-size: 14px;
+}
+.wizard-skip-btn {
+  padding: 10px 20px;
+  font-size: 13px;
+  color: var(--text-3);
+  background: transparent;
+  border: 1px solid var(--border-2);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.wizard-skip-btn:hover {
+  color: var(--text);
+  border-color: var(--border-2);
+  background: var(--surface-2);
+}
+/* Nav */
+.wizard-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.wizard-nav:has(#wizard-prev[hidden]) { justify-content: flex-end; }
+.wizard-nav-btn {
+  padding: 9px 20px;
+  font-size: 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.wizard-nav-prev {
+  background: transparent;
+  border: 1px solid var(--border-2);
+  color: var(--text-2);
+}
+.wizard-nav-prev:hover { background: var(--surface-2); }
+/* sr-only helper */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+/* Settings danger section */
+.settings-section-danger .settings-section-title { color: var(--red, #e05252); }
+.settings-btn-danger {
+  color: var(--red, #e05252) !important;
+  border-color: var(--red, #e05252) !important;
+}
+.settings-btn-danger:hover { background: rgba(224, 82, 82, 0.08) !important; }
+</style>
 
 <script src="/static/app.js"></script>
 <script src="/static/js/i18n.js"></script>

@@ -9,22 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Statistics haiku model** (S5.1): `GET /api/stats/aggregates` now returns all models including claude-haiku-4-5 regardless of cost_usd. Fixed COALESCE bug in most_expensive_day subquery that caused TypeError when sessions had NULL cost.
 - **First-run wizard** (S5.3): full-screen overlay on first open — 4 steps (language, expertise level, theme, done). Saves `ui_locale`, `output_locale`, `user_expertise`, `devboard-theme` to localStorage. Launches onboarding tour automatically after completion. Settings → Danger zone: reset/restart buttons.
 - **Expanded onboarding tour** (S5.4): 12 steps covering all 6 nav-items (Board, Inbox, Statistics, Roles, Archive, Settings), topbar controls (Start, Auto mode), and chat panel. Replaces the previous 5-step tour.
-- **Task reader-mode** (S5.5): task modal now shows structured view — large TL;DR, steps checklist, acceptance checklist, and inline answer buttons for option questions. Raw markdown collapsed under "Technical details" toggle. Backend: `GET /api/tasks/<id>/parsed` endpoint. Parser regex-matches **TL;DR**, ## Steps, ## Acceptance, and option variants.
+- **Task reader-mode** (S5.5): task modal now shows structured view — large TL;DR, steps checklist, acceptance checklist, and inline answer buttons for option questions. Raw markdown collapsed under "Technical details" toggle. Backend: `GET /api/tasks/<id>/parsed` endpoint.
 - **Statistics lifetime counters** (S5.2): 4 large KPI cards (tasks done, total created, completion rate %, in progress) always shown across full history including archived tasks. Count-up animation on render.
 
 ### Fixed
 
-- **Inbox group heights** (S5.7): CSS Grid now uses `align-items: start` to prevent grid-items from stretching to match the tallest group. Groups now have independent heights.
-- **RU Inbox label** (S5.7): sidebar nav-label changed from «Inbox» to «На столе» for consistency in Russian UI.
-
-### Fixed
-
-- **Statistics haiku model** (S5.1): `COALESCE(SUM(total_cost_usd), 0.0)` prevents `TypeError` crash in stats endpoint when haiku sessions have `NULL` cost — now all models including `claude-haiku-4-5-20251001` appear in the models breakdown.
+- **Statistics haiku model** (S5.1): `COALESCE(SUM(total_cost_usd), 0.0)` prevents `TypeError` crash in stats endpoint when haiku sessions have `NULL` cost — all models including `claude-haiku-4-5-20251001` now appear in the models breakdown.
 - **Inbox nav label** (S5.7): RU sidebar nav label «Inbox» → «На столе»; EN unchanged.
-- **Inbox group height** (S5.7): `.inbox-groups { align-items: start }` — each group now sizes to its own content instead of stretching to match the tallest group.
+- **Inbox group height** (S5.7): `.inbox-groups { align-items: start }` — each group sizes to its own content instead of stretching to match the tallest group.
 
 ## [Unreleased] / v1.4 (local)
 

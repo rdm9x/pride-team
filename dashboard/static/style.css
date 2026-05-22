@@ -2212,31 +2212,32 @@ input[type="checkbox"] {
 .task-modal-readermode {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 4px 0 12px;
+  gap: 12px;
+  padding: 2px 0 10px;
 }
 
-/* TL;DR block */
+/* TL;DR block — компактный, не «жирный» */
 .tldr-block {
   border-left: 3px solid var(--accent);
-  padding: 10px 14px 10px 12px;
+  padding: 8px 12px;
   background: var(--accent-soft);
   border-radius: 0 6px 6px 0;
 }
 
 .tldr-block-label {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   color: var(--accent);
-  margin-bottom: 6px;
+  margin-bottom: 3px;
+  opacity: 0.85;
 }
 
 .tldr-block-text {
-  font-size: 18px;
-  font-weight: 600;
-  line-height: 1.45;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
   color: var(--text);
 }
 
@@ -2244,23 +2245,25 @@ input[type="checkbox"] {
 .questions-block {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .questions-block-label {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   color: var(--text-2);
   margin-bottom: 2px;
+  opacity: 0.85;
 }
 
 .questions-block-question {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text);
   font-weight: 500;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
+  line-height: 1.45;
 }
 
 .questions-options-row {
@@ -2273,10 +2276,10 @@ input[type="checkbox"] {
   background: var(--surface-2);
   border: 1px solid var(--accent);
   color: var(--accent);
-  padding: 6px 14px;
-  border-radius: 20px;
+  padding: 5px 12px;
+  border-radius: 16px;
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.12s, color 0.12s, transform 0.06s;
@@ -2343,21 +2346,22 @@ input[type="checkbox"] {
 }
 
 .acceptance-block-label {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   color: var(--text-2);
   margin-bottom: 2px;
+  opacity: 0.85;
 }
 
 .acceptance-item {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text);
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .acceptance-item input[type="checkbox"] {
@@ -2389,12 +2393,14 @@ input[type="checkbox"] {
   text-align: left;
   background: var(--surface-2);
   border: none;
-  color: var(--text-2);
-  padding: 8px 12px;
+  color: var(--text-3);
+  padding: 6px 10px;
   border-radius: 6px;
   font: inherit;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
   display: flex;

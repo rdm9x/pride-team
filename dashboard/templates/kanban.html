@@ -315,7 +315,65 @@
           </div>
         </div>
 
-        <!-- Section 3: Team -->
+        <!-- Section 3: Notifications -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <span class="settings-section-icon">🔔</span>
+            <h2 class="settings-section-title" data-i18n="settings.notifications.title">Уведомления</h2>
+          </div>
+          <div class="settings-section-body">
+            <!-- Toggle: Browser notifications ON/OFF -->
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span data-i18n="settings.notifications.enabled_label">Браузер-уведомления</span>
+                <span class="settings-row-hint" data-i18n="settings.notifications.enabled_hint">Уведомления приходят только когда вкладка не активна</span>
+              </div>
+              <div class="settings-row-control">
+                <label class="settings-toggle" data-i18n-attr="title:settings.notifications.enabled_label">
+                  <input type="checkbox" id="settings-notif-toggle" checked>
+                  <span class="settings-toggle-track"></span>
+                </label>
+              </div>
+            </div>
+            <!-- Radio: Level -->
+            <div class="settings-row" id="settings-notif-level-row">
+              <div class="settings-row-label">
+                <span data-i18n="settings.notifications.level_label">Уровень</span>
+              </div>
+              <div class="settings-row-control">
+                <div class="settings-notif-levels" role="radiogroup"
+                     aria-label="Notification level"
+                     data-i18n-attr="aria-label:settings.notifications.level_label">
+                  <label class="settings-radio-label">
+                    <input type="radio" name="settings-notif-level" value="critical" id="settings-notif-critical">
+                    <span data-i18n="settings.notifications.level.critical">Критические</span>
+                  </label>
+                  <label class="settings-radio-label">
+                    <input type="radio" name="settings-notif-level" value="important" id="settings-notif-important" checked>
+                    <span data-i18n="settings.notifications.level.important">Важные и критические</span>
+                  </label>
+                  <label class="settings-radio-label">
+                    <input type="radio" name="settings-notif-level" value="all" id="settings-notif-all">
+                    <span data-i18n="settings.notifications.level.all">Все</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <!-- Permission button (shown only when permission=default) -->
+            <div class="settings-row" id="settings-notif-permission-row">
+              <div class="settings-row-label">
+                <span data-i18n="settings.notifications.permission_label">Разрешение браузера</span>
+              </div>
+              <div class="settings-row-control">
+                <button id="btn-notif-request-permission" class="settings-btn" data-i18n="settings.notifications.permission_btn">
+                  Запросить разрешение
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 4: Team -->
         <div class="settings-section">
           <div class="settings-section-header">
             <span class="settings-section-icon">🤖</span>
@@ -370,7 +428,7 @@
           </div>
         </div>
 
-        <!-- Section 4: Backups -->
+        <!-- Section 5: Backups -->
         <div class="settings-section">
           <div class="settings-section-header">
             <span class="settings-section-icon">💾</span>
@@ -404,7 +462,7 @@
           </div>
         </div>
 
-        <!-- Section 5: Danger Zone -->
+        <!-- Section 6: Danger Zone -->
         <div class="settings-section settings-section-danger">
           <div class="settings-section-header">
             <span class="settings-section-icon">⚠</span>

@@ -949,6 +949,20 @@ code, .md-inline {
   outline-offset: 2px;
 }
 
+/* Notification level radios */
+.settings-notif-levels {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Disabled settings row (e.g. level selector when notifications are off) */
+.settings-row-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+  user-select: none;
+}
+
 /* Danger zone section */
 .settings-section-danger .settings-section-header {
   background: var(--red-soft);
@@ -1666,7 +1680,27 @@ input[type="checkbox"] {
   background: var(--divider);
 }
 
-.role-name-cell code {
+.role-name-cell {
+  white-space: nowrap;
+}
+
+.role-display-name {
+  display: block;
+  font-weight: 500;
+  color: var(--text-1);
+  margin-bottom: 2px;
+}
+
+.role-slug {
+  font-size: 11px;
+  background: var(--surface-3);
+  color: var(--text-3);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* Legacy fallback: <code> directly inside name cell (no display-name span) */
+.role-name-cell > code {
   font-size: 12.5px;
   background: var(--surface-3);
   color: var(--accent);

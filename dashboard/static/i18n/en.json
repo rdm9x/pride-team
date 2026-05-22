@@ -232,6 +232,19 @@
       "light": "☀ Light",
       "dark": "🌙 Dark"
     },
+    "notifications": {
+      "title": "Notifications",
+      "enabled_label": "Browser notifications",
+      "enabled_hint": "Notifications only arrive when the tab is not active",
+      "level_label": "Level",
+      "level": {
+        "critical": "Critical only",
+        "important": "Important and critical",
+        "all": "All"
+      },
+      "permission_label": "Browser permission",
+      "permission_btn": "Request permission"
+    },
     "expertise": {
       "label": "Technical expertise level",
       "tech": "Developer",

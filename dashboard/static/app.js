@@ -1364,10 +1364,18 @@
     const newOnes = all.filter((t) => !seenInboxIds.has(t.id));
     for (const t of newOnes) {
       let groupName = "Inbox";
-      if (inbox.approvals.includes(t)) groupName = i18n("inbox.notify.approvals");
-      else if (inbox.reviews.includes(t)) groupName = i18n("inbox.notify.reviews");
-      else if (inbox.questions.includes(t)) groupName = i18n("inbox.notify.questions");
-      notify(groupName, t.title);
+      let level = "info";
+      if (inbox.approvals.includes(t)) {
+        groupName = i18n("inbox.notify.approvals");
+        level = "important";   // ⚠ needs_approval — требует действия пользователя
+      } else if (inbox.reviews.includes(t)) {
+        groupName = i18n("inbox.notify.reviews");
+        level = "info";
+      } else if (inbox.questions.includes(t)) {
+        groupName = i18n("inbox.notify.questions");
+        level = "info";
+      }
+      notify(level, groupName, t.title);
       seenInboxIds.add(t.id);
     }
     // Чистим из seen те id что уже не в inbox (задача ушла из inbox = можно забыть)
@@ -1558,6 +1566,7 @@
   async function loadSettings() {
     // Sync controls with current state
     settingsSyncControls();
+    syncNotificationSettingsUI();
 
     // Load static info (backups, limits)
     try {
@@ -1736,6 +1745,28 @@
       const uiSel2 = $("#settings-ui-locale");
       if (uiSel2) uiSel2.value = settingsGetUiLocale();
     });
+
+    // --- Notification settings ---
+    const notifToggle = document.getElementById("settings-notif-toggle");
+    if (notifToggle) {
+      notifToggle.addEventListener("change", () => {
+        setNotificationSettings({ enabled: notifToggle.checked });
+      });
+    }
+
+    document.querySelectorAll("input[name='settings-notif-level']").forEach((r) => {
+      r.addEventListener("change", () => {
+        if (r.checked) setNotificationSettings({ level: r.value });
+      });
+    });
+
+    const permBtn = document.getElementById("btn-notif-request-permission");
+    if (permBtn) {
+      permBtn.addEventListener("click", () => requestNotifPermission());
+    }
+
+    // Initial sync
+    syncNotificationSettingsUI();
   }
 
   // Initialize settings controls right away
@@ -1828,18 +1859,76 @@
     try {
       const p = await Notification.requestPermission();
       notificationsAllowed = (p === "granted");
+      // Refresh settings UI to reflect new permission state
+      syncNotificationSettingsUI();
     } catch (_) {}
   }
   requestNotifPermission();
 
-  function notify(title, body) {
+  // --- Notification settings helpers ---
+  function getNotificationSettings() {
+    const enabled = localStorage.getItem("notifications.enabled");
+    const level   = localStorage.getItem("notifications.level");
+    return {
+      enabled: enabled === null ? true : enabled === "true",
+      level:   level   || "important",   // 'critical' | 'important' | 'all'
+    };
+  }
+
+  function setNotificationSettings(patch) {
+    if (patch.enabled !== undefined) {
+      localStorage.setItem("notifications.enabled", String(patch.enabled));
+    }
+    if (patch.level !== undefined) {
+      localStorage.setItem("notifications.level", patch.level);
+    }
+    syncNotificationSettingsUI();
+  }
+
+  // Sync Settings page controls with current state (called on open and on permission change)
+  function syncNotificationSettingsUI() {
+    const s = getNotificationSettings();
+
+    const toggleEl = document.getElementById("settings-notif-toggle");
+    if (toggleEl) toggleEl.checked = s.enabled;
+
+    document.querySelectorAll("input[name='settings-notif-level']").forEach((r) => {
+      r.checked = r.value === s.level;
+      r.disabled = !s.enabled;
+    });
+
+    // Level row: visually dim when disabled
+    const levelRow = document.getElementById("settings-notif-level-row");
+    if (levelRow) levelRow.classList.toggle("settings-row-disabled", !s.enabled);
+
+    // Permission button
+    const permBtn = document.getElementById("btn-notif-request-permission");
+    if (permBtn) {
+      const perm = ("Notification" in window) ? Notification.permission : "denied";
+      permBtn.hidden = perm !== "default";
+    }
+  }
+
+  /**
+   * notify(level, title, body)
+   * level: 'critical' | 'important' | 'info'
+   *
+   * Filters notifications based on user settings and tab visibility.
+   * Never fires when the tab is visible (document.visibilityState === 'visible').
+   */
+  function notify(level, title, body) {
     if (!notificationsAllowed) return;
-    if (!document.hidden && document.hasFocus()) return; // окно в фокусе — не дёргаем
+    // Never notify when tab is active
+    if (document.visibilityState === "visible") return;
+    const s = getNotificationSettings();
+    if (!s.enabled) return;
+    if (s.level === "critical"  && level !== "critical")  return;
+    if (s.level === "important" && level === "info")       return;
     try {
       const n = new Notification(title, {
         body: (body || "").slice(0, 200),
         icon: "/static/favicon.png",
-        tag: "devboard",
+        tag: "devboard-" + level,
         silent: false,
       });
       n.onclick = () => { window.focus(); n.close(); };
@@ -1932,10 +2021,10 @@
         lastSeenChatId = lastChatId;
         localStorage.setItem("devboard-last-seen-chat", String(lastSeenChatId));
       }
-      // Browser notification — для самого свежего
+      // Browser notification — для самого свежего (уровень info: обычные чат-сообщения)
       const m = newFromTeam[newFromTeam.length - 1];
       const preview = m.text.slice(0, 120) + (m.text.length > 120 ? "…" : "");
-      notify(`${AUTHOR_ICON[m.author] || ""} ${displayRole(m.author)}`, preview);
+      notify("info", `${AUTHOR_ICON[m.author] || ""} ${displayRole(m.author)}`, preview);
     }
   }
 
@@ -2183,12 +2272,28 @@
     }
     setNavBadge("nav-roles-count", roles.length);
 
+    const locale = (typeof window.getLocale === "function") ? window.getLocale() : "ru";
+
     const rows = roles.map((r) => {
       const llm = r.llm || "—";
       const model = escapeHtml(r.model || "—");
       const desc = escapeHtml(r.description || "—");
+      // Локализованное имя роли:
+      // 1. display_name_en / display_name_ru если API вернул (поле из БД)
+      // 2. roles.names.<slug> из i18n-словаря
+      // 3. fallback — slug
+      let displayName;
+      if (locale === "en" && r.display_name_en) {
+        displayName = r.display_name_en;
+      } else if (locale !== "en" && r.display_name_ru) {
+        displayName = r.display_name_ru;
+      } else {
+        const i18nKey = `roles.names.${r.name.replace(/-/g, "_")}`;
+        const i18nVal = i18n(i18nKey);
+        displayName = (i18nVal !== i18nKey) ? i18nVal : r.name;
+      }
       return `<tr data-role-name="${escapeAttr(r.name)}">
-        <td class="role-name-cell"><code>${escapeHtml(r.name)}</code></td>
+        <td class="role-name-cell"><span class="role-display-name">${escapeHtml(displayName)}</span><code class="role-slug">${escapeHtml(r.name)}</code></td>
         <td class="role-desc-cell">${desc}</td>
         <td class="role-llm-cell">${escapeHtml(llm)}</td>
         <td class="role-model-cell">${model}</td>
@@ -2205,11 +2310,11 @@
       <table class="roles-table">
         <thead>
           <tr>
-            <th data-i18n="roles.col.name">Имя</th>
-            <th data-i18n="roles.col.description">Описание</th>
-            <th data-i18n="roles.col.llm">LLM</th>
-            <th data-i18n="roles.col.model">Модель</th>
-            <th data-i18n="roles.col.actions">Действия</th>
+            <th>${i18n("roles.col.name")}</th>
+            <th>${i18n("roles.col.description")}</th>
+            <th>${i18n("roles.col.llm")}</th>
+            <th>${i18n("roles.col.model")}</th>
+            <th>${i18n("roles.col.actions")}</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -2487,9 +2592,10 @@
       if (m) openTaskModal(m[1]);
       else bodyEl.innerHTML = "";
     }
-    // Если открыта settings / archive — перечитываем
+    // Если открыта settings / archive / roles — перечитываем
     if (currentView === "settings") loadSettings();
     if (currentView === "archive") loadArchive();
+    if (currentView === "roles") renderRolesTable(_rolesCache);
   });
 
   // ===================== First-run wizard =====================

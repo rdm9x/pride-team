@@ -221,11 +221,11 @@ def test_api_router_pick_empty(client) -> None:
     assert r.status_code == 200
     j = r.get_json()
     assert j["model_alias"] == "haiku"
-    assert j["counters"]["total"] == 0
+    assert j["counters"]["total_workable"] == 0
 
 
 def test_api_router_pick_with_archi_task(client) -> None:
-    client.post("/api/tasks", json={"title": "Спроектируй модуль X"})
+    client.post("/api/tasks", json={"title": "Спроектируй модуль X", "labels": ["design"]})
     r = client.get("/api/router/pick")
     j = r.get_json()
     assert j["model_alias"] == "opus"

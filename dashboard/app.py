@@ -27,6 +27,11 @@ _MCP_DIR = Path(__file__).resolve().parent.parent / "mcp_server"
 if str(_MCP_DIR) not in sys.path:
     sys.path.insert(0, str(_MCP_DIR))
 
+# roles/ package lives at repo root — add it so `from roles.validator import ...` works
+_REPO_ROOT_EARLY = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT_EARLY) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT_EARLY))
+
 from flask import Flask, Response, jsonify, render_template, request  # noqa: E402
 
 from pride_tasks import db, tools  # noqa: E402
@@ -1374,6 +1379,10 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             db_path=_db(),
         )
         created_ids.append(deploy_res["задача"]["id"])
+
+        # Chat messages to seed the feed
+        db.post_chat_message(_db(), "тимлид", "Проект запущен! Смотрите задачи в канбане.")
+        db.post_chat_message(_db(), "бэкенд", "Готово, лендинг задизайнен и написан.")
 
         return jsonify({"created": created_ids, "already_exists": False}), 201
 

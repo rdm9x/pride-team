@@ -845,7 +845,16 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
 
     @app.get("/api/roles")
     def api_roles() -> Any:
-        return jsonify(tools.list_roles(db_path=_db()))
+        result = tools.list_roles(db_path=_db())
+        # Поднимаем поля capabilities.{llm,model,temperature,max_tokens,system_prompt}
+        # на верхний уровень — фронт ждёт плоский формат (r.model и т.п.).
+        for role in result.get("роли", []):
+            caps = role.get("capabilities") or {}
+            if isinstance(caps, dict):
+                for key in ("llm", "model", "temperature", "max_tokens", "system_prompt"):
+                    if key in caps and key not in role:
+                        role[key] = caps[key]
+        return jsonify(result)
 
     @app.post("/api/roles")
     def api_create_role() -> Any:
@@ -936,6 +945,178 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             finally:
                 conn.close()
         return jsonify({"статус": "ok"})
+
+    @app.post("/api/roles/import")
+    def import_role() -> Any:
+        """Import a role from a URL (GitHub raw / gist)."""
+        import datetime
+        import re as _re_import
+        import tempfile
+
+        import httpx as _httpx
+
+        from roles.validator import validate_role_file
+
+        data = request.get_json(silent=True) or {}
+        url = (data.get("url") or "").strip()
+        force = bool(data.get("force", False))
+
+        if not url:
+            return jsonify({"status": "error", "detail": "url is required"}), 400
+
+        # --- 1. URL allowlist ---
+        _default_allowlist = ["raw.githubusercontent.com", "gist.github.com"]
+        _env_allowlist = os.environ.get("ROLES_IMPORT_ALLOWLIST", "")
+        allowed_hosts: list[str] = (
+            [h.strip() for h in _env_allowlist.split(",") if h.strip()]
+            if _env_allowlist
+            else _default_allowlist
+        )
+        try:
+            from urllib.parse import urlparse as _urlparse
+            parsed = _urlparse(url)
+            host = parsed.netloc.lower()
+        except Exception:
+            return jsonify({"status": "error", "detail": "invalid URL"}), 400
+
+        if not any(host == h or host.endswith("." + h) for h in allowed_hosts):
+            return jsonify({
+                "status": "error",
+                "detail": f"URL host '{host}' is not in the allowlist ({', '.join(allowed_hosts)})",
+            }), 400
+
+        # --- 2. Download with size check ---
+        _MAX_SIZE = 50 * 1024  # 50 KB
+
+        try:
+            with _httpx.stream("GET", url, timeout=10, follow_redirects=True) as resp:
+                resp.raise_for_status()
+
+                # Size check via Content-Length header first
+                content_length = resp.headers.get("content-length")
+                if content_length is not None:
+                    try:
+                        if int(content_length) > _MAX_SIZE:
+                            return jsonify({
+                                "status": "error",
+                                "detail": f"Content-Length {content_length} exceeds 50KB limit",
+                            }), 400
+                    except ValueError:
+                        pass
+
+                # --- 3. Content-Type check ---
+                _ALLOWED_CONTENT_TYPES = ("text/markdown", "text/plain", "application/octet-stream")
+                ct = (resp.headers.get("content-type") or "").split(";")[0].strip().lower()
+                if ct and ct not in _ALLOWED_CONTENT_TYPES:
+                    return jsonify({
+                        "status": "error",
+                        "detail": (
+                            f"content-type '{ct}' not allowed "
+                            f"(expected text/markdown, text/plain or application/octet-stream)"
+                        ),
+                    }), 400
+
+                # Read body with hard size limit
+                chunks: list[bytes] = []
+                total = 0
+                for chunk in resp.iter_bytes(chunk_size=4096):
+                    total += len(chunk)
+                    if total > _MAX_SIZE:
+                        return jsonify({
+                            "status": "error",
+                            "detail": "response body exceeds 50KB limit",
+                        }), 400
+                    chunks.append(chunk)
+
+        except _httpx.TimeoutException:
+            return jsonify({"status": "error", "detail": "request timed out"}), 400
+        except _httpx.HTTPStatusError as exc:
+            return jsonify({"status": "error", "detail": f"download failed: HTTP {exc.response.status_code}"}), 400
+        except _httpx.RequestError as exc:
+            return jsonify({"status": "error", "detail": f"download failed: {exc}"}), 400
+        content_bytes = b"".join(chunks)
+
+        # --- 4. Validate via validate_role_file (write to tmp file) ---
+        with tempfile.NamedTemporaryFile(suffix=".md", delete=False) as tmp:
+            tmp_path = Path(tmp.name)
+            tmp.write(content_bytes)
+
+        try:
+            val_result = validate_role_file(tmp_path)
+        finally:
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
+
+        if not val_result.ok:
+            return jsonify({
+                "status": "error",
+                "detail": "role validation failed",
+                "errors": val_result.errors,
+            }), 422
+
+        # --- 5. Extract name from validated frontmatter ---
+        role_name = val_result.config.name  # type: ignore[union-attr]
+        _SLUG_RE = _re_import.compile(r"^[a-z][a-z0-9-]{1,31}$")
+        if not _SLUG_RE.match(role_name):
+            return jsonify({
+                "status": "error",
+                "detail": f"role name '{role_name}' does not match required slug pattern",
+            }), 400
+
+        # --- 6. Path traversal guard: always write to _ROLES_DIR/<name>.md ---
+        dest_path = (_ROLES_DIR / f"{role_name}.md").resolve()
+        if dest_path.parent.resolve() != _ROLES_DIR.resolve():
+            return jsonify({
+                "status": "error",
+                "detail": "path traversal detected in role name",
+            }), 400
+
+        # --- 7. Conflict check ---
+        if dest_path.exists() and not force:
+            return jsonify({
+                "status": "error",
+                "detail": f"roles/{role_name}.md already exists; use force=true to overwrite",
+            }), 409
+
+        # --- 8. Write file ---
+        _ROLES_DIR.mkdir(parents=True, exist_ok=True)
+        dest_path.write_bytes(content_bytes)
+        size_bytes = len(content_bytes)
+        log.info("import_role: saved %s (%d bytes) from %s", dest_path.name, size_bytes, url)
+
+        # --- 9. Append to import log ---
+        import_log_path = _ROLES_DIR / ".import-log.json"
+        log_entry = {
+            "name": role_name,
+            "url": url,
+            "imported_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "size_bytes": size_bytes,
+        }
+        try:
+            existing_log: list = []
+            if import_log_path.exists():
+                try:
+                    existing_log = json.loads(import_log_path.read_text(encoding="utf-8"))
+                    if not isinstance(existing_log, list):
+                        existing_log = []
+                except (json.JSONDecodeError, OSError):
+                    existing_log = []
+            existing_log.append(log_entry)
+            import_log_path.write_text(
+                json.dumps(existing_log, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except OSError as exc:
+            log.warning("import_role: could not write .import-log.json: %s", exc)
+
+        return jsonify({
+            "status": "ok",
+            "name": role_name,
+            "path": f"roles/{role_name}.md",
+            "size": size_bytes,
+        })
 
     # === Team session ===
 
@@ -1103,6 +1284,122 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
     @app.get("/healthz")
     def healthz() -> Any:
         return jsonify({"status": "ok", "db": str(_db())})
+
+    # === Demo data ===
+
+    @app.post("/api/demo")
+    def create_demo_data() -> Any:
+        """Создаёт демо-данные в канбане.
+
+        Идемпотентен: если demo-данные уже есть (label "demo") — возвращает 200.
+        Иначе создаёт:
+          - 1 epic «Build a landing page» (status=wip, labels=["demo"])
+          - 3 subtasks с разными статусами (todo/wip/review), labels=["demo"]
+          - 1 needs_approval задачу «Deploy to production» (labels=["demo","destructive"])
+        Возвращает: {"created": [list of task ids], "already_exists": bool}
+        """
+        # Проверяем идемпотентность — есть ли уже задачи с label "demo"
+        existing = db.list_tasks(_db(), label="demo", limit=1)
+        if existing:
+            return jsonify({"created": [], "already_exists": True})
+
+        created_ids: list[str] = []
+
+        # Epic: Build a landing page
+        epic_res = tools.create_task(
+            title="Build a landing page",
+            description="Верстаем лендинг для продукта. Эпик-задача.",
+            assignee="тимлид",
+            reporter="дмитрий",
+            priority="P1",
+            status="wip",
+            labels=["demo"],
+            db_path=_db(),
+        )
+        epic_id = epic_res["задача"]["id"]
+        created_ids.append(epic_id)
+
+        # Subtask 1: todo
+        sub1_res = tools.create_task(
+            title="Design hero section",
+            description="Создать макет главного блока лендинга.",
+            assignee="frontend",
+            reporter="тимлид",
+            priority="P2",
+            parent_id=epic_id,
+            status="todo",
+            labels=["demo"],
+            db_path=_db(),
+        )
+        created_ids.append(sub1_res["задача"]["id"])
+
+        # Subtask 2: wip
+        sub2_res = tools.create_task(
+            title="Implement responsive layout",
+            description="Адаптивная вёрстка под мобильные устройства.",
+            assignee="frontend",
+            reporter="тимлид",
+            priority="P2",
+            parent_id=epic_id,
+            status="wip",
+            labels=["demo"],
+            db_path=_db(),
+        )
+        created_ids.append(sub2_res["задача"]["id"])
+
+        # Subtask 3: review
+        sub3_res = tools.create_task(
+            title="Write copy for landing page",
+            description="Тексты и заголовки для лендинга.",
+            assignee="техписатель",
+            reporter="тимлид",
+            priority="P3",
+            parent_id=epic_id,
+            status="review",
+            labels=["demo"],
+            db_path=_db(),
+        )
+        created_ids.append(sub3_res["задача"]["id"])
+
+        # needs_approval: Deploy to production
+        deploy_res = tools.create_task(
+            title="Deploy to production",
+            description="Деплой на продакшн — требует одобрения Дмитрия.",
+            assignee="дмитрий",
+            reporter="тимлид",
+            priority="P0",
+            requires_approval=True,
+            status="needs_approval",
+            labels=["demo", "destructive"],
+            db_path=_db(),
+        )
+        created_ids.append(deploy_res["задача"]["id"])
+
+        return jsonify({"created": created_ids, "already_exists": False}), 201
+
+    @app.delete("/api/demo")
+    def clear_demo_data() -> Any:
+        """Удаляет все задачи с label "demo".
+
+        Возвращает: {"deleted": N}
+        """
+        demo_tasks = db.list_tasks(_db(), label="demo", limit=1000)
+        if not demo_tasks:
+            return jsonify({"deleted": 0})
+
+        # Сортируем: сначала задачи у которых есть parent (дети), потом корневые (epic)
+        # чтобы не нарушать FK constraint parent_id → tasks.id
+        demo_ids = {t["id"] for t in demo_tasks}
+        children = [t for t in demo_tasks if t.get("parent_id") in demo_ids]
+        parents = [t for t in demo_tasks if t.get("parent_id") not in demo_ids]
+        ordered = children + parents
+
+        count = 0
+        for task in ordered:
+            deleted = db.delete_task(_db(), task["id"])
+            if deleted:
+                count += 1
+        return jsonify({"deleted": count})
 
     return app
 

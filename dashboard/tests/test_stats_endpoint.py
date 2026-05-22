@@ -96,3 +96,38 @@ def test_stats_cache_works(client) -> None:
     assert r2.status_code == 200
     # Данные идентичны (взяты из кэша)
     assert r1.get_json() == r2.get_json()
+
+
+def test_stats_all_models_shown_including_haiku(client) -> None:
+    """S5.1: все модели (haiku/sonnet/opus) отображаются, даже если cost_usd=NULL.
+
+    Воспроизводит баг: когда total_cost_usd=NULL, SUM() возвращает NULL,
+    и float(None) бросал TypeError, обрушивая весь endpoint.
+    Фикс: COALESCE(SUM(total_cost_usd), 0.0) в запросе most_expensive_day.
+    """
+    from pride_tasks import db as _db  # type: ignore
+
+    db_path = client.application.config["DB_PATH"]
+    now = int(time.time())
+
+    for model in ("claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-7"):
+        _db.record_claude_session(
+            db_path,
+            started_at=now - 100,
+            finished_at=now - 10,
+            duration_ms=90_000,
+            num_turns=5,
+            input_tokens=10,
+            output_tokens=10,
+            total_cost_usd=None,  # NULL cost — haiku может не иметь cost
+            model=model,
+        )
+
+    r = client.get("/api/stats/aggregates?range=24h")
+    assert r.status_code == 200, f"endpoint вернул {r.status_code}: {r.get_data(as_text=True)}"
+    j = r.get_json()
+    model_names = [m["model"] for m in j["models"]]
+    assert "claude-haiku-4-5" in model_names, f"haiku отсутствует в models: {model_names}"
+    assert "claude-sonnet-4-6" in model_names, f"sonnet отсутствует в models: {model_names}"
+    assert "claude-opus-4-7" in model_names, f"opus отсутствует в models: {model_names}"
+    assert len(model_names) == 3, f"Ожидалось 3 модели, получено {len(model_names)}: {model_names}"

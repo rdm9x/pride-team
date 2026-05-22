@@ -1301,7 +1301,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
                 f"""
                 SELECT
                     date(finished_at, 'unixepoch', 'localtime') AS day,
-                    SUM(total_cost_usd) AS cost
+                    COALESCE(SUM(total_cost_usd), 0.0) AS cost
                 FROM claude_sessions {where_clause}
                 GROUP BY day
                 ORDER BY cost DESC

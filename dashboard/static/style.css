@@ -1908,52 +1908,57 @@ input[type="checkbox"] {
   margin-left: 2px;
 }
 
-.stats-kpi-lifetime,
-.stats-kpi-range {
-  margin-bottom: 32px;
+/* === S6.1: Lifetime counter section (separate from kpi-grid) === */
+.lifetime-counter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 28px;
 }
 
-.stats-kpi-lifetime-title,
-.stats-kpi-range-title {
-  font-size: 11px;
+@media (max-width: 768px) {
+  .lifetime-counter-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.lifetime-counter-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: var(--glass-shadow);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.lifetime-counter-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px var(--accent-soft);
+}
+
+.lifetime-counter-value {
+  font-size: 36px;
+  font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.lifetime-counter-label {
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-3);
   font-weight: 600;
-  margin: 0 0 12px;
 }
 
-.stats-kpi-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 14px;
-}
-
-/* === Lifetime achievement cards (S5.2) === */
-.stat-achievements-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
-}
-.stat-achievement-card {
-  background: var(--card-bg, var(--surface));
-  border-radius: 12px;
-  padding: 24px 16px;
-  text-align: center;
-  border: 1px solid var(--border);
-}
-.stat-achievement-number {
-  font-size: 36px;
-  font-weight: 700;
-  color: var(--accent);
-  line-height: 1;
-  margin-bottom: 8px;
-}
-.stat-achievement-label {
-  font-size: 13px;
-  color: var(--text-muted);
-}
+/* Color variants */
+.lifetime-counter-card--done   .lifetime-counter-value { color: var(--green); }
+.lifetime-counter-card--created .lifetime-counter-value { color: var(--blue); }
+.lifetime-counter-card--rate   .lifetime-counter-value { color: var(--accent); }
+.lifetime-counter-card--wip    .lifetime-counter-value { color: #d4a017; }
+:root[data-theme="dark"] .lifetime-counter-card--wip .lifetime-counter-value { color: #f0c040; }
 
 .stats-section {
   margin-bottom: 28px;
@@ -2201,7 +2206,230 @@ input[type="checkbox"] {
   margin-top: 8px;
 }
 
-/* ============================================================ Task Reader Mode */
+/* ============================================================ Task Reader Mode v2 (S6.2) */
+
+/* Container */
+.task-modal-readermode {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 0 12px;
+}
+
+/* TL;DR block */
+.tldr-block {
+  border-left: 3px solid var(--accent);
+  padding: 10px 14px 10px 12px;
+  background: var(--accent-soft);
+  border-radius: 0 6px 6px 0;
+}
+
+.tldr-block-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.tldr-block-text {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+/* Questions / options block */
+.questions-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.questions-block-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-2);
+  margin-bottom: 2px;
+}
+
+.questions-block-question {
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.questions-options-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.option-button {
+  background: var(--surface-2);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, transform 0.06s;
+  white-space: nowrap;
+}
+
+.option-button:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.option-button:active {
+  transform: scale(0.97);
+}
+
+.questions-custom-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 4px;
+}
+
+.questions-custom-row textarea {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1px solid var(--border-2);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+  min-height: 38px;
+  transition: border-color 0.12s;
+}
+
+.questions-custom-row textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.questions-send-btn {
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  padding: 7px 14px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, transform 0.06s;
+  white-space: nowrap;
+}
+
+.questions-send-btn:hover { background: var(--accent-hover); }
+.questions-send-btn:active { transform: scale(0.97); }
+
+/* Acceptance block */
+.acceptance-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.acceptance-block-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-2);
+  margin-bottom: 2px;
+}
+
+.acceptance-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.acceptance-item input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--accent);
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.acceptance-item label {
+  cursor: pointer;
+}
+
+.acceptance-item.checked label {
+  text-decoration: line-through;
+  color: var(--text-3);
+}
+
+/* Tech details collapsible */
+.tech-collapsed,
+.tech-expanded {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.tech-toggle-btn {
+  width: 100%;
+  text-align: left;
+  background: var(--surface-2);
+  border: none;
+  color: var(--text-2);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tech-toggle-btn:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.tech-toggle-arrow {
+  display: inline-block;
+  transition: transform 0.18s ease;
+  font-style: normal;
+}
+
+.tech-expanded .tech-toggle-arrow {
+  transform: rotate(90deg);
+}
+
+.tech-content {
+  padding: 12px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  white-space: pre-wrap;
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.55;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* ============================================================ Task Reader Mode (legacy, S5.5) */
 
 .reader-mode {
   display: flex;

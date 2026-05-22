@@ -454,6 +454,12 @@
       "hide_raw": "↑ Collapse",
       "options": "Options"
     },
+    "tldr_label": "💡 TL;DR",
+    "questions_label": "❓ Decision needed",
+    "acceptance_label": "✅ Acceptance",
+    "tech_details_label": "▸ Technical details",
+    "send_answer": "Send",
+    "your_answer_placeholder": "Custom answer...",
     "meta": {
       "unassigned": "unassigned",
       "edit_title": "Edit fields",

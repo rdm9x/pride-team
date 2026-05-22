@@ -5,6 +5,13 @@ All notable changes to **devboard** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] / v1.6 (local)
+
+### Fixed
+
+- **Statistics layout regression** (S6.1): restored original KPI grid layout broken by S5.2. Lifetime counters moved into a dedicated `#statsLifetime` section at the top with new `.lifetime-counter-grid` / `.lifetime-counter-card` classes (4 cards in a row, 2×2 on ≤768 px, colour-coded: green / blue / accent / yellow). Existing sections (models, roles, heatmap) unchanged.
+- **Task modal reader-mode v2** (S6.2): complete rewrite of task detail overlay. Shows TL;DR prominently (18 px, accent border-left), inline option-buttons for numbered choices (click posts a comment), acceptance checklist with localStorage state, and a collapsible "Technical details" section. Fallback to plain markdown for tasks without TL;DR. 6 i18n keys added. New `test_task_parser.py` (6 tests).
+
 ## [Unreleased] / v1.5 (local)
 
 ### Added

@@ -454,6 +454,12 @@
       "hide_raw": "Скрыть детали",
       "options": "Варианты"
     },
+    "tldr_label": "💡 TL;DR",
+    "questions_label": "❓ Нужно решение",
+    "acceptance_label": "✅ Acceptance",
+    "tech_details_label": "▸ Технические детали",
+    "send_answer": "Отправить",
+    "your_answer_placeholder": "Свой ответ...",
     "meta": {
       "unassigned": "не назначен",
       "edit_title": "Редактировать поля",

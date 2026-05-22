@@ -271,6 +271,119 @@
     return lines[0].slice(0, 140);
   }
 
+  /**
+   * parseTaskDescription — JS-парсер описания задачи (S6.2).
+   * Возвращает { tldr, questions:[{question, options:[]}], acceptance:[], raw }
+   * или { tldr:null, questions:[], acceptance:[], raw } при fallback.
+   */
+  function parseTaskDescription(md) {
+    if (!md || !md.trim()) {
+      return { tldr: null, questions: [], acceptance: [], raw: md || "" };
+    }
+
+    const lines = md.split(/\r?\n/);
+    let tldr = null;
+    const questions = [];
+    const acceptance = [];
+
+    // --- 1. TL;DR ---
+    // Ищем строку начинающуюся с **TL;DR** или **TL;DR**: или просто TL;DR:
+    let tldrLineIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i];
+      const m = l.match(/^\s*\*{0,2}TL;?DR\*{0,2}\s*:?\s*(.*)$/i);
+      if (m) {
+        tldrLineIdx = i;
+        let text = m[1].trim();
+        // Если текст пустой (TL;DR на отдельной строке), берём следующую непустую
+        if (!text) {
+          for (let j = i + 1; j < lines.length; j++) {
+            const next = lines[j].trim();
+            if (!next || next.startsWith("#")) break;
+            text = next;
+            break;
+          }
+        }
+        // Собираем до пустой строки или следующего ##
+        let extra = text;
+        for (let j = i + 1; j < lines.length; j++) {
+          const next = lines[j];
+          if (!next.trim() || /^#+\s/.test(next)) break;
+          // Пропускаем если это уже была строка с TL;DR-текстом
+          if (j === tldrLineIdx + 1 && !m[1].trim()) { extra = next.trim(); break; }
+        }
+        tldr = extra.trim() || null;
+        break;
+      }
+    }
+
+    // --- 2. Questions / options ---
+    // Ищем строки вида "Вопрос:" или "Question:", затем списочные строки
+    let inQuestionBlock = false;
+    let currentQuestion = null;
+    let currentOptions = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i];
+      // Начало блока вопросов
+      if (/^\s*(Вопрос|Question)\s*:/i.test(l)) {
+        if (currentQuestion !== null) {
+          questions.push({ question: currentQuestion, options: currentOptions });
+        }
+        currentQuestion = l.replace(/^\s*(Вопрос|Question)\s*:\s*/i, "").trim();
+        currentOptions = [];
+        inQuestionBlock = true;
+        continue;
+      }
+      // Варианты: "1. ...", "А) ...", "A) ...", "- ..." в блоке вопроса
+      if (inQuestionBlock) {
+        const optMatch = l.match(/^\s*(?:\d+[.)]\s*|[А-Яа-яA-Za-z][.)]\s*|-\s+)(.+)$/);
+        if (optMatch) {
+          currentOptions.push(optMatch[1].trim());
+          continue;
+        }
+        // Пустая строка или заголовок — закрываем блок
+        if (!l.trim() || /^#+\s/.test(l)) {
+          inQuestionBlock = false;
+          if (currentQuestion !== null) {
+            questions.push({ question: currentQuestion, options: currentOptions });
+            currentQuestion = null;
+            currentOptions = [];
+          }
+        }
+      }
+    }
+    // Добавляем незакрытый вопрос
+    if (currentQuestion !== null) {
+      questions.push({ question: currentQuestion, options: currentOptions });
+    }
+
+    // --- 3. Acceptance criteria ---
+    // Ищем ## Acceptance или ## Acceptance criteria, затем bullet-строки
+    let inAcceptance = false;
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i];
+      if (/^#+\s+Acceptance(\s+criteria)?/i.test(l)) {
+        inAcceptance = true;
+        continue;
+      }
+      if (inAcceptance) {
+        // Новый заголовок — завершаем блок
+        if (/^#+\s/.test(l)) { inAcceptance = false; continue; }
+        // bullet или checkbox строки
+        const bulletMatch = l.match(/^\s*[-*]\s+(.+)$/);
+        const checkboxMatch = l.match(/^\s*[-*]?\s*\[([x ])\]\s*(.+)$/i);
+        if (checkboxMatch) {
+          acceptance.push(checkboxMatch[2].trim());
+        } else if (bulletMatch) {
+          acceptance.push(bulletMatch[1].trim());
+        }
+      }
+    }
+
+    return { tldr, questions, acceptance, raw: md };
+  }
+
   // ===================== Drag-n-drop columns =====================
   $$("[data-status]").forEach((col) => {
     const status = col.dataset.status;
@@ -403,22 +516,113 @@
     if (!r.ok) return;
     const { задача: t } = await r.json();
 
-    // Пытаемся получить парсированное description
-    let parsed = null;
+    // Пытаемся получить парсированное description (от сервера)
+    let serverParsed = null;
     const rParsed = await fetch("/api/tasks/" + id + "/parsed");
     if (rParsed.ok) {
       const pData = await rParsed.json();
-      parsed = pData.parsed;
+      serverParsed = pData.parsed;
     }
 
+    // Парсим описание на клиенте для reader-mode v2 (S6.2)
+    const clientParsed = parseTaskDescription(t.description || "");
+
     $("#modal-task-title").textContent = `#${t.id.slice(0, 6)} · ${t.title}`;
-    $("#modal-task-body").innerHTML = renderTaskBody(t, parsed);
+    $("#modal-task-body").innerHTML = renderTaskBody(t, serverParsed, clientParsed);
     bindTaskActions(t);
-    bindReaderMode(parsed);
+    bindReaderMode(serverParsed);
+    bindReaderModeV2(t, clientParsed);
     $("#modal-task").hidden = false;
   }
 
-  function renderTaskBody(t, parsed) {
+  /**
+   * Render reader-mode v2 (S6.2): TL;DR, questions/options, acceptance, tech details collapsed.
+   * Returns HTML string or null if description is empty.
+   */
+  function renderReaderModeV2(t, clientParsed) {
+    const { tldr, questions, acceptance, raw } = clientParsed;
+    const hasContent = tldr || questions.length || acceptance.length || raw.trim();
+    if (!hasContent) return null;
+
+    const parts = [];
+
+    // TL;DR block
+    if (tldr) {
+      parts.push(`
+        <div class="tldr-block">
+          <div class="tldr-block-label">${escapeHtml(i18n("task.tldr_label"))}</div>
+          <div class="tldr-block-text">${escapeHtml(tldr)}</div>
+        </div>
+      `);
+    }
+
+    // Questions / options block
+    if (questions.length) {
+      let qHtml = `<div class="questions-block">
+        <div class="questions-block-label">${escapeHtml(i18n("task.questions_label"))}</div>`;
+      questions.forEach((q, qi) => {
+        if (q.question) {
+          qHtml += `<div class="questions-block-question">${escapeHtml(q.question)}</div>`;
+        }
+        if (q.options.length) {
+          qHtml += `<div class="questions-options-row">`;
+          q.options.forEach((opt, oi) => {
+            qHtml += `<button type="button" class="option-button" data-qi="${qi}" data-oi="${oi}" data-task-id="${escapeAttr(t.id)}" title="${escapeAttr(opt)}">${escapeHtml(opt)}</button>`;
+          });
+          qHtml += `</div>`;
+        }
+        qHtml += `<div class="questions-custom-row">
+          <textarea class="questions-custom-textarea" data-qi="${qi}" placeholder="${escapeAttr(i18n("task.your_answer_placeholder"))}" rows="2"></textarea>
+          <button type="button" class="questions-send-btn" data-qi="${qi}" data-task-id="${escapeAttr(t.id)}">${escapeHtml(i18n("task.send_answer"))}</button>
+        </div>`;
+      });
+      qHtml += `</div>`;
+      parts.push(qHtml);
+    }
+
+    // Acceptance checklist
+    if (acceptance.length) {
+      // Load saved state from localStorage
+      let savedState = [];
+      try {
+        savedState = JSON.parse(localStorage.getItem("acceptance_" + t.id) || "[]");
+      } catch (_) { savedState = []; }
+
+      let acHtml = `<div class="acceptance-block" id="acceptance-block-${escapeAttr(t.id)}">
+        <div class="acceptance-block-label">${escapeHtml(i18n("task.acceptance_label"))} (${savedState.filter(Boolean).length} из ${acceptance.length})</div>`;
+      acceptance.forEach((item, idx) => {
+        const checked = savedState[idx] === true;
+        acHtml += `<div class="acceptance-item${checked ? " checked" : ""}">
+          <input type="checkbox" id="ac-${escapeAttr(t.id)}-${idx}"
+                 data-ac-task="${escapeAttr(t.id)}" data-ac-idx="${idx}"
+                 ${checked ? "checked" : ""}
+                 aria-label="${escapeAttr(item)}">
+          <label for="ac-${escapeAttr(t.id)}-${idx}">${escapeHtml(item)}</label>
+        </div>`;
+      });
+      acHtml += `</div>`;
+      parts.push(acHtml);
+    }
+
+    // Tech details — collapsed by default
+    if (raw.trim()) {
+      parts.push(`
+        <div class="tech-collapsed" id="tech-details-${escapeAttr(t.id)}">
+          <button type="button" class="tech-toggle-btn" data-tech-toggle="${escapeAttr(t.id)}" aria-expanded="false">
+            <span class="tech-toggle-arrow">▸</span>
+            <span>${escapeHtml(i18n("task.tech_details_label"))}</span>
+          </button>
+          <div class="tech-content" id="tech-content-${escapeAttr(t.id)}" hidden>
+            ${escapeHtml(raw)}
+          </div>
+        </div>
+      `);
+    }
+
+    return `<div class="task-modal-readermode">${parts.join("")}</div>`;
+  }
+
+  function renderTaskBody(t, parsed, clientParsed) {
     const created = new Date(t.created_at * 1000).toLocaleString(dtLocale());
     const updated = new Date(t.updated_at * 1000).toLocaleString(dtLocale());
     const createdUpdated = i18n("task.meta.created_updated")
@@ -462,11 +666,19 @@
 
       <div id="view-mode">
         <h3>${i18n("task.section.description")}</h3>
-        ${
-          parsed && parsed.has_structure
-            ? renderUserMode(parsed) + (parsed.raw_markdown ? renderAgentMode(parsed) : "")
-            : `<div style="white-space:pre-wrap">${escapeHtml(t.description || "—")}</div>`
-        }
+        ${(function() {
+          // Reader-mode v2 (S6.2): try client-parsed first
+          if (clientParsed) {
+            const v2 = renderReaderModeV2(t, clientParsed);
+            if (v2) return v2;
+          }
+          // Fallback to server-parsed (S5.5 reader-mode)
+          if (parsed && parsed.has_structure) {
+            return renderUserMode(parsed) + (parsed.raw_markdown ? renderAgentMode(parsed) : "");
+          }
+          // Final fallback: plain text
+          return `<div style="white-space:pre-wrap">${escapeHtml(t.description || "—")}</div>`;
+        })()}
       </div>
 
       <form id="edit-mode" hidden>
@@ -714,6 +926,109 @@
         const taskId2 = $("#modal-task-title").textContent.match(/#([a-z0-9]+)/)?.[1];
         if (taskId2) {
           await openTaskModal(taskId2);
+        }
+      });
+    });
+  }
+
+  /**
+   * bindReaderModeV2 — привязывает обработчики для reader-mode v2 (S6.2):
+   * - option-button: добавляет комментарий, перезагружает модалку
+   * - send-btn: отправляет textarea как комментарий
+   * - acceptance checkboxes: сохраняют state в localStorage
+   * - tech-toggle-btn: разворачивает/сворачивает технические детали
+   */
+  function bindReaderModeV2(t, clientParsed) {
+    const root = $("#modal-task-body");
+    if (!root || !clientParsed) return;
+
+    // --- Option buttons (pill) ---
+    root.querySelectorAll(".option-button").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const optText = btn.title || btn.textContent.trim();
+        const qi = btn.dataset.qi;
+        const oi = btn.dataset.oi;
+        const q = clientParsed.questions[qi];
+        const questionText = q ? q.question : "";
+        const commentText = questionText
+          ? `Ответ: вариант ${parseInt(oi, 10) + 1} (${optText}) на вопрос: ${questionText}`
+          : `Ответ: вариант ${parseInt(oi, 10) + 1} (${optText})`;
+
+        await fetch(`/api/tasks/${t.id}/comment`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ author: "пользователь", text: commentText }),
+        });
+        await openTaskModal(t.id);
+      });
+    });
+
+    // --- Send buttons (custom answer textarea) ---
+    root.querySelectorAll(".questions-send-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const qi = btn.dataset.qi;
+        const textarea = root.querySelector(`.questions-custom-textarea[data-qi="${qi}"]`);
+        if (!textarea) return;
+        const text = textarea.value.trim();
+        if (!text) return;
+
+        const q = clientParsed.questions[qi];
+        const questionText = q ? q.question : "";
+        const commentText = questionText
+          ? `Ответ: ${text} (на вопрос: ${questionText})`
+          : `Ответ: ${text}`;
+
+        await fetch(`/api/tasks/${t.id}/comment`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ author: "пользователь", text: commentText }),
+        });
+        await openTaskModal(t.id);
+      });
+    });
+
+    // --- Acceptance checkboxes — persist state to localStorage ---
+    root.querySelectorAll("[data-ac-task]").forEach((cb) => {
+      cb.addEventListener("change", () => {
+        const taskId = cb.dataset.acTask;
+        const idx = parseInt(cb.dataset.acIdx, 10);
+        const n = clientParsed.acceptance.length;
+
+        // Load current state
+        let state = [];
+        try { state = JSON.parse(localStorage.getItem("acceptance_" + taskId) || "[]"); } catch (_) { state = []; }
+        while (state.length < n) state.push(false);
+
+        state[idx] = cb.checked;
+        localStorage.setItem("acceptance_" + taskId, JSON.stringify(state));
+
+        // Update visual checked state
+        const item = cb.closest(".acceptance-item");
+        if (item) item.classList.toggle("checked", cb.checked);
+
+        // Update counter label
+        const labelEl = root.querySelector(`#acceptance-block-${taskId} .acceptance-block-label`);
+        if (labelEl) {
+          const doneCount = state.filter(Boolean).length;
+          labelEl.textContent = `${i18n("task.acceptance_label")} (${doneCount} из ${n})`;
+        }
+      });
+    });
+
+    // --- Tech details toggle ---
+    root.querySelectorAll("[data-tech-toggle]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const taskId = btn.dataset.techToggle;
+        const wrapper = root.querySelector(`#tech-details-${taskId}`);
+        const content = root.querySelector(`#tech-content-${taskId}`);
+        const arrow = btn.querySelector(".tech-toggle-arrow");
+        if (!content) return;
+
+        const isExpanded = btn.getAttribute("aria-expanded") === "true";
+        content.hidden = isExpanded;
+        btn.setAttribute("aria-expanded", isExpanded ? "false" : "true");
+        if (wrapper) {
+          wrapper.className = isExpanded ? "tech-collapsed" : "tech-expanded";
         }
       });
     });
@@ -1980,28 +2295,7 @@
       return;
     }
 
-    // --- KPI cards: lifetime counters (always shown) ---
-    let kpiHtml = `<div class="stats-kpi-lifetime">
-      <h3 class="stats-kpi-lifetime-title">${i18n("stats.range.all")}</h3>
-      <div class="stats-kpi-row">`;
-
-    const lifetimeDefs = [
-      { key: "tasks_total_done",       label: i18n("stats.tasks_total_done"),       value: data.tasks_total_done || 0, unit: "" },
-      { key: "tasks_total_created",    label: i18n("stats.tasks_total_created"),    value: data.tasks_total_created || 0, unit: "" },
-      { key: "tasks_completion_rate",  label: i18n("stats.tasks_completion_rate"),  value: (Math.round((data.tasks_completion_rate || 0) * 100)) + "%", unit: "" },
-      { key: "tasks_in_progress",      label: i18n("stats.tasks_in_progress"),      value: data.tasks_in_progress || 0, unit: "" },
-    ];
-
-    kpiHtml += lifetimeDefs.map((k) => `
-      <div class="stats-kpi-card">
-        <div class="stats-kpi-label">${escapeHtml(k.label)}</div>
-        <div class="stats-kpi-value">${escapeHtml(String(k.value))}${k.unit ? '<span class="stats-kpi-unit">' + k.unit + '</span>' : ''}</div>
-      </div>
-    `).join("");
-
-    kpiHtml += `</div></div>`;
-
-    // --- KPI cards: range-based counters ---
+    // --- KPI cards: range-based counters (restored original layout) ---
     const kpiDefs = [
       { key: "sessions",      label: i18n("stats.sessions"),  value: data.sessions      || 0, unit: "" },
       { key: "turns",         label: i18n("stats.turns"),     value: data.turns         || 0, unit: "" },
@@ -2010,21 +2304,12 @@
       { key: "lines_written", label: i18n("stats.lines"),     value: data.lines_written || 0, unit: "" },
       { key: "hours_worked",  label: i18n("stats.hours"),     value: (data.hours_worked || 0).toFixed(1), unit: "h" },
     ];
-
-    kpiHtml += `<div class="stats-kpi-range">
-      <h3 class="stats-kpi-range-title">${i18n("stats.range." + _statsRange)}</h3>
-      <div class="stats-kpi-row">`;
-
-    kpiHtml += kpiDefs.map((k) => `
+    kpiGrid.innerHTML = kpiDefs.map((k) => `
       <div class="stats-kpi-card">
         <div class="stats-kpi-label">${escapeHtml(k.label)}</div>
         <div class="stats-kpi-value">${escapeHtml(String(k.value))}${k.unit ? '<span class="stats-kpi-unit">' + k.unit + '</span>' : ''}</div>
       </div>
     `).join("");
-
-    kpiHtml += `</div></div>`;
-
-    kpiGrid.innerHTML = kpiHtml;
 
     // --- Models table ---
     if (modelsEl) {
@@ -2109,7 +2394,7 @@
       topEl.innerHTML = html;
     }
 
-    // --- Lifetime task counters (S5.2) ---
+    // --- Lifetime task counters (S6.1: отдельная секция с .lifetime-counter-* классами) ---
     const lifetimeEl = $("#statsLifetime");
     if (lifetimeEl) {
       const totalDone      = data.tasks_total_done      || 0;
@@ -2118,26 +2403,26 @@
       const completionRate = data.tasks_completion_rate || 0;
       const rateDisplay    = Math.round(completionRate * 100);
 
-      const achievementDefs = [
-        { id: "stat-total-done",      label: i18n("stats.lifetime.total_done"),      rawVal: totalDone,    suffix: "" },
-        { id: "stat-total-created",   label: i18n("stats.lifetime.total_created"),   rawVal: totalCreated, suffix: "" },
-        { id: "stat-completion-rate", label: i18n("stats.lifetime.completion_rate"), rawVal: rateDisplay,  suffix: "%" },
-        { id: "stat-in-progress",     label: i18n("stats.lifetime.in_progress"),     rawVal: inProgress,   suffix: "" },
+      const lifetimeDefs = [
+        { id: "lt-done",       mod: "done",    label: i18n("stats.lifetime.done"),       rawVal: totalDone,    suffix: "" },
+        { id: "lt-created",    mod: "created", label: i18n("stats.lifetime.created"),    rawVal: totalCreated, suffix: "" },
+        { id: "lt-rate",       mod: "rate",    label: i18n("stats.lifetime.rate"),       rawVal: rateDisplay,  suffix: "%" },
+        { id: "lt-inprogress", mod: "wip",     label: i18n("stats.lifetime.inprogress"), rawVal: inProgress,   suffix: "" },
       ];
 
       let lifetimeHtml = `<h3 class="stats-section-title">${i18n("stats.lifetime.title")}</h3>`;
-      lifetimeHtml += `<div class="stat-achievements-grid">`;
-      lifetimeHtml += achievementDefs.map((d) => `
-        <div class="stat-achievement-card">
-          <div class="stat-achievement-number" id="${escapeHtml(d.id)}">0${escapeHtml(d.suffix)}</div>
-          <div class="stat-achievement-label">${escapeHtml(d.label)}</div>
+      lifetimeHtml += `<div class="lifetime-counter-grid">`;
+      lifetimeHtml += lifetimeDefs.map((d) => `
+        <div class="lifetime-counter-card lifetime-counter-card--${escapeHtml(d.mod)}">
+          <div class="lifetime-counter-value" id="${escapeHtml(d.id)}">0${escapeHtml(d.suffix)}</div>
+          <div class="lifetime-counter-label">${escapeHtml(d.label)}</div>
         </div>
       `).join("");
       lifetimeHtml += `</div>`;
       lifetimeEl.innerHTML = lifetimeHtml;
 
       // Count-up animation (~600ms)
-      achievementDefs.forEach((d) => {
+      lifetimeDefs.forEach((d) => {
         const el = document.getElementById(d.id);
         if (el) animateCounter(el, d.rawVal, d.suffix, 600);
       });

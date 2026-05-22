@@ -35,6 +35,7 @@
   // Селекторы выбраны под реальный DOM kanban.html. Если элемент не найден —
   // шаг показывается по центру (graceful degradation).
   const DEFAULT_STEPS = [
+    // Step 1: Welcome / intro
     {
       selector: null,
       i18nTitle: 'onboarding.tour.step1.title',
@@ -43,37 +44,105 @@
       fallbackBody:  'Seven roles — team-lead, backend, frontend, QA, architect, DevOps, tech-writer — collaborate on tasks as a single team. A quick minute to show you how it works.',
       position: 'center',
     },
+    // Step 2: Kanban columns
     {
-      selector: '#btn-new-task',
+      selector: '.board',
+      fallbackSelector: '.view-board',
       i18nTitle: 'onboarding.tour.step2.title',
       i18nBody:  'onboarding.tour.step2.body',
-      fallbackTitle: 'Create tasks here',
+      fallbackTitle: 'Tasks flow through columns',
+      fallbackBody:  'Tasks move from «To do» → «In progress» → «Review» → «Done». Each column reflects the current state of work.',
+      position: 'bottom',
+    },
+    // Step 3: Task card
+    {
+      selector: '.column[data-status="todo"]',
+      i18nTitle: 'onboarding.tour.step3.title',
+      i18nBody:  'onboarding.tour.step3.body',
+      fallbackTitle: 'Click a card for details',
+      fallbackBody:  'Clicking a task card opens its details. Coloured chips show the priority, assigned role, and the LLM model being used.',
+      position: 'right',
+    },
+    // Step 4: New task button
+    {
+      selector: '#btn-new-task',
+      i18nTitle: 'onboarding.tour.step4.title',
+      i18nBody:  'onboarding.tour.step4.body',
+      fallbackTitle: 'Create tasks yourself',
       fallbackBody:  'Click «+ New task», describe what needs doing. The team-lead will break it down and delegate.',
       position: 'bottom',
     },
+    // Step 5: Sidebar — Inbox
     {
-      selector: '.team-roles',
-      fallbackSelector: 'aside.sidebar',
-      i18nTitle: 'onboarding.tour.step3.title',
-      i18nBody:  'onboarding.tour.step3.body',
-      fallbackTitle: 'Roles live in roles/*.md',
-      fallbackBody:  'Each role has its own system prompt under roles/. Want to tweak behaviour? Edit that role\'s markdown file.',
-      position: 'right',
-    },
-    {
-      selector: '#btn-start',
-      i18nTitle: 'onboarding.tour.step4.title',
-      i18nBody:  'onboarding.tour.step4.body',
-      fallbackTitle: 'Launch the team-lead — they\'ll dispatch work',
-      fallbackBody:  '«▶ Start team» — the team-lead reads the board, picks the next task and starts delegating. «⏹ Stop» ends the session.',
-      position: 'bottom',
-    },
-    {
-      selector: '.column[data-status="wip"]',
+      selector: '.nav-item[data-view="inbox"]',
       i18nTitle: 'onboarding.tour.step5.title',
       i18nBody:  'onboarding.tour.step5.body',
-      fallbackTitle: 'The board updates in real time',
-      fallbackBody:  'The «In progress» column lights up as soon as the team picks up work. No refresh needed. You\'re set!',
+      fallbackTitle: 'Inbox — your action queue',
+      fallbackBody:  'Everything that needs your attention lands here: approvals, team questions, and work ready to be signed off.',
+      position: 'right',
+    },
+    // Step 6: Sidebar — Statistics
+    {
+      selector: '.nav-item[data-view="stats"]',
+      i18nTitle: 'onboarding.tour.step6.title',
+      i18nBody:  'onboarding.tour.step6.body',
+      fallbackTitle: 'Statistics — team metrics',
+      fallbackBody:  'Token usage, model costs, activity heatmap — everything about how the team is spending its time and budget.',
+      position: 'right',
+    },
+    // Step 7: Sidebar — Roles
+    {
+      selector: '.nav-item[data-view="roles"]',
+      i18nTitle: 'onboarding.tour.step7.title',
+      i18nBody:  'onboarding.tour.step7.body',
+      fallbackTitle: 'Roles — your team roster',
+      fallbackBody:  'See who is on your team. You can add custom roles or edit existing ones — each role is a markdown system prompt.',
+      position: 'right',
+    },
+    // Step 8: Sidebar — Archive
+    {
+      selector: '.nav-item[data-view="archive"]',
+      i18nTitle: 'onboarding.tour.step8.title',
+      i18nBody:  'onboarding.tour.step8.body',
+      fallbackTitle: 'Archive — completed work',
+      fallbackBody:  'Done tasks older than 7 days live here. Nothing is deleted — the history is always accessible.',
+      position: 'right',
+    },
+    // Step 9: Sidebar — Settings
+    {
+      selector: '.nav-item[data-view="settings"]',
+      i18nTitle: 'onboarding.tour.step9.title',
+      i18nBody:  'onboarding.tour.step9.body',
+      fallbackTitle: 'Settings — language, theme, team',
+      fallbackBody:  'Change the interface language, colour theme, auto-mode limits, and team-lead expertise level.',
+      position: 'right',
+    },
+    // Step 10: Topbar — Start button
+    {
+      selector: '#btn-start',
+      i18nTitle: 'onboarding.tour.step10.title',
+      i18nBody:  'onboarding.tour.step10.body',
+      fallbackTitle: 'Launch the team-lead',
+      fallbackBody:  '▶ Start — the team-lead reads the board, picks the next task and starts delegating. «⏹ Stop» ends the session.',
+      position: 'bottom',
+    },
+    // Step 11: Topbar — Auto mode
+    {
+      selector: '.auto-toggle',
+      i18nTitle: 'onboarding.tour.step11.title',
+      i18nBody:  'onboarding.tour.step11.body',
+      fallbackTitle: 'Auto mode',
+      fallbackBody:  '🤖 Auto — the team-lead starts the next session on their own whenever there are tasks in the queue. No need to click «Start» every time.',
+      position: 'bottom',
+    },
+    // Step 12: Chat panel
+    {
+      selector: 'aside.chat',
+      fallbackSelector: '#chat',
+      i18nTitle: 'onboarding.tour.step12.title',
+      i18nBody:  'onboarding.tour.step12.body',
+      fallbackTitle: 'Chat with the team-lead',
+      fallbackBody:  'Leave messages here — the team-lead reads them at the start of each session and reports back. This is your async communication channel.',
       position: 'left',
     },
   ];

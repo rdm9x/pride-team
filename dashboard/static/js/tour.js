@@ -39,16 +39,16 @@
       selector: null,
       i18nTitle: 'onboarding.tour.step1.title',
       i18nBody:  'onboarding.tour.step1.body',
-      fallbackTitle: 'Привет! Это твоя AI-команда',
-      fallbackBody:  'Семь ролей — тимлид, бэкенд, frontend, QA, архитектор, DevOps, техписатель — работают над задачами как одна команда. За минуту покажу, как этим пользоваться.',
+      fallbackTitle: 'Hi! Meet your AI team',
+      fallbackBody:  'Seven roles — team-lead, backend, frontend, QA, architect, DevOps, tech-writer — collaborate on tasks as a single team. A quick minute to show you how it works.',
       position: 'center',
     },
     {
       selector: '#btn-new-task',
       i18nTitle: 'onboarding.tour.step2.title',
       i18nBody:  'onboarding.tour.step2.body',
-      fallbackTitle: 'Создавай задачи здесь',
-      fallbackBody:  'Жми «+ Новая задача», опиши что нужно сделать. Тимлид разберёт задачу и раздаст её команде.',
+      fallbackTitle: 'Create tasks here',
+      fallbackBody:  'Click «+ New task», describe what needs doing. The team-lead will break it down and delegate.',
       position: 'bottom',
     },
     {
@@ -56,24 +56,24 @@
       fallbackSelector: 'aside.sidebar',
       i18nTitle: 'onboarding.tour.step3.title',
       i18nBody:  'onboarding.tour.step3.body',
-      fallbackTitle: 'Роли описаны в roles/*.md',
-      fallbackBody:  'У каждой роли свой системный промт в папке роли/. Хочешь поменять поведение — правь markdown-файл соответствующей роли.',
+      fallbackTitle: 'Roles live in roles/*.md',
+      fallbackBody:  'Each role has its own system prompt under roles/. Want to tweak behaviour? Edit that role\'s markdown file.',
       position: 'right',
     },
     {
       selector: '#btn-start',
       i18nTitle: 'onboarding.tour.step4.title',
       i18nBody:  'onboarding.tour.step4.body',
-      fallbackTitle: 'Запусти тимлида — он раздаст работу',
-      fallbackBody:  '«▶ Запустить команду» — тимлид прочитает доску, возьмёт следующую задачу и начнёт делегировать. Кнопка «⏹ Остановить» прекращает сессию.',
+      fallbackTitle: 'Launch the team-lead — they\'ll dispatch work',
+      fallbackBody:  '«▶ Start team» — the team-lead reads the board, picks the next task and starts delegating. «⏹ Stop» ends the session.',
       position: 'bottom',
     },
     {
       selector: '.column[data-status="wip"]',
       i18nTitle: 'onboarding.tour.step5.title',
       i18nBody:  'onboarding.tour.step5.body',
-      fallbackTitle: 'Канбан меняется в реальном времени',
-      fallbackBody:  'Колонка «В работе» оживает, как только команда возьмёт задачу. Всё обновляется без перезагрузки. Готово!',
+      fallbackTitle: 'The board updates in real time',
+      fallbackBody:  'The «In progress» column lights up as soon as the team picks up work. No refresh needed. You\'re set!',
       position: 'left',
     },
   ];
@@ -177,10 +177,10 @@
         </header>
         <div class="tour-popover-body"></div>
         <div class="tour-popover-actions">
-          <button type="button" class="tour-skip" data-i18n="onboarding.tour.skip">Пропустить</button>
+          <button type="button" class="tour-skip" data-i18n="onboarding.tour.skip">Skip</button>
           <div class="tour-popover-nav">
-            <button type="button" class="tour-prev" data-i18n="onboarding.tour.prev">Назад</button>
-            <button type="button" class="tour-next primary" data-i18n="onboarding.tour.next">Далее</button>
+            <button type="button" class="tour-prev" data-i18n="onboarding.tour.prev">Back</button>
+            <button type="button" class="tour-next primary" data-i18n="onboarding.tour.next">Next</button>
           </div>
         </div>
       `;
@@ -188,8 +188,8 @@
       this.popover = pop;
 
       // Локализация кнопок (если t() готов — переопределит fallback)
-      pop.querySelector('.tour-skip').textContent = tr('onboarding.tour.skip', 'Пропустить');
-      pop.querySelector('.tour-prev').textContent = tr('onboarding.tour.prev', 'Назад');
+      pop.querySelector('.tour-skip').textContent = tr('onboarding.tour.skip', 'Skip');
+      pop.querySelector('.tour-prev').textContent = tr('onboarding.tour.prev', 'Back');
       this._nextBtn = pop.querySelector('.tour-next');
 
       // Обработчики кнопок
@@ -228,8 +228,8 @@
       this.popover.querySelector('.tour-prev').disabled = (idx === 0);
       const isLast = (idx === this.steps.length - 1);
       this._nextBtn.textContent = isLast
-        ? tr('onboarding.tour.finish', 'Готово')
-        : tr('onboarding.tour.next', 'Далее');
+        ? tr('onboarding.tour.finish', 'Done')
+        : tr('onboarding.tour.next', 'Next');
 
       // Если есть селектор — прокручиваем элемент в viewport
       if (target) {
@@ -451,12 +451,18 @@
 
   function autoStart() {
     if (!shouldAutoStart()) return;
-    // Небольшая задержка чтобы дать app.js отрисовать UI
-    setTimeout(() => {
-      const tour = new Tour(DEFAULT_STEPS);
-      tour.start();
-      global.__prideTour = tour; // удобно дебажить из консоли
-    }, 600);
+    // Небольшая задержка чтобы дать app.js отрисовать UI.
+    // Если i18n ещё не готов — повторяем попытку до 3 раз с шагом 200мс.
+    function tryStart(attemptsLeft) {
+      if (typeof global.t === 'function' || attemptsLeft <= 0) {
+        const tour = new Tour(DEFAULT_STEPS);
+        tour.start();
+        global.__prideTour = tour; // удобно дебажить из консоли
+      } else {
+        setTimeout(() => tryStart(attemptsLeft - 1), 200);
+      }
+    }
+    setTimeout(() => tryStart(3), 600);
   }
 
   if (document.readyState === 'loading') {

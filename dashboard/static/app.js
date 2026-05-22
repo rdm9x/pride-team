@@ -1406,7 +1406,7 @@
     );
 
     // === Scroll logic ===
-    // === Уведомления о новых сообщениях НЕ от Дмитрия ===
+    // === Уведомления о новых сообщениях НЕ от пользователя ===
     const latest = messages[messages.length - 1];
     const prevLastChatId = lastChatId;
     lastChatId = latest.id;

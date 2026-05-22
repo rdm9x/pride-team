@@ -89,7 +89,7 @@ You should see Docker Engine 24.x or newer and Compose v2.x.
 cd /opt
 sudo mkdir -p devboard
 sudo chown "$USER":"$USER" devboard
-git clone https://github.com/dmitrydevs/devboard.git devboard
+git clone https://github.com/userdevs/devboard.git devboard
 cd devboard
 ```
 

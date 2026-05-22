@@ -193,7 +193,7 @@ grep -nE "[А-Яа-яЁё]+" дашборд/templates/*.html дашборд/stat
 | `app.js:341` | `Подзадачи (${n})` | `task.section.subtasks` (с `{n}`) | P1 |
 | `app.js:344` | `Результат работы команды` | `task.section.result` | P1 |
 | `app.js:347` | `История` (h3) | `task.section.history` | P1 |
-| `app.js:351` | `placeholder="комментарий от Дмитрия…"` | `task.comment.placeholder` | P1 |
+| `app.js:351` | `placeholder="комментарий от пользователя…"` | `task.comment.placeholder` | P1 |
 | `app.js:352` | `Добавить` | `common.add` | P1 |
 | `app.js:362-383` | все 11 действий: `Взять в работу`, `Удалить`, `Отправить на приёмку`, … | `task.btn.*` (все есть в JSON!) | P0 |
 | `app.js:414` | `alert("Не сохранилось: " …)` | `modal.task.save_failed` | P1 |

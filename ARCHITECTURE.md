@@ -50,7 +50,7 @@ Rendered as GitHub-flavoured Mermaid:
 
 ```mermaid
 graph LR
-    User([Dmitry])
+    User([user])
 
     subgraph Browser
         Kanban[Kanban UI<br/>templates/kanban.html<br/>static/app.js]
@@ -80,7 +80,7 @@ graph LR
     end
 
     subgraph MCP["MCP server pride-tasks (stdio)"]
-        Tools[14 tools<br/>list/get/create/update_task<br/>claim_task add_comment<br/>submit_result chat_* deps_*<br/>notify_dmitry list_roles]
+        Tools[14 tools<br/>list/get/create/update_task<br/>claim_task add_comment<br/>submit_result chat_* deps_*<br/>notify_user list_roles]
         Router[router.py<br/>haiku/sonnet/opus picker]
     end
 
@@ -142,8 +142,8 @@ The kanban. Every card is one row.
 | `title` | TEXT | Short label shown on the card |
 | `description` | TEXT | Markdown body |
 | `status` | TEXT | `todo` \| `wip` \| `needs_approval` \| `review` \| `done` \| `blocked` |
-| `assignee` | TEXT | One of `тимлид` / `бэкенд` / `qa` / `архитектор` / `frontend` / `devops` / `техписатель` / `дмитрий` |
-| `reporter` | TEXT | Who created it (defaults to `дмитрий`) |
+| `assignee` | TEXT | One of `тимлид` / `бэкенд` / `qa` / `архитектор` / `frontend` / `devops` / `техписатель` / `пользователь` |
+| `reporter` | TEXT | Who created it (defaults to `пользователь`) |
 | `priority` | TEXT | `P0` … `P3` |
 | `labels` | TEXT | JSON array — used for `approval`, `destructive`, `design`, `adr`, etc. |
 | `parent_id` | TEXT FK→tasks.id | Subtasks point to the parent epic |
@@ -180,12 +180,12 @@ Self-dependencies are rejected by a `CHECK` constraint; cycles are rejected in a
 
 ### `chat_messages`
 
-A single chat thread between Dmitry and the agents. Not per-task — this is the cross-cutting room.
+A single chat thread between user and the agents. Not per-task — this is the cross-cutting room.
 
 | Column | Type | Notes |
 |---|---|---|
 | `id` | INTEGER PK | |
-| `author` | TEXT | One of: `дмитрий`, `тимлид`, `бэкенд`, `qa`, `system` |
+| `author` | TEXT | One of: `пользователь`, `тимлид`, `бэкенд`, `qa`, `system` |
 | `text` | TEXT | |
 | `created_at` | INTEGER | |
 
@@ -316,7 +316,7 @@ sequenceDiagram
 1. **`POST /api/team/start`** calls `_start_team_process`. It guards against double-start with a lock and returns `409` if a session is already running.
 2. **`devboard-work.sh` runs the router first.** `pride_tasks.router.pick_from_db` reads open tasks, classifies them by keywords (architectural / trivial / techwrite / devops / other), and picks `haiku`, `sonnet`, or `opus`. The decision is logged to stdout so the user sees the *why*.
 3. **`claude` CLI launches in `--print` mode** with `--append-system-prompt = роли/тимлид.md`, `--mcp-config .mcp.json`, `--permission-mode bypassPermissions`, and `--output-format stream-json`.
-4. **The Team Lead starts every session with the chat.** `chat_recent` → reply via `chat_post` if there are unread messages from Dmitry. *Then* it reads the kanban.
+4. **The Team Lead starts every session with the chat.** `chat_recent` → reply via `chat_post` if there are unread messages from user. *Then* it reads the kanban.
 5. **Decomposition.** For each new top-level task the Team Lead calls `create_task(parent_id=..., assignee=...)` 2–6 times.
 6. **Delegation via the Task tool.** The Team Lead spawns subagents with `subagent_type="general-purpose"`, passing the relevant `роли/*.md` as the system prompt plus the subtask id.
 7. **Subagents work in parallel.** Each subagent has its own MCP connection. Backend writes code with Read/Write/Edit, QA runs tests with Bash, both call `submit_result` when done.
@@ -330,7 +330,7 @@ If the user enables **auto mode** (`POST /api/team/auto {enabled: true}`), `_aut
 
 ## 6. Flow 3 — Approval gate
 
-Goal: a subagent wants to do something risky (`git push`, `ssh`, `systemctl restart`). It must **not** execute the command. Instead it creates an `needs_approval` task, freezes, and waits for Dmitry to click **Approve** or **Reject** in the dashboard.
+Goal: a subagent wants to do something risky (`git push`, `ssh`, `systemctl restart`). It must **not** execute the command. Instead it creates an `needs_approval` task, freezes, and waits for user to click **Approve** or **Reject** in the dashboard.
 
 ```mermaid
 sequenceDiagram
@@ -338,12 +338,12 @@ sequenceDiagram
     participant M as MCP pride-tasks
     participant DB as SQLite
     participant UI as Kanban UI
-    actor U as Dmitry
+    actor U as user
     participant F as Flask
     participant L as Team Lead<br/>(next session)
 
     Note over S: Wants to: git push origin main
-    S->>M: create_task(<br/>  title="git push...",<br/>  status="needs_approval",<br/>  requires_approval=True,<br/>  labels=["approval","git-push"],<br/>  parent_id=<current>,<br/>  assignee="дмитрий")
+    S->>M: create_task(<br/>  title="git push...",<br/>  status="needs_approval",<br/>  requires_approval=True,<br/>  labels=["approval","git-push"],<br/>  parent_id=<current>,<br/>  assignee="пользователь")
     M->>DB: INSERT
     S->>M: add_comment(parent, "жду approval #47")
     S->>M: submit_result(<self>, {status:"waiting"})
@@ -358,7 +358,7 @@ sequenceDiagram
     F->>F: existing.reporter → assignee target
     F->>M: update_task(47, status="todo", assignee=reporter)
     M->>DB: UPDATE
-    F->>M: add_comment(47, "дмитрий", "approved at ...")
+    F->>M: add_comment(47, "пользователь", "approved at ...")
     F-->>UI: 200 OK
 
     Note over L: Later, next team session.
@@ -372,14 +372,14 @@ sequenceDiagram
 
 1. **The subagent never runs the risky command directly.** Its system prompt (`роли/бэкенд.md`, `роли/devops.md`) lists the approval-gated operations. See [approval_gates.md](approval_gates.md) for the full list.
 2. **The subagent creates a `needs_approval` task** with `requires_approval=True`, `labels=["approval", "<kind>"]`, and `parent_id` set to the current parent. The description spells out *what* command will run, *why*, and *what files / tests* are affected.
-3. **The subagent freezes.** It comments on the parent task ("waiting on #47") and exits. No further work happens until Dmitry decides.
+3. **The subagent freezes.** It comments on the parent task ("waiting on #47") and exits. No further work happens until user decides.
 4. **The dashboard surfaces it.** The **NEEDS APPROVAL ⚠** column shows the card with a destructive-label highlight. `/api/inbox` aggregates it into the user's Inbox count.
-5. **Dmitry opens the card** and reads the description. He clicks **Approve** or **Reject**.
+5. **user opens the card** and reads the description. He clicks **Approve** or **Reject**.
 6. **`POST /api/tasks/<id>/approve`** moves the task to `status=todo` (not `wip` — work hasn't started yet) and reassigns it back to the *reporter* (i.e. the subagent's parent — usually the Team Lead). It also appends an `approved at ...` comment.
 7. **`POST /api/tasks/<id>/reject`** moves the task to `status=done` with a `REJECTED: <reason>` comment. The subagent's parent will see this and abandon the operation.
 8. **The next Team Lead session** finds the now-approved task in its queue, sees the approval comment, and delegates the actual command to a subagent with the green light. The subagent runs the command and reports back.
 
-This pattern keeps the agent loop **pure-data** — no escape hatches, no special tools that bypass approval. The only thing Dmitry has to trust is the `roles/*.md` prompts and the small list of approval-gated operations in `approval_gates.md`.
+This pattern keeps the agent loop **pure-data** — no escape hatches, no special tools that bypass approval. The only thing user has to trust is the `roles/*.md` prompts and the small list of approval-gated operations in `approval_gates.md`.
 
 ---
 

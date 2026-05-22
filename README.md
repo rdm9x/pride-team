@@ -135,4 +135,4 @@ PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) (added in **E4.2**).
 
 ## License
 
-[MIT](LICENSE) © 2026 Dmitry Rudich.
+[MIT](LICENSE) © 2026 owner.

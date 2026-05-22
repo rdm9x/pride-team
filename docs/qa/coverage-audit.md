@@ -57,7 +57,7 @@
 | 2 | `router.py` | 78 | 78 | **0%** | весь роутер задач — `pick()`, `pick_from_db()`, CLI `main()` |
 | 3 | `server.py` | 67 | 67 | **0%** | MCP-обёртки tools + `stdio_server` запуск |
 | 4 | `__main__.py` | 3 | 3 | **0%** | entrypoint модуля |
-| 5 | `tools.py` | 143 | 49 | **65.7%** | error-ветки: `notify_dmitry`, `chat_post`/`chat_recent`, `add/remove/get_dependencies`, валидация пустых аргументов (строки 240–335) |
+| 5 | `tools.py` | 143 | 49 | **65.7%** | error-ветки: `notify_user`, `chat_post`/`chat_recent`, `add/remove/get_dependencies`, валидация пустых аргументов (строки 240–335) |
 | 6 | `db.py` | 361 | 68 | **81.2%** | редкие пути: восстановление после `IntegrityError`, граничные кейсы зависимостей, цикл `auto_vacuum`, `list_chat_messages` пагинация |
 | 7 | `models.py` | 32 | 0 | 100% | — |
 | 8 | `__init__.py` | 1 | 0 | 100% | — |
@@ -117,7 +117,7 @@
 |---|---|---|
 | P2-1 | `дашборд/app.py` `_format_stream_event` / `_humanize_tool` | параметрический тест на 10–15 типов событий из реального лога |
 | P2-2 | `дашборд/app.py` `_record_session_from_result` | проверка корректного суммирования input/cache токенов |
-| P2-3 | `mcp_сервер/pride_tasks/tools.py` | error-ветки `notify_dmitry`, `chat_post`, `add_dependency` с пустыми аргументами |
+| P2-3 | `mcp_сервер/pride_tasks/tools.py` | error-ветки `notify_user`, `chat_post`, `add_dependency` с пустыми аргументами |
 
 ### P3 — nice to have (~2 файла тестов, +~40 stmt)
 
@@ -215,7 +215,7 @@ HTML-отчёты появятся в `mcp_сервер/htmlcov/` и `дашбо
 |---|---:|---|
 | `mcp_сервер/tests/test_router.py` | 19 | все ветки `pick()` + `pick_from_db()` + CLI `main()` |
 | `mcp_сервер/tests/test_alerts.py` | 26 | `TelegramAlerter` (send + http/network ошибки), `from_env`, `load_env_file` |
-| `mcp_сервер/tests/test_tools_errors.py` | 15 | error-ветки `add_dependency`, `notify_dmitry`, `chat_post`/`chat_recent` |
+| `mcp_сервер/tests/test_tools_errors.py` | 15 | error-ветки `add_dependency`, `notify_user`, `chat_post`/`chat_recent` |
 | `дашборд/tests/test_team_process.py` | 57 | `_start/_stop_team_process`, `_team_status`, `_has_pending_work`, `_auto_can_start`, `_format_stream_event`, `_humanize_tool`, `_record_session_from_result` |
 | `дашборд/tests/test_team_api.py` | 30 | `/api/team/*`, `/api/router/pick`, `/api/chat`, `/api/inbox`, `/api/usage`, зеркалирование комментов в чат |
 | **Итого добавлено** | **147** | |

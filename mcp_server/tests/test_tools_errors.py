@@ -2,7 +2,7 @@
 
 Дополняет test_tools.py — там в основном happy-path. Здесь:
   - валидация пустых аргументов
-  - notify_dmitry без конфига Telegram / с ошибкой отправки
+  - notify_user без конфига Telegram / с ошибкой отправки
   - chat_post валидация
   - add_dependency / get_dependencies error-ветки
 """
@@ -63,44 +63,44 @@ def test_get_dependencies_for_existing_task(db_path: Path) -> None:
     assert res["blocking"] == []
 
 
-# === notify_dmitry ===
+# === notify_user ===
 
 
-def test_notify_dmitry_no_env(monkeypatch, db_path: Path) -> None:
+def test_notify_user_no_env(monkeypatch, db_path: Path) -> None:
     monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
     monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
-    res = tools.notify_dmitry("привет", db_path=db_path)
+    res = tools.notify_user("привет", db_path=db_path)
     assert res["статус"] == "skip"
     assert "TELEGRAM" in res["причина"]
 
 
-def test_notify_dmitry_empty_text(monkeypatch, db_path: Path) -> None:
+def test_notify_user_empty_text(monkeypatch, db_path: Path) -> None:
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "t")
     monkeypatch.setenv("TELEGRAM_CHAT_ID", "1")
-    res = tools.notify_dmitry("   ", db_path=db_path)
+    res = tools.notify_user("   ", db_path=db_path)
     assert res["статус"] == "error"
     assert "пустой" in res["причина"]
 
 
-def test_notify_dmitry_send_failure(monkeypatch, db_path: Path) -> None:
+def test_notify_user_send_failure(monkeypatch, db_path: Path) -> None:
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "t")
     monkeypatch.setenv("TELEGRAM_CHAT_ID", "1")
 
     fake = MagicMock()
     fake.send.side_effect = alerts.TelegramAlertError("network down")
     with patch.object(alerts, "from_env", return_value=fake):
-        res = tools.notify_dmitry("важно", db_path=db_path)
+        res = tools.notify_user("важно", db_path=db_path)
     assert res["статус"] == "error"
     assert "network" in res["причина"]
 
 
-def test_notify_dmitry_happy(monkeypatch, db_path: Path) -> None:
+def test_notify_user_happy(monkeypatch, db_path: Path) -> None:
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "t")
     monkeypatch.setenv("TELEGRAM_CHAT_ID", "1")
 
     fake = MagicMock()
     with patch.object(alerts, "from_env", return_value=fake):
-        res = tools.notify_dmitry("важно", level="warn", db_path=db_path)
+        res = tools.notify_user("важно", level="warn", db_path=db_path)
     assert res["статус"] == "ok"
     fake.send.assert_called_once()
     # level прокинулся

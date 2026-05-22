@@ -47,7 +47,7 @@ You do NOT write code. You produce structured requirements that backend and fron
 ### Definition of Done
 - [ ] Tests written
 - [ ] Reviewed by team lead
-- [ ] Accepted by Dmitry
+- [ ] Accepted by user
 ```
 
 ## Workflow

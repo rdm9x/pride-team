@@ -359,7 +359,7 @@ def test_format_stream_event_unknown_type_returns_none() -> None:
     ("mcp__pride-tasks__add_comment", {"task_id": "abc", "text": "ok"}, "Комментирует"),
     ("mcp__pride-tasks__submit_result", {"task_id": "abc"}, "Сдаёт"),
     ("mcp__pride-tasks__add_dependency", {"task_id": "a", "depends_on": "b"}, "ждёт"),
-    ("mcp__pride-tasks__notify_dmitry", {"text": "hello"}, "Telegram"),
+    ("mcp__pride-tasks__notify_user", {"text": "hello"}, "Telegram"),
     ("Task", {"description": "сделай", "prompt": "ты qa"}, "qa"),
     ("Write", {"file_path": "/x"}, "Создаёт файл"),
     ("Edit", {"file_path": "/x"}, "Правит файл"),

@@ -300,7 +300,7 @@ def test_api_inbox_reviews(client) -> None:
 
 
 def test_api_inbox_questions(client) -> None:
-    """Задача назначена дмитрию (todo) — попадает в questions."""
+    """Задача назначена пользователю (todo) — попадает в questions."""
     tid = client.post("/api/tasks", json={
         "title": "вопрос",
         "assignee": "пользователь",
@@ -313,7 +313,7 @@ def test_api_inbox_questions(client) -> None:
 
 
 def test_api_inbox_approval_priority_over_questions(client) -> None:
-    """Approval-задача дмитрию НЕ дублируется в questions."""
+    """Approval-задача пользователю НЕ дублируется в questions."""
     client.post("/api/tasks", json={
         "title": "approve me",
         "assignee": "пользователь",
@@ -353,8 +353,8 @@ def test_api_usage_empty(client) -> None:
 # === Comment mirroring to chat (пользователь) ===
 
 
-def test_dmitry_comment_mirrored_to_chat(client) -> None:
-    """Коммент Дмитрия должен зеркалиться в чат."""
+def test_user_comment_mirrored_to_chat(client) -> None:
+    """Коммент пользователя должен зеркалиться в чат."""
     tid = client.post("/api/tasks", json={"title": "t"}).get_json()["задача"]["id"]
     client.post(f"/api/tasks/{tid}/comment", json={
         "author": "пользователь",
@@ -375,8 +375,8 @@ def test_system_approve_marker_not_mirrored(client) -> None:
     assert msgs == []
 
 
-def test_non_dmitry_comment_not_mirrored(client) -> None:
-    """Коммент не от Дмитрия не зеркалится в чат."""
+def test_non_user_comment_not_mirrored(client) -> None:
+    """Коммент не от пользователя не зеркалится в чат."""
     tid = client.post("/api/tasks", json={"title": "t"}).get_json()["задача"]["id"]
     client.post(f"/api/tasks/{tid}/comment", json={
         "author": "тимлид",

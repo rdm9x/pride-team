@@ -73,7 +73,7 @@ def test_comment(client) -> None:
 
 
 def test_approve_flow(client) -> None:
-    # Эмулируем что тимлид (reporter) создал approval-таску для Дмитрия.
+    # Эмулируем что тимлид (reporter) создал approval-таску для пользователя.
     tid = client.post(
         "/api/tasks",
         json={
@@ -98,7 +98,7 @@ def test_approve_flow(client) -> None:
 
 def test_approve_returns_to_reporter(client) -> None:
     # Approval-таску создал бэкенд (не пользователь) — после approve должна
-    # вернуться бэкенду, не остаться у дмитрия.
+    # вернуться бэкенду, не остаться у пользователя.
     tid = client.post(
         "/api/tasks",
         json={
@@ -154,7 +154,7 @@ def test_team_start_missing_script(client, tmp_path, monkeypatch) -> None:
     assert r.get_json()["reason"] == "missing_script"
 
 
-def test_dmitry_comment_mirrors_to_chat(client) -> None:
+def test_user_comment_mirrors_to_chat(client) -> None:
     # Пользователь пишет коммент к задаче → должно появиться сообщение в чате.
     tid = client.post("/api/tasks", json={"title": "Telegram setup"}).get_json()["задача"]["id"]
     r = client.post(
@@ -294,7 +294,7 @@ def test_inbox_groups_correctly(client) -> None:
         "title": "выбери авторизацию", "assignee": "пользователь",
         "labels": ["question"], "reporter": "тимлид",
     })
-    # 5. Шум: wip-задача, не для Дмитрия
+    # 5. Шум: wip-задача, не для пользователя
     client.post("/api/tasks", json={"title": "wip-shum", "status": "wip", "assignee": "бэкенд"})
 
     j = client.get("/api/inbox").get_json()
@@ -304,7 +304,7 @@ def test_inbox_groups_correctly(client) -> None:
     approval_titles = {t["title"] for t in j["approvals"]}
     assert approval_titles == {"git push origin main", "A5: ssh-deploy"}
     assert len(j["reviews"]) == 1
-    # questions: только status=todo для Дмитрия (needs_approval поглощён в approvals)
+    # questions: только status=todo для пользователя (needs_approval поглощён в approvals)
     assert len(j["questions"]) == 1
     assert j["questions"][0]["title"] == "выбери авторизацию"
 

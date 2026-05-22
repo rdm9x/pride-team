@@ -177,9 +177,9 @@ def _humanize_tool(name: str, inp: dict) -> Optional[str]:
         # В чат — уже видно в правой панели, дублировать не надо
         return None
 
-    if name == "mcp__pride-tasks__notify_dmitry":
+    if name == "mcp__pride-tasks__notify_user":
         text = _trim(inp.get("text", ""), 80)
-        return f"🔔  Telegram Дмитрию: «{text}»"
+        return f"🔔  Telegram пользователю: «{text}»"
 
     # === Task tool — самое важное (запуск подчинённых) ===
 
@@ -340,7 +340,7 @@ def _auto_restore_delegated_tasks(delegated_ids: set[str]) -> None:
     Task tool, если он ещё в todo/wip — автоматически перевожу в review.
 
     Это safety-net: тимлид НЕ должен забывать update_task, но в реальности
-    забывает. Лучше авто-закрыть и попросить Дмитрия acceptance, чем
+    забывает. Лучше авто-закрыть и попросить пользователя acceptance, чем
     оставить «висящую» работу.
     """
     if not delegated_ids:
@@ -764,7 +764,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             return jsonify(res), 404
         if res["статус"] != "ok":
             return jsonify(res), 400
-        # Зеркалим комментарии Дмитрия в чат, чтобы тимлид (читающий только
+        # Зеркалим комментарии пользователя в чат, чтобы тимлид (читающий только
         # chat_recent) их не пропустил. Системные approve/reject не зеркалим
         # — они и так выглядят как «approved at ...» без полезной нагрузки.
         if author == "пользователь":
@@ -1480,7 +1480,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
 
     @app.get("/api/inbox")
     def api_inbox() -> Any:
-        """Что требует личного внимания Дмитрия.
+        """Что требует личного внимания пользователя.
 
         Простое правило: «если задача в столбце нужно-одобрить / на-приёмке /
         назначена-мне — она в моём Inbox».
@@ -1501,7 +1501,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         review_tasks = db.list_tasks(_db(), status="review", limit=200)
         approval_ids = {t["id"] for t in approval_tasks}
         review_ids = {t["id"] for t in review_tasks}
-        # questions: задачи назначенные Дмитрию, не попавшие в первые две группы.
+        # questions: задачи назначенные пользователю, не попавшие в первые две группы.
         questions: list = []
         for t in db.list_tasks(_db(), assignee="пользователь", limit=200):
             if t["status"] in ("done", "blocked"):
@@ -1656,7 +1656,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         # needs_approval: Deploy to production
         deploy_res = tools.create_task(
             title="Deploy to production",
-            description="Деплой на продакшн — требует одобрения Дмитрия.",
+            description="Деплой на продакшн — требует одобрения пользователя.",
             assignee="пользователь",
             reporter="тимлид",
             priority="P0",

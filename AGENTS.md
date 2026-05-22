@@ -100,7 +100,7 @@ mcp_server/
 - `list_tasks`, `get_task`, `create_task`, `update_task`, `claim_task`
 - `add_comment`, `submit_result`
 - `list_roles`
-- `chat_recent`, `chat_post`, `notify_dmitry`
+- `chat_recent`, `chat_post`, `notify_user`
 - `add_dependency`, `remove_dependency`, `get_dependencies`
 
 ### Где править что

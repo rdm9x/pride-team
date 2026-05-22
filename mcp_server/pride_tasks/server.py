@@ -193,23 +193,23 @@ def get_dependencies(task_id: str) -> dict[str, Any]:
 
 
 @mcp.tool()
-def notify_dmitry(text: str, level: str = "info") -> dict[str, Any]:
-    """Отправить короткое Telegram-уведомление Дмитрию.
+def notify_user(text: str, level: str = "info") -> dict[str, Any]:
+    """Отправить короткое Telegram-уведомление пользователю.
 
     Используй сдержанно: при окончании длинной сессии с короткой сводкой,
     или когда что-то реально срочно. Не злоупотреблять.
 
     level: info | warn | error | ok.
     """
-    return tools.notify_dmitry(text, level=level)
+    return tools.notify_user(text, level=level)
 
 
 @mcp.tool()
 def chat_recent(since: int = 0, limit: int = 50) -> dict[str, Any]:
-    """Прочитать чат Дмитрия с командой.
+    """Прочитать чат пользователя с командой.
 
     Используй при старте сессии тимлида (СРАЗУ после list_tasks):
-    если есть новые сообщения от Дмитрия — ответь через chat_post.
+    если есть новые сообщения от пользователя — ответь через chat_post.
     """
     return tools.chat_recent(since=since, limit=limit)
 

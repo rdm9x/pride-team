@@ -35,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Product renamed: `pride-team` → `devboard` across the entire repo (sidebar brand, README, packages, configs, launcher scripts).
-- Owner role renamed: `Дмитрий`/`дмитрий` → `пользователь`/`user` in code, i18n, tests, and DB migration script (`scripts/migrate_dmitry_to_user.py`) for open-source friendliness.
+- Owner role renamed: `пользователь`/`пользователь` → `пользователь`/`user` in code, i18n, tests, and DB migration script (`scripts/migrate_user_to_user.py`) for open-source friendliness.
 - i18n RU: todo column label "К работе" → "В очереди".
 
 ### Fixed

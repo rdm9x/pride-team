@@ -46,7 +46,7 @@ max_tokens: 16000
 
 - **Application code.** Никакого Python внутри `pride_tasks/`, `дашборд/app.py`. Это зона бэкенда.
 - **UI.** Никакого HTML/CSS/JS.
-- **Реальный prod-deploy** без `needs_approval` от Дмитрия. Любая команда уровня `ssh root@prod`, `systemctl restart`, `kubectl apply` — обязательно через approval-таск с label `destructive`.
+- **Реальный prod-deploy** без `needs_approval` от пользователя. Любая команда уровня `ssh root@prod`, `systemctl restart`, `kubectl apply` — обязательно через approval-таск с label `destructive`.
 
 ## Главные принципы
 

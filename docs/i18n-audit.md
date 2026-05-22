@@ -15,7 +15,7 @@
 > - JS-комментарии (`// ...`, `/* ... */`) — не UI.
 > - HTML-комментарии (`<!-- ... -->`) — не UI.
 > - CSS-комментарии и имена классов — не UI.
-> - Имена ролей и статусов внутри API-payload (`status: "todo"`, `author: "дмитрий"`)
+> - Имена ролей и статусов внутри API-payload (`status: "todo"`, `author: "пользователь"`)
 >   — это значения, идущие по API, а не UI-лейблы. Они вынесены отдельно как `enum.*`
 >   только там, где используются как **отображаемый** список (`<option>` в формах).
 > - Локали для `toLocaleString("ru-RU")` — это код локали, не текст.
@@ -289,7 +289,7 @@
 | `task.result.none` | пока пусто | static/app.js:265 |
 | `task.section.history` | История | static/app.js:339 |
 | `task.history.quiet` | пока тихо… | static/app.js:259 |
-| `task.comment.placeholder` | комментарий от Дмитрия… | static/app.js:343 |
+| `task.comment.placeholder` | комментарий от пользователя… | static/app.js:343 |
 | `task.btn.claim` | Взять в работу | static/app.js:354 |
 | `task.btn.delete` | Удалить | static/app.js:355 ; static/app.js:372 |
 | `task.btn.send_review` | Отправить на приёмку | static/app.js:358 |

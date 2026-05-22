@@ -23,7 +23,7 @@ We follow the [Contributor Covenant v2.1](https://www.contributor-covenant.org/v
 
 > **Note:** `CODE_OF_CONDUCT.md` is not yet committed to the repo. It is tracked as **TODO** under epic E4 (documentation pass) and will land before the v1.0 tag. Until then, the linked Contributor Covenant text is the canonical reference.
 
-To report a problem, email **rudich@example.com** or open a private GitHub issue.
+To report a problem, email **owner@example.com** or open a private GitHub issue.
 
 ---
 
@@ -451,7 +451,7 @@ If your PR is a work-in-progress, open it as a **draft** and prefix the title wi
 
 - **Bugs and feature requests** — [GitHub Issues](https://github.com/rdm9x/devboard/issues). Search first; reproduce in 3-5 lines.
 - **Design discussion** — [GitHub Discussions](https://github.com/rdm9x/devboard/discussions). Good for "should we…" questions before you write code.
-- **Security disclosures** — email **rudich@example.com**. Do not open a public issue for vulnerabilities.
+- **Security disclosures** — email **owner@example.com**. Do not open a public issue for vulnerabilities.
 
 For larger changes (new role, new provider, refactor that crosses package boundaries), open a Discussion or a draft ADR under `docs/adr/` first. It saves everyone time.
 

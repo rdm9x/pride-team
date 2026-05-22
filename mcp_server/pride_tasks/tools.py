@@ -274,13 +274,13 @@ def get_dependencies(
     }
 
 
-def notify_dmitry(
+def notify_user(
     text: str,
     level: str = "info",
     *,
     db_path: Optional[Path] = None,
 ) -> dict[str, Any]:
-    """Отправить Telegram-уведомление Дмитрию.
+    """Отправить Telegram-уведомление пользователю.
 
     Используй когда:
       - закончил длинную сессию и пользователь должен прийти посмотреть результаты;

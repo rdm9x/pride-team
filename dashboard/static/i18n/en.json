@@ -200,6 +200,14 @@
       "title": "Onboarding",
       "desc": "Replay the quick-start tour.",
       "replay": "Replay tour"
+    },
+    "demo": {
+      "title": "Demo data",
+      "desc": "Load example tasks to explore the kanban.",
+      "create": "Try with example data",
+      "clear": "Clear demo",
+      "confirm": "This will create 5 example tasks in your kanban. Remove them later with 'Clear demo'. OK?",
+      "already_exists": "Demo data already loaded."
     }
   },
   "usage": {

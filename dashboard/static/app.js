@@ -549,6 +549,42 @@
     }
   });
 
+  // ===================== Settings: Demo mode =====================
+  document.getElementById('btn-demo-create')?.addEventListener('click', async () => {
+    const msg = window.t ? window.t('settings.demo.confirm') : 'This will create 5 example tasks. OK?';
+    if (!confirm(msg)) return;
+
+    const btn = document.getElementById('btn-demo-create');
+    btn.disabled = true;
+    try {
+      const r = await fetch('/api/demo', { method: 'POST' });
+      const data = await r.json();
+      if (data.already_exists) {
+        alert(window.t ? window.t('settings.demo.already_exists') : 'Demo data already exists.');
+      } else {
+        refresh();
+      }
+    } catch(e) {
+      console.error('Demo create error', e);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('btn-demo-clear')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btn-demo-clear');
+    btn.disabled = true;
+    try {
+      const r = await fetch('/api/demo', { method: 'DELETE' });
+      const data = await r.json();
+      refresh();
+    } catch(e) {
+      console.error('Demo clear error', e);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
   // ===================== Team controls =====================
   async function refreshTeamStatus() {
     const r = await fetch("/api/team/status");

@@ -657,6 +657,107 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
     def index() -> str:
         return render_template("kanban.html")
 
+    # === Departments ===
+
+    @app.get("/api/departments")
+    def api_list_departments() -> Any:
+        """Список активных отделов с counts задач."""
+        import re as _re_slug
+        depts = db.list_departments(_db())
+        result = []
+        for d in depts:
+            result.append({
+                "id": d["id"],
+                "name": d["name"],
+                "description": d["description"],
+                "icon": d["icon"],
+                "counts": {
+                    "open": d.get("tasks_open", 0),
+                    "wip": 0,   # placeholder — tasks_open covers todo+wip
+                    "total": d.get("tasks_total", 0),
+                },
+            })
+        return jsonify({"departments": result})
+
+    @app.get("/api/departments/<dept_id>")
+    def api_get_department(dept_id: str) -> Any:
+        """Детали одного отдела. 404 если не найден."""
+        dept = db.get_department(_db(), dept_id)
+        if dept is None:
+            return jsonify({"статус": "not_found", "status": "not_found"}), 404
+        return jsonify({"department": dept})
+
+    @app.post("/api/departments")
+    def api_create_department() -> Any:
+        """Создание отдела. Валидация: name уникальное, id = slug из name. 409 если уже есть."""
+        import re as _re_slug2
+        data = request.get_json(silent=True) or {}
+        name = (data.get("name") or "").strip()
+        if not name:
+            return jsonify({"статус": "error", "status": "error", "причина": "name обязателен", "reason": "name обязателен"}), 400
+
+        # Генерируем id-slug из name: строчные, пробелы → '-', оставляем [a-z0-9-]
+        slug = _re_slug2.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+        if not slug:
+            return jsonify({"статус": "error", "status": "error", "причина": "name не допускает slug", "reason": "name не допускает slug"}), 400
+
+        description = (data.get("description") or "").strip()
+        template_id = data.get("template_id")
+        icon = (data.get("icon") or "🗂").strip() or "🗂"
+
+        try:
+            dept = db.create_department(
+                _db(),
+                dept_id=slug,
+                name=name,
+                description=description,
+                template_id=template_id,
+                icon=icon,
+            )
+        except ValueError as exc:
+            return jsonify({"статус": "error", "status": "error", "причина": str(exc), "reason": str(exc)}), 409
+
+        return jsonify({"department": dept}), 201
+
+    @app.patch("/api/departments/<dept_id>/archive")
+    def api_archive_department(dept_id: str) -> Any:
+        """Soft-archive отдела. 403 если dept_id == 'dev'. 404 если не найден."""
+        if dept_id == "dev":
+            return jsonify({
+                "статус": "error",
+                "status": "error",
+                "причина": "нельзя архивировать default отдел 'dev'",
+                "reason": "cannot archive default department 'dev'",
+            }), 403
+
+        dept = db.get_department(_db(), dept_id)
+        if dept is None:
+            return jsonify({"статус": "not_found", "status": "not_found"}), 404
+
+        now = int(time.time())
+        with db.write_lock(_db()):
+            conn = db._connect(_db())
+            try:
+                conn.execute("BEGIN IMMEDIATE")
+                conn.execute(
+                    "UPDATE departments SET archived_at = ? WHERE id = ?",
+                    (now, dept_id),
+                )
+                conn.execute("COMMIT")
+                row = conn.execute(
+                    "SELECT * FROM departments WHERE id = ?", (dept_id,)
+                ).fetchone()
+            finally:
+                conn.close()
+
+        return jsonify({
+            "department": {
+                "id": row["id"],
+                "name": row["name"],
+                "archived_at": row["archived_at"],
+            }
+        })
+
     # === Tasks ===
 
     @app.get("/api/tasks")
@@ -666,8 +767,25 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         label = request.args.get("label")
         limit = int(request.args.get("limit", 200))
         include_archived = request.args.get("archived") in ("1", "true", "yes")
+
+        # S8.3: department filter
+        # ?department=__all__  → все задачи (no filter); tools.list_tasks(department_id=None)
+        # ?department=<id>     → фильтр по department_id
+        # не указан            → default 'dev' (backward compat)
+        # tools.list_tasks behaviour: department_id=None → _filter=False → all tasks
+        #                             department_id=X    → _filter=True  → filter by X
+        dept_param = request.args.get("department")
+        if dept_param == "__all__":
+            dept_id_filter: Optional[str] = None  # no filter
+        elif dept_param is not None:
+            dept_id_filter = dept_param
+        else:
+            dept_id_filter = "dev"
+
         res = tools.list_tasks(
-            status=status, assignee=assignee, label=label, limit=limit, db_path=_db()
+            status=status, assignee=assignee, label=label, limit=limit,
+            db_path=_db(),
+            department_id=dept_id_filter,
         )
         if res["статус"] != "ok":
             return jsonify(res), 400
@@ -1513,7 +1631,17 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
     def api_chat_list() -> Any:
         since = int(request.args.get("since", 0))
         limit = int(request.args.get("limit", 100))
-        msgs = db.list_chat_messages(_db(), since=since, limit=limit)
+        # S8.3: ?department=<id> → фильтр по department_id
+        # ?department=__global__ → глобальный канал (department_id IS NULL)
+        # не указан → default 'dev'
+        dept_param = request.args.get("department")
+        if dept_param == "__global__":
+            chat_dept = None
+        elif dept_param is not None:
+            chat_dept = dept_param
+        else:
+            chat_dept = "dev"
+        msgs = db.list_chat_messages(_db(), since=since, limit=limit, department_id=chat_dept)
         return jsonify({"messages": msgs})
 
     @app.post("/api/chat")
@@ -1521,8 +1649,18 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         data = request.get_json(silent=True) or {}
         author = data.get("author", "пользователь")
         text = data.get("text", "")
+        # S8.3: ?department=<id> → department_id для нового сообщения
+        # ?department=__global__ → глобальный канал (department_id=None)
+        # не указан → default 'dev'
+        dept_param = request.args.get("department")
+        if dept_param == "__global__":
+            chat_dept: Any = None
+        elif dept_param is not None:
+            chat_dept = dept_param
+        else:
+            chat_dept = "dev"
         try:
-            msg = db.post_chat_message(_db(), author, text)
+            msg = db.post_chat_message(_db(), author, text, department_id=chat_dept)
         except ValueError as exc:
             return jsonify({"статус": "error", "status": "error", "причина": str(exc), "reason": str(exc)}), 400
         return jsonify({"статус": "ok", "сообщение": msg}), 201

@@ -151,9 +151,6 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 );
 
 CREATE INDEX IF NOT EXISTS idx_chat_created ON chat_messages(created_at);
-CREATE INDEX IF NOT EXISTS idx_tasks_department    ON tasks(department_id);
-CREATE INDEX IF NOT EXISTS idx_tasks_dept_status   ON tasks(department_id, status);
-CREATE INDEX IF NOT EXISTS idx_chat_department     ON chat_messages(department_id);
 
 CREATE TABLE IF NOT EXISTS claude_sessions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

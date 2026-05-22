@@ -460,6 +460,7 @@
     "loading": "Loading…",
     "loaded": "Demo data loaded",
     "cleared": "Demo data cleared",
-    "already_exists": "Demo data is already loaded."
+    "already_exists": "Demo data is already loaded.",
+    "alreadyLoaded": "Demo already loaded. Click «Clear demo» to reset."
   }
 }

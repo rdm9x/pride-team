@@ -666,9 +666,13 @@
 
     try {
       const r = await fetch('/api/demo', { method: 'POST' });
+      if (r.status === 409) {
+        showDemoToast('demo.alreadyLoaded', 'Demo already loaded. Click «Clear demo» to reset.');
+        return;
+      }
       const data = await r.json();
       if (data.already_exists) {
-        showDemoToast('demo.already_exists', 'Demo data already loaded.');
+        showDemoToast('demo.alreadyLoaded', 'Demo already loaded. Click «Clear demo» to reset.');
       } else {
         showDemoToast('demo.loaded', 'Demo data loaded');
       }

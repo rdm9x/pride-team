@@ -279,3 +279,14 @@ def test_stats_lifetime_counters(client) -> None:
         assert j["tasks_total_created"] == 5, f"tasks_total_created: ожидалось 5, получено {j['tasks_total_created']}"
         assert j["tasks_in_progress"] == 1, f"tasks_in_progress: ожидалось 1, получено {j['tasks_in_progress']}"
         assert j["tasks_completion_rate"] == 0.6, f"tasks_completion_rate: ожидалось 0.6, получено {j['tasks_completion_rate']}"
+
+
+def test_stats_aggregates_lifetime_counters(client) -> None:
+    """Aggregates endpoint returns lifetime task counters."""
+    resp = client.get('/api/stats/aggregates?range=all')
+    data = resp.get_json()
+    assert 'tasks_total_done' in data
+    assert 'tasks_total_created' in data
+    assert 'tasks_in_progress' in data
+    assert 'tasks_completion_rate' in data
+    assert isinstance(data['tasks_completion_rate'], float)

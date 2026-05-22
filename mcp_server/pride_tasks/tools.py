@@ -7,11 +7,40 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any, Optional
 
 from pride_tasks import db, parser
 from pride_tasks.models import PRIORITIES, ROLES, STATUSES
+
+logger = logging.getLogger(__name__)
+
+
+def _safety_net_done(task_id: str, title: str, db_path: Path) -> None:
+    """Вставляет системный комментарий и постит алерт в чат.
+
+    Вызывается когда safety-net перехватывает попытку выставить status=done
+    через MCP (update_task или submit_result). Не кидает исключений.
+    """
+    short_id = task_id[:8]
+    comment_text = (
+        f"⚠️ Safety-net: попытка выставить status=done через MCP перехвачена. "
+        f"Задача переведена в review для owner-acceptance."
+    )
+    chat_text = (
+        f"⚠️ Safety-net: тимлид пытался поставить status=done для #{short_id} \"{title}\". "
+        f"Переведено в review для owner-acceptance."
+    )
+    logger.warning("safety-net triggered: attempt to set done via MCP for task %s (%r)", task_id, title)
+    try:
+        db.insert_system_comment(db_path, task_id, comment_text)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("safety-net: failed to insert system comment for %s: %s", task_id, exc)
+    try:
+        db.post_chat_message(db_path, "system", chat_text)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("safety-net: failed to post chat message for %s: %s", task_id, exc)
 
 
 def _resolve_db_path(db_path: Optional[Path] = None) -> Path:
@@ -111,8 +140,14 @@ def update_task(
     labels: Optional[list[str]] = None,
     requires_approval: Optional[bool] = None,
     db_path: Optional[Path] = None,
+    _bypass_safety_net: bool = False,
 ) -> dict[str, Any]:
-    """Обновить поля задачи. Передавай только то, что меняется."""
+    """Обновить поля задачи. Передавай только то, что меняется.
+
+    _bypass_safety_net=True используется Flask-дашбордом для UI-операций
+    (approve, reject, прямой PATCH от пользователя) — они разрешены ставить done.
+    MCP-вызовы не передают этот аргумент (default=False) → safety-net активен.
+    """
 
     if not task_id:
         return {"статус": "error", "status": "error", "причина": "task_id пустой", "reason": "task_id пустой"}
@@ -122,6 +157,19 @@ def update_task(
         return {"статус": "error", "status": "error", "причина": f"неизвестный priority: {priority}", "reason": f"неизвестный priority: {priority}"}
     if assignee is not None and assignee not in ROLES:
         return {"статус": "error", "status": "error", "причина": f"неизвестная роль assignee: {assignee}", "reason": f"неизвестная роль assignee: {assignee}"}
+
+    # --- Safety-net: MCP не может напрямую выставить done ---
+    # Если статус переводится в done через MCP-инструмент — переключаем на review
+    # и уведомляем через системный комментарий + чат-алерт.
+    # Исключение: _bypass_safety_net=True (вызов из UI) или задача уже в done.
+    if status == "done" and not _bypass_safety_net:
+        path = _resolve_db_path(db_path)
+        existing = db.get_task(path, task_id)
+        if existing is None:
+            return {"статус": "not_found", "task_id": task_id}
+        if existing.get("status") != "done":
+            status = "review"
+            _safety_net_done(task_id, existing.get("title", ""), path)
 
     fields: dict[str, Any] = {}
     if status is not None:
@@ -208,8 +256,14 @@ def submit_result(
     new_status: Optional[str] = None,
     *,
     db_path: Optional[Path] = None,
+    _bypass_safety_net: bool = False,
 ) -> dict[str, Any]:
-    """Закрыть подзадачу: сохранить результат и сменить статус."""
+    """Закрыть подзадачу: сохранить результат и сменить статус.
+
+    _bypass_safety_net=True используется Flask-дашбордом — UI-операции
+    разрешены ставить done напрямую. MCP-вызовы не передают этот аргумент
+    (default=False) → safety-net активен.
+    """
 
     if not task_id:
         return {"статус": "error", "status": "error", "причина": "task_id пустой", "reason": "task_id пустой"}
@@ -217,6 +271,19 @@ def submit_result(
         return {"статус": "error", "status": "error", "причина": "result должен быть dict", "reason": "result должен быть dict"}
     if new_status is not None and new_status not in STATUSES:
         return {"статус": "error", "status": "error", "причина": f"неизвестный new_status: {new_status}", "reason": f"неизвестный new_status: {new_status}"}
+
+    # --- Safety-net: MCP не может напрямую выставить done ---
+    # Если new_status == "done" — переключаем на review и уведомляем.
+    # Исключение: _bypass_safety_net=True (вызов из UI) или задача уже в done.
+    if new_status == "done" and not _bypass_safety_net:
+        path = _resolve_db_path(db_path)
+        existing = db.get_task(path, task_id)
+        if existing is None:
+            return {"статус": "not_found", "task_id": task_id}
+        if existing.get("status") != "done":
+            new_status = "review"
+            _safety_net_done(task_id, existing.get("title", ""), path)
+
     path = _resolve_db_path(db_path)
     updated = db.submit_result(path, task_id, result, new_status)
     if updated is None:

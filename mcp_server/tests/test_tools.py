@@ -154,7 +154,11 @@ def test_list_roles(db_path: Path) -> None:
 
 
 def test_approval_gate_flow(db_path: Path) -> None:
-    """Mini-сценарий approval-gate из approval_gates.md."""
+    """Mini-сценарий approval-gate из approval_gates.md.
+
+    После введения safety-net submit_result(new_status='done') через MCP
+    переводит задачу в 'review', а не в 'done' — owner-acceptance обязателен.
+    """
     # Бэкенд создал родительскую задачу
     parent = tools.create_task(
         title="webhook impl", assignee="бэкенд", db_path=db_path
@@ -177,9 +181,103 @@ def test_approval_gate_flow(db_path: Path) -> None:
     # пользователь approve через update_task → wip
     tools.update_task(aid, status="wip", db_path=db_path)
     tools.add_comment(aid, "пользователь", "approved", db_path=db_path)
-    # Бэкенд сделал push → submit_result → done
+    # Бэкенд сделал push → submit_result(done) → safety-net → review
     res = tools.submit_result(
         aid, {"git_push": "ok", "sha": "abc123"}, "done", db_path=db_path
     )
-    assert res["задача"]["status"] == "done"
-    assert res["задача"]["completed_at"] is not None
+    # Safety-net: done через MCP → review
+    assert res["задача"]["status"] == "review"
+    # completed_at не выставляется (задача не done)
+    assert res["задача"]["completed_at"] is None
+
+
+# === Safety-net: done через MCP запрещён ===
+
+
+def test_safety_net_update_task_done_blocked(db_path: Path) -> None:
+    """update_task(status='done') через MCP → задача в review, не done."""
+    t = tools.create_task(title="Safety test task", assignee="бэкенд", db_path=db_path)
+    tid = t["задача"]["id"]
+
+    res = tools.update_task(tid, status="done", db_path=db_path)
+
+    assert res["статус"] == "ok"
+    assert res["задача"]["status"] == "review", "safety-net должен перевести в review"
+    assert res["задача"]["completed_at"] is None
+
+
+def test_safety_net_update_task_done_system_comment(db_path: Path) -> None:
+    """update_task(status='done') → в истории задачи появляется system-комментарий."""
+    from pride_tasks import db as _db
+
+    t = tools.create_task(title="Needs comment check", db_path=db_path)
+    tid = t["задача"]["id"]
+
+    tools.update_task(tid, status="done", db_path=db_path)
+
+    task = _db.get_task(db_path, tid, with_history=True)
+    system_comments = [c for c in task["comments"] if c["author"] == "system"]
+    assert system_comments, "safety-net должен вставить system-комментарий"
+    assert "safety-net" in system_comments[0]["text"].lower() or "Safety-net" in system_comments[0]["text"]
+
+
+def test_safety_net_update_task_done_chat_alert(db_path: Path) -> None:
+    """update_task(status='done') → алерт появляется в чате от system."""
+    from pride_tasks import db as _db
+
+    t = tools.create_task(title="Chat alert task", db_path=db_path)
+    tid = t["задача"]["id"]
+
+    tools.update_task(tid, status="done", db_path=db_path)
+
+    msgs = _db.list_chat_messages(db_path)
+    system_msgs = [m for m in msgs if m["author"] == "system"]
+    assert system_msgs, "safety-net должен отправить сообщение в чат"
+    assert "Safety-net" in system_msgs[0]["text"] or "safety-net" in system_msgs[0]["text"]
+    assert "review" in system_msgs[0]["text"]
+
+
+def test_safety_net_submit_result_done_blocked(db_path: Path) -> None:
+    """submit_result(new_status='done') через MCP → задача в review, не done."""
+    t = tools.create_task(title="Submit safety test", db_path=db_path)
+    tid = t["задача"]["id"]
+
+    res = tools.submit_result(tid, {"файлы": ["main.py"]}, "done", db_path=db_path)
+
+    assert res["статус"] == "ok"
+    assert res["задача"]["status"] == "review", "safety-net должен перевести в review"
+    assert res["задача"]["completed_at"] is None
+
+
+def test_safety_net_submit_result_done_system_comment(db_path: Path) -> None:
+    """submit_result(new_status='done') → system-комментарий в задаче."""
+    from pride_tasks import db as _db
+
+    t = tools.create_task(title="Submit with comment", db_path=db_path)
+    tid = t["задача"]["id"]
+
+    tools.submit_result(tid, {"ok": True}, "done", db_path=db_path)
+
+    task = _db.get_task(db_path, tid, with_history=True)
+    system_comments = [c for c in task["comments"] if c["author"] == "system"]
+    assert system_comments, "safety-net должен вставить system-комментарий"
+
+
+def test_safety_net_already_done_not_affected(db_path: Path) -> None:
+    """Задача уже в done → safety-net не срабатывает повторно (edge case)."""
+    from pride_tasks import db as _db
+
+    t = tools.create_task(title="Already done task", db_path=db_path)
+    tid = t["задача"]["id"]
+    # Напрямую через db (минуя MCP-safety-net) поставим done
+    _db.update_task(db_path, tid, status="done")
+
+    # Теперь через MCP — safety-net не должен снова трогать её
+    res = tools.update_task(tid, status="done", db_path=db_path)
+
+    assert res["статус"] == "ok"
+    assert res["задача"]["status"] == "done", "задача уже была done — не трогаем"
+    # Никаких system-комментариев быть не должно
+    task = _db.get_task(db_path, tid, with_history=True)
+    system_comments = [c for c in task["comments"] if c["author"] == "system"]
+    assert not system_comments, "edge case: уже done → safety-net не должен срабатывать"

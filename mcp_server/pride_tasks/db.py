@@ -864,6 +864,38 @@ def is_blocked(db_path: Path, task_id: str) -> bool:
     return len(get_blockers(db_path, task_id)) > 0
 
 
+def insert_system_comment(db_path: Path, task_id: str, text: str) -> dict[str, Any]:
+    """Добавить системный комментарий (author='system') без проверки роли.
+
+    Используется safety-net'ом в tools.py когда кто-то пытается выставить
+    status=done через MCP. Не кидает исключений если задача не найдена —
+    просто возвращает пустой dict.
+    """
+    now = int(time.time())
+    with write_lock(db_path):
+        conn = _connect(db_path)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            cur = conn.execute("SELECT id FROM tasks WHERE id = ?", (task_id,))
+            if cur.fetchone() is None:
+                conn.execute("ROLLBACK")
+                return {}
+            cur = conn.execute(
+                "INSERT INTO task_comments (task_id, author, text, created_at) VALUES (?, ?, ?, ?)",
+                (task_id, "system", text, now),
+            )
+            comment_id = cur.lastrowid
+            conn.execute(
+                "UPDATE tasks SET updated_at = ? WHERE id = ?",
+                (now, task_id),
+            )
+            conn.execute("COMMIT")
+            cur = conn.execute("SELECT * FROM task_comments WHERE id = ?", (comment_id,))
+            return _row_to_comment(cur.fetchone())
+        finally:
+            conn.close()
+
+
 def delete_task(db_path: Path, task_id: str) -> bool:
     """Удаляет задачу (только для тестов и админ-операций)."""
 

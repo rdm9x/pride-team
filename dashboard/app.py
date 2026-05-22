@@ -756,6 +756,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             labels=data.get("labels"),
             requires_approval=data.get("requires_approval"),
             db_path=_db(),
+            _bypass_safety_net=True,  # UI-вызов: пользователь может ставить done
         )
         if res["статус"] == "not_found":
             return jsonify(res), 404
@@ -821,7 +822,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
 
     @app.post("/api/tasks/<task_id>/reject")
     def api_reject(task_id: str) -> Any:
-        upd = tools.update_task(task_id, status="done", db_path=_db())
+        upd = tools.update_task(task_id, status="done", db_path=_db(), _bypass_safety_net=True)
         if upd["статус"] == "not_found":
             return jsonify(upd), 404
         if upd["статус"] != "ok":

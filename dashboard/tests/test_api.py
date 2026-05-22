@@ -387,3 +387,13 @@ def test_columns_grouped_correctly(client) -> None:
     assert len(j["колонки"]["needs_approval"]) == 1
     assert len(j["колонки"]["review"]) == 1
     assert len(j["колонки"]["done"]) == 1
+
+
+def test_patch_status_done_ui_not_blocked(client) -> None:
+    """PATCH /api/tasks/<id> {"status":"done"} от UI должен работать без блокировки safety-net."""
+    tid = client.post("/api/tasks", json={"title": "ui done test"}).get_json()["задача"]["id"]
+    r = client.patch(f"/api/tasks/{tid}", json={"status": "done"})
+    assert r.status_code == 200
+    assert r.get_json()["задача"]["status"] == "done", (
+        "PATCH от UI с status=done должен работать — safety-net не блокирует UI"
+    )

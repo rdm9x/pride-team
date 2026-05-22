@@ -549,41 +549,116 @@
     }
   });
 
-  // ===================== Settings: Demo mode =====================
-  document.getElementById('btn-demo-create')?.addEventListener('click', async () => {
-    const msg = window.t ? window.t('settings.demo.confirm') : 'This will create 5 example tasks. OK?';
-    if (!confirm(msg)) return;
+  // ===================== Demo mode =====================
 
-    const btn = document.getElementById('btn-demo-create');
-    btn.disabled = true;
+  // Check if demo tasks exist and toggle visibility of Clear-demo buttons
+  async function refreshDemoState(tasks) {
+    const hasDemoTasks = tasks && tasks.some(t => Array.isArray(t.labels) && t.labels.includes('demo'));
+    const btnTopbarClear = document.getElementById('btn-topbar-demo-clear');
+    const btnTopbarLoad  = document.getElementById('btn-topbar-demo');
+    const btnSettingsClear = document.getElementById('btn-demo-clear');
+    if (btnTopbarClear)  btnTopbarClear.hidden  = !hasDemoTasks;
+    if (btnTopbarLoad)   btnTopbarLoad.hidden   = !!hasDemoTasks;
+    if (btnSettingsClear) btnSettingsClear.disabled = false;
+  }
+
+  // Show the demo confirmation modal, resolve true/false
+  function openDemoConfirmModal() {
+    return new Promise((resolve) => {
+      const dlg = document.getElementById('modal-demo-confirm');
+      if (!dlg) { resolve(false); return; }
+      dlg.hidden = false;
+      const okBtn     = document.getElementById('btn-demo-confirm-ok');
+      const cancelBtn = document.getElementById('btn-demo-confirm-cancel');
+      const closeBtn  = document.getElementById('btn-demo-confirm-close');
+      okBtn.focus();
+
+      function cleanup() {
+        dlg.hidden = true;
+        okBtn.removeEventListener('click', onOk);
+        cancelBtn.removeEventListener('click', onCancel);
+        closeBtn.removeEventListener('click', onCancel);
+        dlg.removeEventListener('keydown', onKey);
+      }
+      function onOk()     { cleanup(); resolve(true); }
+      function onCancel() { cleanup(); resolve(false); }
+      function onKey(e) { if (e.key === 'Escape') onCancel(); }
+
+      okBtn.addEventListener('click', onOk);
+      cancelBtn.addEventListener('click', onCancel);
+      closeBtn.addEventListener('click', onCancel);
+      dlg.addEventListener('keydown', onKey);
+    });
+  }
+
+  // Show brief toast-style notification (reuse existing toast if present, else log)
+  function showDemoToast(msgKey, fallback) {
+    const msg = i18n(msgKey) || fallback;
+    // Try to show in a status element if exists, otherwise console
+    const el = document.getElementById('demo-toast-msg');
+    if (el) {
+      el.textContent = msg;
+      el.hidden = false;
+      setTimeout(() => { el.hidden = true; }, 3000);
+    } else {
+      console.info('[demo]', msg);
+    }
+  }
+
+  async function loadDemoData() {
+    const confirmed = await openDemoConfirmModal();
+    if (!confirmed) return;
+
+    const btns = [
+      document.getElementById('btn-topbar-demo'),
+      document.getElementById('btn-demo-create'),
+    ].filter(Boolean);
+    btns.forEach(b => { b.disabled = true; b.textContent = i18n('demo.loading') || 'Loading…'; });
+
     try {
       const r = await fetch('/api/demo', { method: 'POST' });
       const data = await r.json();
       if (data.already_exists) {
-        alert(window.t ? window.t('settings.demo.already_exists') : 'Demo data already exists.');
+        showDemoToast('demo.already_exists', 'Demo data already loaded.');
       } else {
-        refresh();
+        showDemoToast('demo.loaded', 'Demo data loaded');
       }
+      await refresh();
     } catch(e) {
       console.error('Demo create error', e);
     } finally {
-      btn.disabled = false;
+      btns.forEach(b => { b.disabled = false; b.dataset.i18nKey = null; });
+      // Re-apply i18n labels
+      const loadBtn = document.getElementById('btn-topbar-demo');
+      const createBtn = document.getElementById('btn-demo-create');
+      if (loadBtn)   loadBtn.textContent   = i18n('demo.btn_load')   || 'Load demo';
+      if (createBtn) createBtn.textContent = i18n('settings.demo.create') || 'Try with example data';
     }
-  });
+  }
 
-  document.getElementById('btn-demo-clear')?.addEventListener('click', async () => {
-    const btn = document.getElementById('btn-demo-clear');
-    btn.disabled = true;
+  async function clearDemoData() {
+    const btns = [
+      document.getElementById('btn-topbar-demo-clear'),
+      document.getElementById('btn-demo-clear'),
+    ].filter(Boolean);
+    btns.forEach(b => { b.disabled = true; });
+
     try {
-      const r = await fetch('/api/demo', { method: 'DELETE' });
-      const data = await r.json();
-      refresh();
+      await fetch('/api/demo', { method: 'DELETE' });
+      showDemoToast('demo.cleared', 'Demo data cleared');
+      await refresh();
     } catch(e) {
       console.error('Demo clear error', e);
     } finally {
-      btn.disabled = false;
+      btns.forEach(b => { b.disabled = false; });
     }
-  });
+  }
+
+  // Wire up all demo buttons (topbar + settings panel)
+  document.getElementById('btn-topbar-demo')?.addEventListener('click', loadDemoData);
+  document.getElementById('btn-topbar-demo-clear')?.addEventListener('click', clearDemoData);
+  document.getElementById('btn-demo-create')?.addEventListener('click', loadDemoData);
+  document.getElementById('btn-demo-clear')?.addEventListener('click', clearDemoData);
 
   // ===================== Team controls =====================
   async function refreshTeamStatus() {
@@ -1325,6 +1400,7 @@
     try {
       const data = await fetchTasks();
       renderBoard(data);
+      refreshDemoState(data.задачи || []);
       await refreshTeamStatus();
       await refreshInbox();
       await refreshUsage();

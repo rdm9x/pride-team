@@ -376,5 +376,16 @@
       "reopen": "Reopen",
       "unblock": "Unblock"
     }
+  },
+  "demo": {
+    "btn_load": "Load demo",
+    "btn_clear": "Clear demo",
+    "confirm_title": "Load example data?",
+    "confirm_body": "This will create ~5 demo tasks. You can remove them anytime with \"Clear demo\".",
+    "confirm_ok": "Load",
+    "loading": "Loading…",
+    "loaded": "Demo data loaded",
+    "cleared": "Demo data cleared",
+    "already_exists": "Demo data is already loaded."
   }
 }

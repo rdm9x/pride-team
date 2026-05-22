@@ -77,6 +77,19 @@
     <header class="topbar">
       <div class="topbar-left">
         <button id="btn-new-task" class="primary" data-i18n="topbar.new_task">+ Новая задача</button>
+        <button id="btn-topbar-demo"
+                class="btn btn-demo"
+                data-i18n="demo.btn_load"
+                title="Загрузить демо-данные"
+                data-i18n-attr="title:demo.confirm_title"
+                aria-label="Загрузить демо-данные">Загрузить демо</button>
+        <button id="btn-topbar-demo-clear"
+                class="btn btn-demo-clear"
+                data-i18n="demo.btn_clear"
+                title="Очистить демо-данные"
+                data-i18n-attr="title:demo.btn_clear"
+                aria-label="Очистить демо-данные"
+                hidden>Очистить демо</button>
         <input id="search" type="text" placeholder="Поиск по заголовку…"
                data-i18n-attr="placeholder:topbar.search_placeholder">
       </div>
@@ -436,6 +449,23 @@
         <button type="submit" class="primary" id="btn-role-save" data-i18n="common.save">Сохранить</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- ============== Demo confirmation modal ============== -->
+<div id="modal-demo-confirm" class="modal" hidden aria-modal="true" role="dialog" aria-labelledby="demo-confirm-title">
+  <div class="modal-content" style="width: 440px;">
+    <header>
+      <span id="demo-confirm-title" data-i18n="demo.confirm_title">Загрузить демо-данные?</span>
+      <button class="close" id="btn-demo-confirm-close" aria-label="Закрыть">✕</button>
+    </header>
+    <div class="modal-body">
+      <p id="demo-confirm-body" style="margin-bottom: 20px;" data-i18n="demo.confirm_body">Это создаст ~5 демо-задач. Удалить можно кнопкой «Очистить демо».</p>
+      <div class="actions">
+        <button type="button" id="btn-demo-confirm-cancel" data-i18n="common.cancel">Отмена</button>
+        <button type="button" id="btn-demo-confirm-ok" class="primary" data-i18n="demo.confirm_ok">Загрузить</button>
+      </div>
+    </div>
   </div>
 </div>
 

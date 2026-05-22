@@ -1451,3 +1451,59 @@ input[type="checkbox"] {
     display: none;
   }
 }
+
+/* ============================================================ Demo mode buttons */
+
+.btn-demo {
+  background: var(--surface-2);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.06s ease;
+}
+.btn-demo:hover {
+  background: var(--accent-soft, rgba(var(--accent-rgb, 99,102,241), 0.12));
+}
+.btn-demo:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.btn-demo:active {
+  transform: scale(0.97);
+}
+
+.btn-demo-clear {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted, var(--muted));
+  padding: 6px 12px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.06s ease;
+}
+.btn-demo-clear:hover {
+  background: var(--red-soft, rgba(220,38,38,0.08));
+  border-color: rgba(220,38,38,0.4);
+  color: var(--red, #dc2626);
+}
+.btn-demo-clear:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.btn-demo-clear:active {
+  transform: scale(0.97);
+}
+
+.demo-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}

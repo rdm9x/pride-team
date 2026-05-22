@@ -28,6 +28,21 @@ services:
     env_file:
       - .env
     restart: unless-stopped
+    # ── Security hardening ────────────────────────────────────────────────────
+    # Запрет эскалации привилегий через setuid/setgid бинари.
+    security_opt:
+      - no-new-privileges:true
+    # Сбрасываем все Linux capabilities; сервис слушает порт 5000 (>1024),
+    # поэтому NET_BIND_SERVICE не требуется.
+    cap_drop:
+      - ALL
+    # Корневая ФС только для чтения — запись разрешена только через tmpfs и
+    # явный bind-mount ./data (см. volumes выше).
+    read_only: true
+    tmpfs:
+      # /tmp нужен некоторым Python-библиотекам; noexec+nosuid ограничивают атаки.
+      - /tmp:size=64m,noexec,nosuid
+    # ─────────────────────────────────────────────────────────────────────────
     # Дублируем HEALTHCHECK из Dockerfile, чтобы compose ps показывал health
     # сразу, даже если образ собран без HEALTHCHECK-директивы (e.g. devbuild).
     healthcheck:

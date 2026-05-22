@@ -39,7 +39,7 @@ ENV PYTHONUNBUFFERED=1 \
     PRIDE_DASHBOARD_HOST=0.0.0.0 \
     PRIDE_DASHBOARD_PORT=5000 \
     PRIDE_TASKS_DB=/app/data/tasks.db \
-    PYTHONPATH=/app/mcp_сервер
+    PYTHONPATH=/app/mcp_server
 
 # tini + curl (рантайм), создаём non-root юзера pride (UID/GID 1000).
 RUN apt-get update \
@@ -56,11 +56,12 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt \
     && rm -rf /wheels
 
-# Копируем код. Кириллические папки Docker обрабатывает корректно.
-COPY --chown=pride:pride дашборд/    /app/дашборд/
-COPY --chown=pride:pride mcp_сервер/ /app/mcp_сервер/
-COPY --chown=pride:pride роли/        /app/роли/
-COPY --chown=pride:pride команды/    /app/команды/
+# Копируем код приложения (директории переименованы из кириллицы в латиницу).
+COPY --chown=pride:pride dashboard/   /app/dashboard/
+COPY --chown=pride:pride mcp_server/  /app/mcp_server/
+COPY --chown=pride:pride roles/       /app/roles/
+COPY --chown=pride:pride commands/    /app/commands/
+COPY --chown=pride:pride llm/         /app/llm/
 
 # data/ — runtime-volume, БД и логи пишутся сюда. Создаём с правами pride.
 RUN mkdir -p /app/data && chown -R pride:pride /app/data
@@ -69,10 +70,10 @@ USER pride
 
 EXPOSE 5000
 
-# /healthz уже реализован в дашборд/app.py (строка 891).
+# /healthz уже реализован в dashboard/app.py (строка 891).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD curl -fsS http://localhost:5000/healthz || exit 1
 
 # tini как PID 1 — корректно обрабатывает SIGTERM/SIGINT (Ctrl-C, docker stop).
 ENTRYPOINT ["tini", "--"]
-CMD ["python", "дашборд/app.py"]
+CMD ["python", "dashboard/app.py"]

@@ -72,3 +72,20 @@ build/
 # Docker-инфраструктура (избегаем рекурсии)
 Dockerfile
 .dockerignore
+
+# Секреты — никогда не должны попасть в образ
+*.env
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.csr
+
+# Runtime-данные (монтируются через volume, не копируются в образ)
+data/
+
+# Security-аудит (не нужен в проде)
+docs/security-audit/

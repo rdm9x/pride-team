@@ -519,6 +519,91 @@ rolls back to the prior version.
 
 ---
 
+## 10. Security
+
+### Secret management
+
+The app reads credentials (LLM API keys, etc.) from environment variables that
+are injected via the `.env` file. Follow these practices to avoid leaking secrets.
+
+#### Development (local machine)
+
+```bash
+# Create .env from the template and set permissions so only your user can read it.
+cp .env.example .env
+chmod 600 .env
+```
+
+Never commit `.env` to git — it is already listed in `.gitignore` and
+`.dockerignore`. Verify with `git status` before every push.
+
+#### Production (VPS / server)
+
+**Option A — systemd EnvironmentFile (recommended for single-server setups)**
+
+```ini
+# /etc/systemd/system/pride-team.service  (see §6)
+[Service]
+EnvironmentFile=/opt/pride-team/.env
+```
+
+```bash
+# Restrict read access to root only.
+sudo chmod 600 /opt/pride-team/.env
+sudo chown root:root /opt/pride-team/.env
+```
+
+**Option B — Docker secrets (Swarm mode)**
+
+```yaml
+# docker-compose.yml  (Swarm variant)
+secrets:
+  anthropic_key:
+    external: true
+services:
+  web:
+    secrets:
+      - anthropic_key
+```
+
+Secrets are mounted as files under `/run/secrets/<name>` inside the container.
+Update `llm/factory.py` to read the file path instead of the env var.
+
+**Option C — Platform secrets (cloud / PaaS)**
+
+Most cloud providers (Railway, Render, Fly.io, AWS ECS, GCP Cloud Run) have a
+first-class "environment secrets" UI that injects variables at runtime without
+ever writing them to disk. Prefer this over a plain `.env` file when available.
+
+### Container security posture
+
+The `docker-compose.yml` applies the following hardening options:
+
+| Option | Effect |
+|---|---|
+| `security_opt: no-new-privileges:true` | Blocks privilege escalation via setuid/setgid binaries inside the container. |
+| `cap_drop: ALL` | Removes all Linux capabilities; the app only needs standard network I/O on port 5000 (>1024), so no capabilities need to be re-added. |
+| `read_only: true` | Mounts the container root filesystem read-only. Writes are only possible via the explicit `./data` bind-mount and the `/tmp` tmpfs. |
+| `tmpfs /tmp` | Provides a small (64 MB) in-memory `/tmp` with `noexec,nosuid` flags. |
+
+The `Dockerfile` additionally runs the process as non-root user `pride`
+(UID/GID 1000) and uses `tini` as PID 1 for correct signal handling.
+
+### Periodic security checks
+
+```bash
+# Scan the running image for known CVEs (requires trivy).
+trivy image pride-team:latest
+
+# Check that no container runs as root.
+docker inspect pride-team | jq '.[].Config.User'
+
+# Verify read-only enforcement.
+docker exec pride-team touch /test-rw 2>&1  # expected: "Read-only file system"
+```
+
+---
+
 ## See also
 
 - [README.md](README.md) — what the project does and how to run it locally.

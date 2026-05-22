@@ -62,12 +62,14 @@ Once the dashboard is up:
 
 ## Screenshots
 
-<!-- screenshot: kanban view -->
-<!-- screenshot: task detail with live log -->
-<!-- screenshot: approval gate modal -->
-<!-- screenshot: roles page -->
-
-Real screenshots land in `docs/screenshots/` as part of **E4.6**.
+<p align="center">
+  <img src="docs/screenshots/01-kanban.png" alt="Kanban board with TODO / WIP / NEEDS APPROVAL / REVIEW / DONE columns" width="49%"/>
+  <img src="docs/screenshots/02-chat.png" alt="Chat panel — direct messaging with the Team Lead" width="49%"/>
+</p>
+<p align="center">
+  <img src="docs/screenshots/03-approval-gate.png" alt="Approval gate modal for destructive operations" width="49%"/>
+  <img src="docs/screenshots/04-new-task.png" alt="New task form" width="49%"/>
+</p>
 
 ## Roles
 

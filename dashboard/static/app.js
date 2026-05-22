@@ -2307,7 +2307,7 @@
         displayName = (i18nVal !== i18nKey) ? i18nVal : r.name;
       }
       return `<tr data-role-name="${escapeAttr(r.name)}">
-        <td class="role-name-cell"><span class="role-display-name">${escapeHtml(displayName)}</span><code class="role-slug">${escapeHtml(r.name)}</code></td>
+        <td class="role-name-cell"><span class="role-display-name">${escapeHtml(displayName)}</span></td>
         <td class="role-desc-cell">${desc}</td>
         <td class="role-llm-cell">${escapeHtml(llm)}</td>
         <td class="role-model-cell">${model}</td>

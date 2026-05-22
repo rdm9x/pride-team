@@ -2391,7 +2391,7 @@ input[type="checkbox"] {
 
 .acceptance-item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
   font-size: 13px;
   color: var(--text);
@@ -2401,12 +2401,16 @@ input[type="checkbox"] {
 .acceptance-item input[type="checkbox"] {
   cursor: pointer;
   accent-color: var(--accent);
-  margin-top: 2px;
   flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  margin: 0;
 }
 
 .acceptance-item label {
   cursor: pointer;
+  flex: 1;
+  line-height: 1.4;
 }
 
 .acceptance-item.checked label {

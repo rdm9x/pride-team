@@ -3925,6 +3925,114 @@
     );
   });
 
+  // ===================== S16.3: Global keyboard shortcuts =====================
+  // Cmd/Ctrl+K  → focus #search input
+  // Esc         → close topmost open modal OR clear #search
+  // Cmd/Ctrl+/  → show shortcuts overlay
+  // ?           → show shortcuts overlay (when no input focused)
+  (function initGlobalShortcuts() {
+    const searchInput = $("#search");
+
+    /** Returns the topmost visible .modal element (last in DOM order), or null */
+    function getOpenModal() {
+      const modals = $$(".modal:not([hidden])");
+      return modals.length ? modals[modals.length - 1] : null;
+    }
+
+    /** Open shortcuts overlay: populate body from i18n then show */
+    function openShortcutsOverlay() {
+      const overlay = $("#modal-shortcuts");
+      if (!overlay) return;
+      const body = $("#modal-shortcuts-body");
+      if (body) {
+        const pageKey = "learn.page.shortcuts.body";
+        const html = (window.i18n && window.i18n(pageKey)) ? window.i18n(pageKey) : null;
+        if (html && html !== pageKey) {
+          body.innerHTML = html;
+        } else {
+          // Fallback inline if i18n not ready
+          body.innerHTML =
+            "<p>Keyboard shortcuts available in the dashboard.</p>" +
+            "<table class='learn-shortcuts-table'><thead><tr><th>Key</th><th>Action</th></tr></thead><tbody>" +
+            "<tr><td><kbd>Esc</kbd></td><td>Close modal / clear search</td></tr>" +
+            "<tr><td><kbd>Cmd / Ctrl + K</kbd></td><td>Global search</td></tr>" +
+            "<tr><td><kbd>Cmd / Ctrl + Enter</kbd></td><td>Save task in editor</td></tr>" +
+            "<tr><td><kbd>Cmd / Ctrl + N</kbd></td><td>New task</td></tr>" +
+            "<tr><td><kbd>Cmd / Ctrl + B</kbd></td><td>Toggle chat panel</td></tr>" +
+            "<tr><td><kbd>?</kbd></td><td>Show this list</td></tr>" +
+            "</tbody></table>";
+        }
+      }
+      overlay.hidden = false;
+      overlay.querySelector(".close")?.focus();
+    }
+
+    document.addEventListener("keydown", function onGlobalKey(e) {
+      const tag = document.activeElement ? document.activeElement.tagName : "";
+      const isTyping = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" ||
+                       document.activeElement?.isContentEditable;
+
+      // Cmd/Ctrl + K → focus search (always, prevent browser default)
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        if (searchInput) {
+          searchInput.focus();
+          searchInput.select();
+        }
+        return;
+      }
+
+      // Cmd/Ctrl + / → shortcuts overlay
+      if ((e.metaKey || e.ctrlKey) && e.key === "/") {
+        e.preventDefault();
+        openShortcutsOverlay();
+        return;
+      }
+
+      // Cmd/Ctrl + B → toggle chat panel
+      if ((e.metaKey || e.ctrlKey) && e.key === "b") {
+        // Only if not in a text field (could interfere with bold)
+        if (!isTyping) {
+          e.preventDefault();
+          const chatRail = $(".chat-rail") || $(".chat-panel");
+          const chatToggle = $("#chat-toggle") || $("[data-action='toggle-chat']");
+          if (chatToggle) chatToggle.click();
+        }
+        return;
+      }
+
+      // Escape → close topmost modal OR clear search
+      if (e.key === "Escape") {
+        const openModal = getOpenModal();
+        if (openModal) {
+          // Let existing per-modal Escape handlers run first via capture;
+          // if modal is still open after microtask, close it here
+          setTimeout(() => {
+            if (!openModal.hidden) {
+              openModal.hidden = true;
+            }
+          }, 0);
+          return;
+        }
+        // No modal open → clear search if it has value
+        if (searchInput && searchInput.value) {
+          searchInput.value = "";
+          searchInput.dispatchEvent(new Event("input"));
+          searchInput.blur();
+          return;
+        }
+        return;
+      }
+
+      // ? → show shortcuts overlay (only when not typing)
+      if (e.key === "?" && !isTyping && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        openShortcutsOverlay();
+        return;
+      }
+    });
+  })();
+
   refresh();
   setInterval(refresh, REFRESH_MS);
   connectLiveStream();

@@ -113,12 +113,15 @@ def create_task(
     status: str = "todo",
     labels: Optional[list[str]] = None,
     department_id: str = DEFAULT_DEPARTMENT_ID,
+    model_hint: Optional[str] = None,
     *,
     db_path: Optional[Path] = None,
 ) -> dict[str, Any]:
     """Создать задачу. Минимум — title.
 
     department_id по умолчанию 'dev' (backward compatible).
+    model_hint — опциональный hint для роутера: 'opus', 'sonnet' или 'haiku'.
+    Если задан — роутер может использовать этот hint при выборе модели (ADR-006).
     """
 
     if not title or not title.strip():
@@ -144,6 +147,7 @@ def create_task(
         status=status,
         labels=labels,
         department_id=department_id,
+        model_hint=model_hint,
     )
     return {"статус": "ok", "задача": task}
 
@@ -161,6 +165,7 @@ def update_task(
     priority: Optional[str] = None,
     labels: Optional[list[str]] = None,
     requires_approval: Optional[bool] = None,
+    model_hint: Optional[str] = None,
     db_path: Optional[Path] = None,
     _bypass_safety_net: bool = False,
 ) -> dict[str, Any]:
@@ -169,6 +174,7 @@ def update_task(
     _bypass_safety_net=True используется Flask-дашбордом для UI-операций
     (approve, reject, прямой PATCH от пользователя) — они разрешены ставить done.
     MCP-вызовы не передают этот аргумент (default=False) → safety-net активен.
+    model_hint — опциональный hint для роутера: 'opus', 'sonnet' или 'haiku' (ADR-006).
     """
 
     if not task_id:
@@ -183,13 +189,20 @@ def update_task(
     # --- Safety-net: MCP не может напрямую выставить done ---
     # Если статус переводится в done через MCP-инструмент — переключаем на review
     # и уведомляем через системный комментарий + чат-алерт.
-    # Исключение: _bypass_safety_net=True (вызов из UI) или задача уже в done.
+    # Исключения:
+    #   1. _bypass_safety_net=True (вызов из UI)
+    #   2. Задача уже в done.
+    #   3. Задача имеет label `night-auto` — explicit grant для night auto-mode batches.
     if status == "done" and not _bypass_safety_net:
         path = _resolve_db_path(db_path)
         existing = db.get_task(path, task_id)
         if existing is None:
             return {"статус": "not_found", "task_id": task_id}
-        if existing.get("status") != "done":
+        existing_labels = existing.get("labels") or []
+        if "night-auto" in existing_labels:
+            # Explicit grant — пропускаем safety-net.
+            pass
+        elif existing.get("status") != "done":
             status = "review"
             _safety_net_done(task_id, existing.get("title", ""), path)
 
@@ -208,6 +221,8 @@ def update_task(
         fields["labels"] = labels
     if requires_approval is not None:
         fields["requires_approval"] = requires_approval
+    if model_hint is not None:
+        fields["model_hint"] = model_hint
     path = _resolve_db_path(db_path)
     updated = db.update_task(path, task_id, **fields)
     if updated is None:
@@ -296,13 +311,16 @@ def submit_result(
 
     # --- Safety-net: MCP не может напрямую выставить done ---
     # Если new_status == "done" — переключаем на review и уведомляем.
-    # Исключение: _bypass_safety_net=True (вызов из UI) или задача уже в done.
+    # Исключения: _bypass_safety_net=True, задача уже done, или label `night-auto`.
     if new_status == "done" and not _bypass_safety_net:
         path = _resolve_db_path(db_path)
         existing = db.get_task(path, task_id)
         if existing is None:
             return {"статус": "not_found", "task_id": task_id}
-        if existing.get("status") != "done":
+        existing_labels = existing.get("labels") or []
+        if "night-auto" in existing_labels:
+            pass
+        elif existing.get("status") != "done":
             new_status = "review"
             _safety_net_done(task_id, existing.get("title", ""), path)
 
@@ -401,7 +419,7 @@ def notify_user(
 
 def chat_recent(
     since: int = 0,
-    limit: int = 50,
+    limit: int = 10,
     department_id: Optional[str] = DEFAULT_DEPARTMENT_ID,
     *,
     db_path: Optional[Path] = None,
@@ -410,6 +428,9 @@ def chat_recent(
 
     department_id='dev' (default) — канал отдела dev.
     department_id=None — глобальный межотдельный канал (department_id IS NULL).
+
+    ADR-006 (S15.2): default limit снижен с 50 до 10 для экономии токенов.
+    При необходимости передавай limit явно (например limit=20).
     """
     path = _resolve_db_path(db_path)
     msgs = db.list_chat_messages(path, since=since, limit=limit, department_id=department_id)

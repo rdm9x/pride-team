@@ -15,6 +15,12 @@
 
 set -euo pipefail
 
+# ADR-006 (S15.2): Prompt caching — экономит ~40-50% токенов на prefix (роль + AGENTS.md).
+# Раскомментируй строку ниже чтобы включить автоматическое кэширование префикса.
+# TTL кэша: 5 минут (ephemeral). Cache read стоит 10% от обычной цены input.
+# Подробности: docs/adr/0006-token-optimization.md §2.1
+# export ANTHROPIC_PROMPT_CACHING_ENABLED=1
+
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 if [[ ! -f "$REPO_ROOT/roles/тимлид.md" ]]; then

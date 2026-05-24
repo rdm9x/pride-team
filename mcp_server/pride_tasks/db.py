@@ -106,6 +106,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   department_id TEXT REFERENCES departments(id),
   requester_department_id TEXT REFERENCES departments(id),  -- S11.1: ADR-005, NULL для intra
   requester_role_slug TEXT,                                  -- S11.1: ADR-005, slug Lead-заказчика
+  model_hint TEXT,                                           -- S15.2: ADR-006, hint для роутера (opus/sonnet/haiku)
   FOREIGN KEY (parent_id) REFERENCES tasks(id)
 );
 
@@ -306,6 +307,9 @@ def ensure_dev_department(conn: sqlite3.Connection) -> None:
     # S11.1 (ADR-005): inter-department колонки. Idempotent — добавляем только если ещё нет.
     _add_column_if_missing(conn, "tasks", "requester_department_id", "TEXT REFERENCES departments(id)")
     _add_column_if_missing(conn, "tasks", "requester_role_slug", "TEXT")
+
+    # S15.2 (ADR-006): per-task model hint. Idempotent.
+    _add_column_if_missing(conn, "tasks", "model_hint", "TEXT")
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_tasks_requester_dept "
         "ON tasks(requester_department_id) WHERE requester_department_id IS NOT NULL"
@@ -422,6 +426,8 @@ def _row_to_task(row: sqlite3.Row) -> dict[str, Any]:
         # S11.1 (ADR-005): inter-department поля. NULL для intra/legacy задач.
         "requester_department_id": row["requester_department_id"] if "requester_department_id" in keys else None,
         "requester_role_slug": row["requester_role_slug"] if "requester_role_slug" in keys else None,
+        # S15.2 (ADR-006): hint для роутера — opus/sonnet/haiku или None.
+        "model_hint": row["model_hint"] if "model_hint" in keys else None,
     }
 
 
@@ -455,6 +461,7 @@ _ALLOWED_UPDATE_FIELDS = {
     "due_at",
     "completed_at",
     "requires_approval",
+    "model_hint",  # S15.2 (ADR-006): hint для роутера
 }
 
 
@@ -473,11 +480,13 @@ def insert_task(
     department_id: Optional[str] = "dev",
     requester_department_id: Optional[str] = None,
     requester_role_slug: Optional[str] = None,
+    model_hint: Optional[str] = None,
 ) -> dict[str, Any]:
     """Вставка задачи. Возвращает dict как _row_to_task.
 
     requester_department_id / requester_role_slug — S11.1 (ADR-005), для
     inter-department задач. NULL для обычных intra-задач.
+    model_hint — S15.2 (ADR-006): hint для роутера (opus/sonnet/haiku). NULL = авто.
     """
 
     task_id = uuid.uuid4().hex[:12]
@@ -491,8 +500,9 @@ def insert_task(
                 INSERT INTO tasks (
                   id, title, description, status, assignee, reporter, priority,
                   labels, parent_id, requires_approval, created_at, updated_at,
-                  department_id, requester_department_id, requester_role_slug
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  department_id, requester_department_id, requester_role_slug,
+                  model_hint
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     task_id,
@@ -510,6 +520,7 @@ def insert_task(
                     department_id,
                     requester_department_id,
                     requester_role_slug,
+                    model_hint,
                 ),
             )
             conn.execute("COMMIT")

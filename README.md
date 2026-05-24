@@ -12,27 +12,35 @@ Three role-bots — **Team Lead**, **Backend**, **QA** — share one local kanba
 <!-- video demo will go here after E9 -->
 <img alt="devboard demo (placeholder — replaced after E9)" src="docs/screenshots/demo.gif" width="720" onerror="this.style.display='none'"/>
 
-## Why
+## Quick Start (recommended)
 
-Most coding agents run as a single loop in your terminal. `devboard` runs as a **small org**: a Team Lead splits work, delegates to specialists, reviews their results, and only escalates to you when it actually matters. Everything lives in a SQLite kanban you can read with `sqlite3` and see in a Flask dashboard.
+```bash
+git clone https://github.com/rdm9x/devboard.git
+cd devboard
+cp .env.example .env
+# Open .env and set ANTHROPIC_API_KEY
+docker compose up
+# Open http://localhost:4999
+```
 
-Built for solo developers who want agent-driven delivery without giving up the board, the audit trail, or the approval gates.
+Works the same on **Windows / macOS / Linux**. Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/).
 
-## Features
+Data lives in `./data` (bind-mounted into the container) and survives restarts and image rebuilds.
 
-- **Kanban board** — tasks move through TO DO → WIP → NEEDS APPROVAL → REVIEW → DONE. You approve risky operations; agents handle the rest.
-- **Live log** — stream-json from the Claude session is parsed into human-readable lines and pushed to the browser via SSE.
-- **Approval gates** — `git push`, `ssh`, `systemctl restart`, and other risky operations require explicit user approval before any agent runs them.
-- **Model router** — picks `haiku`, `sonnet`, or `opus` based on task complexity. No tokens wasted on routing.
-- **Settings tab** — configure language, teamlead mode, and model preferences in-dashboard. No manual `.env` edits needed for common options.
-- **Statistics tab** — task throughput, team velocity, and role performance analytics, all from the same SQLite data.
-- **Dual-language i18n** — both the dashboard UI and agent output switch between RU and EN. One toggle covers everything.
-- **Plain-language mode** — the Team Lead simplifies its output for non-technical product owners. Toggle in Settings; no prompt editing required.
-- **Multi-role team** — Team Lead, Backend, QA ship by default. Architect, Frontend, DevOps, and Tech Writer roles are drop-in extras.
+Once the dashboard is up:
 
-## Quickstart
+1. Click **+ New task**, fill the form, save — the task lands in **TO DO**.
+2. Click **▶ Run team** in the header. The Team Lead picks up the task, decomposes it, delegates subtasks to Backend and QA, and streams live output to the bottom panel.
+3. When a task moves to **REVIEW**, open the card and click **Accept** or **Send back**.
+4. When you see a task in **NEEDS APPROVAL ⚠**, open it, read what the agent wants to do, and click **Approve** or **Reject**.
 
-**Requirements:** Python 3.11+, an Anthropic subscription with `claude` CLI installed.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for a full VPS guide.
+
+---
+
+## Manual install (without Docker)
+
+> Use this path if Docker is not available. Requires Python 3.11+ and an Anthropic subscription with `claude` CLI.
 
 ### Option A — double-click (Mac / Linux / Windows)
 
@@ -53,24 +61,25 @@ python3 setup.py            # one-time: creates venvs, installs deps
 open http://127.0.0.1:4999
 ```
 
-### Option C — Docker
+---
 
-```bash
-cp .env.example .env
-# edit .env, set ANTHROPIC_API_KEY (or OPENAI_API_KEY / OLLAMA_URL)
-docker compose up -d
-open http://localhost:4999
-```
+## Why
 
-Data lives in `./data` (bind-mounted into the container) and survives
-restarts. See [DEPLOYMENT.md](DEPLOYMENT.md) for a full VPS guide.
+Most coding agents run as a single loop in your terminal. `devboard` runs as a **small org**: a Team Lead splits work, delegates to specialists, reviews their results, and only escalates to you when it actually matters. Everything lives in a SQLite kanban you can read with `sqlite3` and see in a Flask dashboard.
 
-Once the dashboard is up:
+Built for solo developers who want agent-driven delivery without giving up the board, the audit trail, or the approval gates.
 
-1. Click **+ New task**, fill the form, save — the task lands in **TO DO**.
-2. Click **▶ Run team** in the header. The Team Lead picks up the task, decomposes it, delegates subtasks to Backend and QA, and streams live output to the bottom panel.
-3. When a task moves to **REVIEW**, open the card and click **Accept** or **Send back**.
-4. When you see a task in **NEEDS APPROVAL ⚠**, open it, read what the agent wants to do, and click **Approve** or **Reject**.
+## Features
+
+- **Kanban board** — tasks move through TO DO → WIP → NEEDS APPROVAL → REVIEW → DONE. You approve risky operations; agents handle the rest.
+- **Live log** — stream-json from the Claude session is parsed into human-readable lines and pushed to the browser via SSE.
+- **Approval gates** — `git push`, `ssh`, `systemctl restart`, and other risky operations require explicit user approval before any agent runs them.
+- **Model router** — picks `haiku`, `sonnet`, or `opus` based on task complexity. No tokens wasted on routing.
+- **Settings tab** — configure language, teamlead mode, and model preferences in-dashboard. No manual `.env` edits needed for common options.
+- **Statistics tab** — task throughput, team velocity, and role performance analytics, all from the same SQLite data.
+- **Dual-language i18n** — both the dashboard UI and agent output switch between RU and EN. One toggle covers everything.
+- **Plain-language mode** — the Team Lead simplifies its output for non-technical product owners. Toggle in Settings; no prompt editing required.
+- **Multi-role team** — Team Lead, Backend, QA ship by default. Architect, Frontend, DevOps, and Tech Writer roles are drop-in extras.
 
 ## Multi-team mode (v2.0)
 

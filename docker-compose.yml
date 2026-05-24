@@ -1,13 +1,13 @@
 # docker-compose.yml — devboard
 #
 # Single-service local/VPS deployment. Wraps the production Dockerfile
-# (multi-stage, non-root, healthcheck на /healthz, EXPOSE 5000).
+# (multi-stage, non-root, healthcheck на /healthz, EXPOSE 4999).
 #
 # Использование:
 #   cp .env.example .env
 #   # отредактируй .env (минимум ANTHROPIC_API_KEY)
 #   docker compose up -d
-#   open http://localhost:5000
+#   open http://localhost:4999
 #
 # Данные SQLite (data/tasks.db) сохраняются на хосте через bind-mount ./data.
 
@@ -19,7 +19,7 @@ services:
     image: devboard:latest
     container_name: devboard
     ports:
-      - "5000:5000"
+      - "4999:4999"
     volumes:
       # БД и runtime-артефакты переживают пересоздание контейнера.
       # Контейнер пишет от non-root pride (UID 1000) — на хосте каталог
@@ -32,7 +32,7 @@ services:
     # Запрет эскалации привилегий через setuid/setgid бинари.
     security_opt:
       - no-new-privileges:true
-    # Сбрасываем все Linux capabilities; сервис слушает порт 5000 (>1024),
+    # Сбрасываем все Linux capabilities; сервис слушает порт 4999 (>1024),
     # поэтому NET_BIND_SERVICE не требуется.
     cap_drop:
       - ALL
@@ -46,7 +46,7 @@ services:
     # Дублируем HEALTHCHECK из Dockerfile, чтобы compose ps показывал health
     # сразу, даже если образ собран без HEALTHCHECK-директивы (e.g. devbuild).
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:5000/healthz"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:4999/healthz"]
       interval: 30s
       timeout: 5s
       start_period: 15s

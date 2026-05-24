@@ -41,7 +41,11 @@ def fail(msg: str) -> "Never":  # type: ignore[name-defined]
 
 def run(cmd: list[str], cwd: Path | None = None, env: dict | None = None) -> None:
     log("$ " + " ".join(str(c) for c in cmd))
-    result = subprocess.run(cmd, cwd=cwd, env=env or os.environ.copy())
+    run_env = env or os.environ.copy()
+    # Propagate UTF-8 encoding to all child processes (important on Windows)
+    run_env.setdefault("PYTHONIOENCODING", "utf-8")
+    run_env.setdefault("PYTHONUTF8", "1")
+    result = subprocess.run(cmd, cwd=cwd, env=run_env)
     if result.returncode != 0:
         fail(f"команда упала с кодом {result.returncode}")
 
@@ -163,6 +167,15 @@ def print_final_instructions() -> None:
 
 
 def main() -> None:
+    # Fix UTF-8 output when setup.py is called via .bat / subprocess on Windows
+    # (chcp 65001 sets the console codepage, but Python stdout still needs reconfiguring)
+    if IS_WINDOWS:
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except AttributeError:
+            pass  # Python < 3.7 — shouldn't happen (we require 3.11+)
+
     print()
     log(f"devboard setup · {ROOT}")
     print()

@@ -1,6 +1,31 @@
 # devboard на Windows — короткая инструкция
 
-## Установка (один раз)
+## Быстрый старт с Docker (рекомендуется)
+
+Docker Desktop устраняет все типичные проблемы Windows: кодировки, версии Python, кириллица в путях.
+
+1. Установи [Docker Desktop для Windows](https://www.docker.com/products/docker-desktop/).
+2. Открой PowerShell (Win + X → «Терминал») и выполни:
+
+   ```powershell
+   git clone https://github.com/rdm9x/devboard.git
+   cd devboard
+   copy .env.example .env
+   # Открой .env в Блокноте и впиши ANTHROPIC_API_KEY
+   docker compose up
+   ```
+
+3. Открой в браузере: http://localhost:4999
+
+Данные (`data\tasks.db` и логи) хранятся в папке `data\` рядом с проектом — переживают перезапуск Docker и пересборку образа.
+
+---
+
+## Альтернативный путь — без Docker (PowerShell / bat-скрипты)
+
+> Используй этот путь, если Docker Desktop недоступен.
+
+### Установка (один раз)
 
 1. Распакуй `devboard.zip` в удобную папку.
 2. Открой PowerShell в этой папке (`Shift + ПКМ` → «Open PowerShell window here»).
@@ -19,7 +44,7 @@
    - прогонит 67 тестов;
    - сгенерирует `.mcp.json` под твою машину.
 
-## Запуск дашборда
+### Запуск дашборда
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File команды\devboard-start.ps1
@@ -27,11 +52,13 @@ powershell -ExecutionPolicy Bypass -File команды\devboard-start.ps1
 
 Открой в браузере: http://127.0.0.1:4999
 
-## Остановка
+### Остановка
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File команды\devboard-stop.ps1
 ```
+
+---
 
 ## Что делать в дашборде
 
@@ -64,9 +91,32 @@ powershell -ExecutionPolicy Bypass -File команды\devboard-test.ps1
 - Если PowerShell ругается на политику запуска (`execution of scripts is
   disabled`), запускай через `-ExecutionPolicy Bypass` как в примерах выше —
   это разовый bypass только для этого вызова, системную политику не меняет.
-- Если 5000-й порт занят: `set PRIDE_DASHBOARD_PORT=5001` перед стартом.
+- Если 4999-й порт занят: `set PRIDE_DASHBOARD_PORT=5001` перед стартом.
 - Кириллица в путях работает, но если что-то странное — переименуй
   корневую папку в `devboard` (без кириллицы). Внутренние папки
   (`mcp_сервер`, `дашборд`, `команды`, `роли`) переименовывать **не нужно**.
 - Антивирус (Defender, Касперский) может тормозить первый запуск pytest
   из-за сканирования. После прогрева — норм.
+
+## Если что-то не работает — запустите диагностику
+
+Дважды щёлкни `"Запустить devboard.bat"` с аргументом `--diag` (через командную строку):
+
+```cmd
+"Запустить devboard.bat" --diag
+```
+
+В открывшемся окне будет выведено:
+
+| Параметр | Что проверяется |
+|---|---|
+| Python binary / version | Нашёлся ли Python и какая версия |
+| stdout encoding / locale | Кодировка вывода (должна быть utf-8) |
+| PYTHONIOENCODING | Переменная среды передаётся ли в подпроцессы |
+| REPO dir | Путь к папке проекта (кириллица нормальна) |
+| venv status | Созданы ли виртуальные окружения |
+| ExecutionPolicy | Разрешено ли выполнение скриптов |
+
+Дашборд при этом **не запускается** — только диагностика.
+
+Скопируй весь вывод окна и пришли его, если обращаешься за помощью.

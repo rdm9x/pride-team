@@ -2,7 +2,7 @@
 #
 # devboard — production Docker image.
 # Multi-stage build: builder колесит wheel'ы, runner ставит их offline.
-# Цель: < 250 MB, non-root, healthcheck на /healthz, EXPOSE 5000.
+# Цель: < 250 MB, non-root, healthcheck на /healthz, EXPOSE 4999.
 
 ARG PYTHON_VERSION=3.12
 
@@ -37,7 +37,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
     PRIDE_DASHBOARD_HOST=0.0.0.0 \
-    PRIDE_DASHBOARD_PORT=5000 \
+    PRIDE_DASHBOARD_PORT=4999 \
     PRIDE_TASKS_DB=/app/data/tasks.db \
     PYTHONPATH=/app/mcp_server
 
@@ -68,11 +68,11 @@ RUN mkdir -p /app/data && chown -R pride:pride /app/data
 
 USER pride
 
-EXPOSE 5000
+EXPOSE 4999
 
 # /healthz уже реализован в dashboard/app.py (строка 891).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD curl -fsS http://localhost:5000/healthz || exit 1
+    CMD curl -fsS http://localhost:4999/healthz || exit 1
 
 # tini как PID 1 — корректно обрабатывает SIGTERM/SIGINT (Ctrl-C, docker stop).
 ENTRYPOINT ["tini", "--"]

@@ -26,6 +26,18 @@ Upgrade from any v1.x to v2.0.0 is **automatic and idempotent**:
 
 See [`docs/migration-v2.md`](docs/migration-v2.md) for the full upgrade guide.
 
+## [Unreleased] / v2.0.1 (windows reliability)
+
+### Added
+- **Docker-first Quick Start** (S13.1): `docker compose up` инструкция в README.md, README.ru.md, README_WINDOWS.md как primary path; порт исправлен 5000→4999 в Dockerfile EXPOSE/HEALTHCHECK и docker-compose.yml ports/healthcheck.
+- **Windows diagnostic mode** (S13.2): `"Запустить devboard.bat" --diag` — печатает Python/OS/encoding/venv/ExecutionPolicy без запуска дашборда.
+- **Cross-platform troubleshooting guide** (S13.3): `docs/INSTALL_TROUBLESHOOTING.md` — гайд по типичным ошибкам install на Windows/macOS/Linux.
+
+### Fixed
+- **setup.py Windows UTF-8** (S13.2): `sys.stdout.reconfigure(encoding="utf-8")` под `IS_WINDOWS` guard; `PYTHONIOENCODING=utf-8` + `PYTHONUTF8=1` propagated во все дочерние subprocess через `run()` helper.
+- **ExecutionPolicy** (S13.2): батник автоматически делает `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` при запуске.
+- **Error message Python not found** (S13.2): добавлена ссылка на python.org/downloads с явной инструкцией про галочку "Add Python 3.x to PATH".
+
 ## [Unreleased] / v2.0-alpha.1 (departments backend)
 
 ### Added

@@ -127,6 +127,7 @@
     if (name === "settings") loadSettings();
     if (name === "roles") loadRoles();
     if (name === "stats") loadStats();
+    if (name === "learn") loadLearn();
   }
   // Apply initial view from localStorage
   switchView(currentView);
@@ -2622,6 +2623,16 @@
       });
     }
 
+    // Open tutorial from settings
+    const btnOpenTutorial = $("#btn-open-tutorial");
+    if (btnOpenTutorial) {
+      btnOpenTutorial.addEventListener("click", () => {
+        try { localStorage.setItem("devboard-learn-page", "intro"); } catch (_) {}
+        switchView("learn");
+        setLearnPage("intro");
+      });
+    }
+
     // Danger zone: reset tour
     const btnResetTour = $("#btn-reset-tour");
     if (btnResetTour) {
@@ -3805,6 +3816,19 @@
         startTourBtn.addEventListener("click", () => finishWizard(true));
       }
 
+      // --- Step 4: Open tutorial (learn intro) ---
+      const openLearnBtn = wizardEl("wizard-open-learn");
+      if (openLearnBtn) {
+        openLearnBtn.addEventListener("click", () => {
+          finishWizard(false);
+          setTimeout(() => {
+            switchView("learn");
+            try { localStorage.setItem("devboard-learn-page", "intro"); } catch (_) {}
+            setLearnPage("intro");
+          }, 250);
+        });
+      }
+
       // --- Step 4: Skip ---
       const skipBtn = wizardEl("wizard-finish-skip");
       if (skipBtn) {
@@ -3828,6 +3852,76 @@
       setTimeout(initFirstRunWizard, 0);
     }
   })();
+
+  // ===================== Learn / Tutorial view (S14.1) =====================
+
+  const LEARN_PAGES = ["intro", "tasks", "departments", "hr", "shortcuts"];
+  const LEARN_PAGE_STORAGE_KEY = "devboard-learn-page";
+
+  /** Return the i18n helper, falling back to a minimal wrapper so learn
+   *  works even before i18n.js fully initialises (edge case on cold load). */
+  function _learnT(key) {
+    if (typeof window.t === "function") return window.t(key);
+    return key;
+  }
+
+  /** Render content of a specific learn page into #learn-content. */
+  function setLearnPage(page) {
+    if (!LEARN_PAGES.includes(page)) page = "intro";
+
+    // Persist
+    try { localStorage.setItem(LEARN_PAGE_STORAGE_KEY, page); } catch (_) {}
+
+    // Highlight active TOC button
+    $$(".learn-toc-btn").forEach((btn) => {
+      const active = btn.dataset.learnPage === page;
+      btn.classList.toggle("active", active);
+      btn.setAttribute("aria-current", active ? "page" : "false");
+    });
+
+    // Render page content
+    const content = document.getElementById("learn-content");
+    if (!content) return;
+
+    const title = _learnT("learn.page." + page + ".title");
+    const body  = _learnT("learn.page." + page + ".body");
+
+    content.innerHTML =
+      `<div class="learn-article">` +
+        `<h1 class="learn-article-title">${escapeHtml(title)}</h1>` +
+        `<div class="learn-article-body">${body}</div>` +
+      `</div>`;
+
+    // Accessibility: move focus to content area
+    content.focus({ preventScroll: false });
+    content.scrollTop = 0;
+  }
+
+  /** Called by switchView when user opens the Learn tab.
+   *  Restores last-visited page from localStorage (default: "intro"). */
+  function loadLearn() {
+    let page = "intro";
+    try {
+      const saved = localStorage.getItem(LEARN_PAGE_STORAGE_KEY);
+      if (saved && LEARN_PAGES.includes(saved)) page = saved;
+    } catch (_) {}
+    setLearnPage(page);
+  }
+
+  // Wire up TOC buttons
+  $$(".learn-toc-btn").forEach((btn) => {
+    btn.addEventListener("click", () => setLearnPage(btn.dataset.learnPage));
+  });
+
+  // Re-render current learn page when the UI locale changes so that all
+  // strings (TOC labels + page content) update without a page reload.
+  // We hook into the custom "localechange" event that i18n.js fires after
+  // switching locale (it calls applyI18nToDOM() which dispatches the event).
+  window.addEventListener("localechange", () => {
+    if (currentView === "learn") setLearnPage(
+      localStorage.getItem(LEARN_PAGE_STORAGE_KEY) || "intro"
+    );
+  });
 
   refresh();
   setInterval(refresh, REFRESH_MS);

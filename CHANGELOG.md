@@ -26,6 +26,14 @@ Upgrade from any v1.x to v2.0.0 is **automatic and idempotent**:
 
 See [`docs/migration-v2.md`](docs/migration-v2.md) for the full upgrade guide.
 
+## [Unreleased] / v2.0.2 (tutorial)
+
+### Added
+- **Tutorial вкладка /learn** (S14.1): двухколоночный layout (TOC 200px + long-read article), 5 страниц, localStorage для текущей страницы, re-render при смене локали, a11y + light/dark.
+- **Контент: Введение + Как формулировать задачи** (S14.2): метафора виртуальных сотрудников, 5-шаговый workflow, ограничения; примеры хороших/плохих задач с `.example-good` / `.example-bad` стилизацией; EN + RU.
+- **Контент: Отделы + HR** (S14.3): когда нужен отдел, как создать, шаблоны; бриф для HR с примерами good/bad, edit-loop; EN + RU.
+- **Страница Shortcuts + wizard интеграция** (S14.4): таблица горячих клавиш (`Esc`, `Ctrl/Cmd+Enter`, `Ctrl/Cmd+K` coming soon); кнопка «Открыть обучение» в last step first-run wizard; кнопка Replay tutorial в Settings.
+
 ## [Unreleased] / v2.0.1 (windows reliability)
 
 ### Added

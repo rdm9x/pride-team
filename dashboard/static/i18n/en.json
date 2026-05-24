@@ -75,7 +75,40 @@
     "settings": "Settings",
     "roles": "Roles",
     "roles_title": "Manage roles",
-    "stats": "Statistics"
+    "stats": "Statistics",
+    "learn": "Learn",
+    "learn_title": "Learn — Tutorial"
+  },
+  "learn": {
+    "toc": {
+      "intro": "Introduction",
+      "tasks": "How to write tasks",
+      "departments": "How to create departments",
+      "hr": "Working with HR role",
+      "shortcuts": "Keyboard shortcuts"
+    },
+    "page": {
+      "intro": {
+        "title": "Introduction",
+        "body": "<h2>What is Devboard</h2><p>Devboard is your personal AI development team running on your own computer. You are the owner. You have seven virtual team members — team-lead, backend, QA, architect, frontend, DevOps, and tech-writer. You write tasks on the board; the team-lead routes them to the right role.</p><p>In v2.0 you can create new departments — marketing, design, or anything else — using the HR role.</p><h2>How it works</h2><ol><li>Create a task on the board.</li><li>Click <strong>▶ Start team</strong>.</li><li>The team-lead reads the board, breaks down the task, and delegates to the right role.</li><li>When work is done, the task appears in your Inbox for sign-off.</li><li>Click <strong>✓ Accept</strong> — task moves to the archive.</li></ol><h2>What Devboard does not do</h2><ul><li>Does not run code in production on its own — it only writes code.</li><li>Does not deploy without your explicit approval.</li><li>Does not make phone calls.</li></ul>"
+      },
+      "tasks": {
+        "title": "How to write tasks",
+        "body": "<h2>Five rules for a good task</h2><ol><li><strong>Title: verb + object.</strong> Write \"Add X\", \"Fix Y\", \"Remove Z\" — not \"task about X\".</li><li><strong>Description: TL;DR on line one</strong>, details below.</li><li><strong>Acceptance: a measurable checklist.</strong> List exactly what must work when the task is done.</li><li><strong>Keep tasks small.</strong> More than 5 acceptance criteria? Split into multiple tasks.</li><li><strong>Set a priority:</strong> P1 = urgent, P2 = important, P3 = whenever.</li></ol><h2>Good example</h2><div class=\"example-good\"><p><strong>✅ Title:</strong> Add About page with team profiles</p><p><strong>Description:</strong><br>The site needs an /about page. Show the team — 4 people: Ivan (CEO), Anna (CTO), Oleg (Backend), Maria (Design). Match the style of the existing /pricing page.</p><p><strong>Acceptance:</strong></p><ul><li>/about loads without errors</li><li>4 profile cards are visible with names and roles</li><li>Page is responsive on mobile</li></ul></div><p>Why this works: the title is specific, description explains what and where, acceptance criteria are measurable.</p><h2>Bad examples</h2><div class=\"example-bad\"><p><strong>❌ Title:</strong> Make a website</p><p>Why this fails: no clarity on which site, for what purpose, or what done looks like. The team-lead has nowhere to start.</p></div><div class=\"example-bad\"><p><strong>❌ Title:</strong> fix bug<br><strong>Description:</strong> not working</p><p>Why this fails: which bug, where, under what conditions? The team-lead has to guess.</p></div>"
+      },
+      "departments": {
+        "title": "How to create departments",
+        "body": "<h2>When do you need a new department?</h2><p>When your work goes beyond software development.</p><ul><li><strong>Marketing</strong> — blog posts, social content, audience research.</li><li><strong>Design</strong> — banners, illustrations, landing pages.</li><li><strong>Support</strong> — answering user questions and handling tickets.</li></ul><h2>When you do NOT need a new department</h2><ul><li>If the task is development work — use the existing <code>dev</code> department.</li><li>If it is a one-off task — create it inside <code>dev</code>, not a separate department.</li></ul><h2>How to create a department</h2><ol><li>Click <code>+ Department</code> in the sidebar.</li><li>A modal opens: enter a name, description, and optionally pick a template.</li><li>HR proposes a team plan. Edit it, then activate.</li><li>Once activated, the department appears in the sidebar.</li></ol><h2>Available templates</h2><p>Five ready-to-use templates: Marketing, Design, Sales, Support, Operations. Start from a template and tell HR \"remove X, add Y\" to customise.</p>"
+      },
+      "hr": {
+        "title": "Working with HR role",
+        "body": "<h2>Why a good brief matters</h2><p>HR is smart, but not a mind-reader. The more clearly you describe the department, the better the team plan you get.</p><h2>Good brief</h2><div class=\"example-good\"><strong>Department name:</strong> Marketing<br><strong>Description:</strong> Content team for a developer-focused startup. Audience: Russian-speaking developers, 25–35. Tone: friendly, technical. Output: blog posts (1500–2500 words), Twitter/LinkedIn posts, SEO research. Out of scope: video production, graphic design.</div><p>Why this works: clear audience, tone, what we produce, and what we explicitly exclude.</p><h2>Bad brief</h2><div class=\"example-bad\"><strong>Name:</strong> Marketing<br><strong>Description:</strong> marketing</div><p>HR will generate a generic template-based team — not optimised for your actual use case.</p><h2>How the edit loop works</h2><p>HR proposes a plan → you respond with edits → HR revises → you activate. Common edit requests:</p><ul><li>\"Add a Brand Strategist\"</li><li>\"Remove Social Media — we are not on social\"</li><li>\"Rename Marketing Lead to Head of Growth\"</li></ul>"
+      },
+      "shortcuts": {
+        "title": "Keyboard shortcuts",
+        "body": "<p class=\"learn-shortcuts-intro\">Keyboard shortcuts available in the dashboard.</p><table class=\"learn-shortcuts-table\"><thead><tr><th>Key</th><th>Action</th></tr></thead><tbody><tr><td><kbd>Esc</kbd></td><td>Close modal</td></tr><tr><td><kbd>Ctrl / Cmd + Enter</kbd></td><td>Save task in editor</td></tr><tr><td><kbd>Ctrl / Cmd + K</kbd></td><td>Search <span class=\"learn-soon-badge\">coming soon</span></td></tr></tbody></table>"
+      }
+    }
   },
   "sidebar": {
     "team": "Team",
@@ -328,6 +361,11 @@
       "none": "no data",
       "open_label": "Open folder",
       "open_btn": "Open folder"
+    },
+    "replay_tutorial": {
+      "label": "Tutorial",
+      "hint": "Open the Tutorial section from the beginning",
+      "btn": "Open tutorial"
     },
     "danger": {
       "title": "Danger zone",
@@ -614,6 +652,7 @@
     "btn_next": "Next →",
     "btn_prev": "← Back",
     "btn_start_tour": "Start tour",
+    "btn_open_learn": "Open tutorial",
     "btn_skip": "Skip"
   },
   "demo": {

@@ -37,6 +37,12 @@
         <span class="lbl" data-i18n="nav.roles">Роли</span>
         <span class="badge" id="nav-roles-count">0</span>
       </button>
+      <button class="nav-item" data-view="learn"
+              aria-label="Learn — Tutorial" title="Learn — Tutorial"
+              data-i18n-attr="title:nav.learn_title,aria-label:nav.learn_title">
+        <span class="ico">🎓</span>
+        <span class="lbl" data-i18n="nav.learn">Обучение</span>
+      </button>
       <button class="nav-item" data-view="archive">
         <span class="ico">📦</span>
         <span class="lbl" data-i18n="nav.archive">Архив</span>
@@ -257,6 +263,46 @@
             <div class="kanban-empty-text" data-i18n="kanban.empty.done">Пока ничего не закрыто — двигаемся дальше</div>
           </div>
         </section>
+      </div>
+    </section>
+
+    <!-- View: Learn (S14.1) -->
+    <section class="view view-learn" data-view="learn" hidden
+             aria-labelledby="learn-view-title">
+      <div class="learn-layout">
+        <!-- TOC (left column) -->
+        <aside class="learn-toc" role="navigation" aria-label="Tutorial navigation">
+          <div class="learn-toc-title" id="learn-view-title" aria-hidden="true">
+            <span class="ico" aria-hidden="true">🎓</span>
+            <span data-i18n="nav.learn">Обучение</span>
+          </div>
+          <nav>
+            <button class="learn-toc-btn active" data-learn-page="intro"
+                    title="Введение"
+                    data-i18n-attr="title:learn.toc.intro"
+                    data-i18n="learn.toc.intro">Введение</button>
+            <button class="learn-toc-btn" data-learn-page="tasks"
+                    title="Как формулировать задачи"
+                    data-i18n-attr="title:learn.toc.tasks"
+                    data-i18n="learn.toc.tasks">Как формулировать задачи</button>
+            <button class="learn-toc-btn" data-learn-page="departments"
+                    title="Как создавать отделы"
+                    data-i18n-attr="title:learn.toc.departments"
+                    data-i18n="learn.toc.departments">Как создавать отделы</button>
+            <button class="learn-toc-btn" data-learn-page="hr"
+                    title="Работа с HR-ролью"
+                    data-i18n-attr="title:learn.toc.hr"
+                    data-i18n="learn.toc.hr">Работа с HR-ролью</button>
+            <button class="learn-toc-btn" data-learn-page="shortcuts"
+                    title="Горячие клавиши"
+                    data-i18n-attr="title:learn.toc.shortcuts"
+                    data-i18n="learn.toc.shortcuts">Горячие клавиши</button>
+          </nav>
+        </aside>
+        <!-- Content (right column) -->
+        <article class="learn-content" id="learn-content" aria-live="polite" tabindex="-1">
+          <!-- Page content is rendered here by JS (loadLearn / setLearnPage) -->
+        </article>
       </div>
     </section>
 
@@ -508,7 +554,27 @@
           </div>
         </div>
 
-        <!-- Section 6: Danger Zone -->
+        <!-- Section 6: Tutorial -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <span class="settings-section-icon">🎓</span>
+            <h2 class="settings-section-title" data-i18n="nav.learn">Обучение</h2>
+          </div>
+          <div class="settings-section-body">
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span data-i18n="settings.replay_tutorial.label">Обучение</span>
+                <span class="settings-row-hint" data-i18n="settings.replay_tutorial.hint">Открыть раздел Tutorial с нуля</span>
+              </div>
+              <div class="settings-row-control">
+                <button id="btn-open-tutorial" class="settings-btn"
+                        data-i18n="settings.replay_tutorial.btn">Открыть обучение</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 7: Danger Zone -->
         <div class="settings-section settings-section-danger">
           <div class="settings-section-header">
             <span class="settings-section-icon">⚠</span>
@@ -1133,6 +1199,8 @@
         <div class="wizard-done-actions">
           <button type="button" id="wizard-start-tour" class="primary wizard-start-tour-btn"
                   data-i18n="wizard.btn_start_tour">Начать тур</button>
+          <button type="button" id="wizard-open-learn" class="wizard-open-learn-btn"
+                  data-action="open-learn" data-i18n="wizard.btn_open_learn">Открыть обучение</button>
           <button type="button" id="wizard-finish-skip" class="wizard-skip-btn"
                   data-i18n="wizard.btn_skip">Пропустить</button>
         </div>
@@ -1400,6 +1468,20 @@
   color: var(--text);
   border-color: var(--border-2);
   background: var(--surface-2);
+}
+.wizard-open-learn-btn {
+  padding: 10px 20px;
+  font-size: 13px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.wizard-open-learn-btn:hover {
+  background: var(--accent-soft);
+  filter: brightness(1.08);
 }
 /* Nav */
 .wizard-nav {

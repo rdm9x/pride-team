@@ -5,7 +5,21 @@ All notable changes to **devboard** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — v2.1.1 tutorial deep dive
+## [2.1.2] - 2026-05-25
+
+Token optimisation verified + auto-mode reliability fix.
+
+### Added
+- **ADR-006 token-opt audit** (S17.1): `docs/qa/token-opt-audit-2026-05.md` — checklist of 4 quick-wins; 2 of 4 confirmed applied, 2 gaps identified and fixed in S17.2.
+- **Prompt caching enabled** (S17.2): `ANTHROPIC_PROMPT_CACHING_ENABLED=1` uncommented in `devboard-work.sh`; added to `devboard-work.ps1`. Expected −30% input tokens on repeated sessions.
+- **model_hint end-to-end** (S17.2): UI dropdown (auto/haiku/sonnet/opus) in new-task modal; `app.js` passes value to API; `router.py` `pick()` uses hint as model override. 8 new tests in `test_router.py`.
+
+### Fixed
+- **Auto-mode restart race condition** (S17.3): `_auto_monitor_loop` was launching a new session before `_stream_reader` released the SQLite write-lock, causing `claude` to time out after 90 s with `is_error=1`. Fix: `reader_thread` guard in `_auto_can_start` blocks restart until cleanup completes. 4 new tests in `test_team_process.py`.
+
+## [2.1.1] - 2026-05-25
+
+Tutorial deep dive — full learning content for non-technical users.
 
 ### Added
 - **Tutorial Intro expanded** (S16.1): `learn.page.intro.body` 934→4271 chars — concept explanation vs ChatGPT/Copilot, 7-role guide with LLM model rationale, ASCII task lifecycle diagram, "what devboard cannot do" section.

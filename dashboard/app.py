@@ -69,6 +69,7 @@ _team_state: dict[str, Any] = {
     "auto_mode": False,         # авто-запуск следующей сессии после завершения
     "starts_history": [],       # timestamps последних запусков (для rate-limit)
     "auto_pause_reason": None,  # если auto заблокирован — почему
+    "reader_thread": None,      # Thread | None — текущий _stream_reader (S17.3 fix)
 }
 
 # Лимиты авто-режима (защита от инфинит-лупа)
@@ -483,6 +484,14 @@ def _auto_can_start(now: int) -> tuple[bool, str]:
     proc = _team_state["process"]
     if proc is not None and proc.poll() is None:
         return False, "сессия уже работает"
+    # S17.3: ждём завершения _stream_reader предыдущей сессии прежде чем
+    # стартовать новую. _stream_reader может удерживать SQLite write-lock
+    # через _auto_restore_delegated_tasks — если новый MCP-сервер попытается
+    # открыть tasks.db пока лок занят, он не сможет инициализироваться и
+    # claude упадёт с is_error=1 через 90 секунд (HTTP timeout).
+    reader = _team_state.get("reader_thread")
+    if reader is not None and reader.is_alive():
+        return False, "предыдущий reader_thread ещё жив (cleanup)"
     history = _team_state["starts_history"]
     # Чистим старше часа
     cutoff = now - 3600
@@ -581,8 +590,10 @@ def _start_team_process(triggered_by: str = "user") -> dict[str, Any]:
             target=_stream_reader,
             args=(new_proc, _team_state["queue"], _LIVE_LOG),
             daemon=True,
+            name=f"stream-reader-{new_proc.pid}",
         )
         t.start()
+        _team_state["reader_thread"] = t  # S17.3: отслеживаем для auto_can_start
         return {"ok": True, "pid": new_proc.pid}
 
 

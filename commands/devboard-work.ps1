@@ -42,7 +42,28 @@ $TaskPrompt = @"
 
 Set-Location $REPO_ROOT
 
-# Авто-роутер моделей: алгоритмический, без LLM.
+# === Output locale (S2.2) ===
+$OutputLocale = "ru"
+$LocaleFile = Join-Path $REPO_ROOT "data\.output_locale"
+if (Test-Path $LocaleFile) {
+    $OutputLocale = (Get-Content $LocaleFile -Raw).Trim()
+}
+
+# === User expertise (S3.4) ===
+$env:DEVBOARD_USER_EXPERTISE = "non-tech"
+$ExpertiseFile = Join-Path $REPO_ROOT "data\.user_expertise"
+if (Test-Path $ExpertiseFile) {
+    $env:DEVBOARD_USER_EXPERTISE = (Get-Content $ExpertiseFile -Raw).Trim()
+}
+
+# === Language prompt ===
+if ($OutputLocale -eq "en") {
+    $LangPrompt = "OUTPUT LANGUAGE: Reply in English. This applies to: chat messages, task titles/descriptions/comments you write, all conversational text. Code, file paths, identifiers remain in their original form."
+} else {
+    $LangPrompt = "OUTPUT LANGUAGE: Отвечай на русском языке. Это касается: сообщений в чат, названий задач, описаний, комментариев. Код, пути файлов, идентификаторы оставляй как есть."
+}
+
+# === Авто-роутер моделей: алгоритмический, без LLM. ===
 # Override через env PRIDE_TEAM_MODEL=opus|sonnet|haiku.
 if ($env:PRIDE_TEAM_MODEL) {
     $Model = $env:PRIDE_TEAM_MODEL
@@ -57,12 +78,40 @@ if ($env:PRIDE_TEAM_MODEL) {
 }
 $McpConfig = Join-Path $REPO_ROOT ".mcp.json"
 
-& claude `
-    --append-system-prompt $TeamleadPrompt `
-    --permission-mode bypassPermissions `
-    --model $Model `
-    --mcp-config $McpConfig `
-    --output-format stream-json `
-    --verbose `
-    --include-partial-messages `
-    --print $TaskPrompt
+# === Non-tech user profile prompt (S3.4) ===
+if ($env:DEVBOARD_USER_EXPERTISE -eq "non-tech") {
+    $ExpertisePrompt = @'
+USER PROFILE: non-technical
+
+Write in plain language:
+- Explain technical terms on first mention in parentheses.
+- For user actions — step by step, like for a beginner.
+- Avoid abbreviations (CI, MCP, PR, ADR) without explanation.
+- If asking user for a decision — offer concrete options, not open questions.
+- Before escalating "need your decision" — try to offer a sensible default.
+
+If the user starts using technical terms themselves — switch to technical language.
+'@
+    & claude `
+        --append-system-prompt $TeamleadPrompt `
+        --append-system-prompt $LangPrompt `
+        --append-system-prompt $ExpertisePrompt `
+        --permission-mode bypassPermissions `
+        --model $Model `
+        --mcp-config $McpConfig `
+        --output-format stream-json `
+        --verbose `
+        --include-partial-messages `
+        --print $TaskPrompt
+} else {
+    & claude `
+        --append-system-prompt $TeamleadPrompt `
+        --append-system-prompt $LangPrompt `
+        --permission-mode bypassPermissions `
+        --model $Model `
+        --mcp-config $McpConfig `
+        --output-format stream-json `
+        --verbose `
+        --include-partial-messages `
+        --print $TaskPrompt
+}

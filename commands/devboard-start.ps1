@@ -36,7 +36,8 @@ if (Test-Path $PID_FILE) {
     $oldPid = Get-Content $PID_FILE
     $proc = Get-Process -Id $oldPid -ErrorAction SilentlyContinue
     if ($proc) {
-        Write-Host "Дашборд уже работает (pid=$oldPid). http://127.0.0.1:5000"
+        $existingPort = if ($env:PRIDE_DASHBOARD_PORT) { $env:PRIDE_DASHBOARD_PORT } else { "4999" }
+        Write-Host "Дашборд уже работает (pid=$oldPid). http://127.0.0.1:$existingPort"
         exit 0
     }
     Remove-Item $PID_FILE -Force

@@ -101,6 +101,7 @@ def spawn_hr_subprocess(
     cmd = _build_claude_cmd(prompt_text)
     env = dict(os.environ)
     env.setdefault("PYTHONIOENCODING", "utf-8")
+    env["PYTHONUTF8"] = "1"
     try:
         proc = popen_factory(
             cmd,
@@ -109,6 +110,8 @@ def spawn_hr_subprocess(
             stderr=subprocess.PIPE,
             env=env,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             bufsize=1,  # line-buffered
         )
     except (OSError, FileNotFoundError) as exc:

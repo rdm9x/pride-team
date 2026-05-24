@@ -1,0 +1,30 @@
+# Normalise line endings for all text files
+* text=auto
+
+# Shell scripts — always LF
+*.sh text eol=lf
+
+# PowerShell / batch — CRLF on checkout
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+
+# Python — LF
+*.py text eol=lf
+
+# Markup / data — LF
+*.md text eol=lf
+*.json text eol=lf
+*.toml text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+
+# Binary — do not touch
+*.db binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.gif binary

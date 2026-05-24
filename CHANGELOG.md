@@ -58,6 +58,10 @@ Includes all of v2.0.1, v2.0.2, and v2.1.0 changes landed via automated sprints 
 - **setup.py Windows UTF-8** (S13.2): `sys.stdout.reconfigure(encoding="utf-8")` под `IS_WINDOWS` guard; `PYTHONIOENCODING=utf-8` + `PYTHONUTF8=1` propagated во все дочерние subprocess через `run()` helper.
 - **ExecutionPolicy** (S13.2): батник автоматически делает `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` при запуске.
 - **Error message Python not found** (S13.2): добавлена ссылка на python.org/downloads с явной инструкцией про галочку "Add Python 3.x to PATH".
+- **CRLF protection** (S13.3): `.gitattributes` — `*.sh eol=lf`, `*.ps1 eol=crlf`, `*.py eol=lf`; устраняет `bad interpreter ^M` при клонировании на Windows с `autocrlf=true`.
+- **HR subprocess encoding** (S13.3): `dashboard/hr.py::spawn_hr_subprocess` — добавлены `encoding="utf-8"`, `errors="replace"` и `env["PYTHONUTF8"]="1"`; кириллица в HR-сессиях на Windows больше не превращается в мусор.
+- **devboard-start.ps1 hardcoded port** (S13.3): заменён `5000` на `$env:PRIDE_DASHBOARD_PORT` (по умолчанию `4999`) в сообщении «already running».
+- **devboard-work.ps1 feature parity** (S13.3): добавлены output_locale (`data/.output_locale` → `LANG_PROMPT`), user_expertise (`data/.user_expertise` → `DEVBOARD_USER_EXPERTISE`), ветка `non-tech` с `$ExpertisePrompt`; паритет с `.sh`-версией достигнут.
 
 ## [Unreleased] / v2.0-alpha.1 (departments backend)
 

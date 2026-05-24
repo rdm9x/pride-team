@@ -62,7 +62,8 @@
     "create": "Create",
     "add": "Add",
     "none_dash": "— none —",
-    "close": "Close"
+    "close": "Close",
+    "auto": "auto"
   },
   "page": {
     "title": "devboard · small team"
@@ -560,6 +561,7 @@
     }
   },
   "task": {
+    "model_hint": "Model (hint)",
     "reader": {
       "tldr": "Summary",
       "steps": "What to do",

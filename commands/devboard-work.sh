@@ -19,7 +19,7 @@ set -euo pipefail
 # Раскомментируй строку ниже чтобы включить автоматическое кэширование префикса.
 # TTL кэша: 5 минут (ephemeral). Cache read стоит 10% от обычной цены input.
 # Подробности: docs/adr/0006-token-optimization.md §2.1
-# export ANTHROPIC_PROMPT_CACHING_ENABLED=1
+export ANTHROPIC_PROMPT_CACHING_ENABLED=1
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 

@@ -763,6 +763,15 @@
           </select>
         </label>
         <label class="check"><input type="checkbox" name="requires_approval"> Approval</label>
+        <label>
+          <span data-i18n="task.model_hint">Модель (подсказка)</span>
+          <select id="new-task-model-hint" name="model_hint">
+            <option value="auto" selected data-i18n="common.auto">авто</option>
+            <option value="haiku">haiku</option>
+            <option value="sonnet">sonnet</option>
+            <option value="opus">opus</option>
+          </select>
+        </label>
       </div>
       <div class="actions">
         <button type="button" data-close="modal-new" data-i18n="common.cancel">Отмена</button>

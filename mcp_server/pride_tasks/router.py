@@ -58,6 +58,14 @@ def pick(open_tasks: list[dict[str, Any]]) -> dict[str, Any]:
     n_trivial = 0
     has_destructive = False
 
+    # model_hint counters (ADR-006 S17.2): учитываем явный hint пользователя на задаче
+    _HINT_RANK = {"opus": 3, "sonnet": 2, "haiku": 1}
+    hint_max_rank = 0
+    hint_max_alias: str | None = None
+    n_hint_opus = 0
+    n_hint_sonnet = 0
+    n_hint_haiku = 0
+
     for t in workable:
         labels = set(t.get("labels") or [])
         if labels & _ARCHI_LABELS:
@@ -66,6 +74,18 @@ def pick(open_tasks: list[dict[str, Any]]) -> dict[str, Any]:
             n_trivial += 1
         if "destructive" in labels:
             has_destructive = True
+        # model_hint — явный сигнал от пользователя; берём максимальный по рангу
+        mh = (t.get("model_hint") or "").lower()
+        if mh in _HINT_RANK:
+            if _HINT_RANK[mh] > hint_max_rank:
+                hint_max_rank = _HINT_RANK[mh]
+                hint_max_alias = mh
+            if mh == "opus":
+                n_hint_opus += 1
+            elif mh == "sonnet":
+                n_hint_sonnet += 1
+            elif mh == "haiku":
+                n_hint_haiku += 1
 
     n_epics_filtered = len(open_tasks) - n_total
 
@@ -78,6 +98,13 @@ def pick(open_tasks: list[dict[str, Any]]) -> dict[str, Any]:
     elif n_archi > 0:
         choice = "opus"
         reason = f"архитектурных задач (по label): {n_archi} — Opus для design/decomposition"
+    elif hint_max_alias is not None:
+        # Явный model_hint пользователя — уважаем его выбор (ADR-006 §2.3)
+        choice = hint_max_alias
+        reason = (
+            f"model_hint от пользователя: {hint_max_alias}"
+            f" (opus×{n_hint_opus} sonnet×{n_hint_sonnet} haiku×{n_hint_haiku})"
+        )
     elif n_trivial > 0 and n_trivial == n_total:
         choice = "haiku"
         reason = f"только тривиальные задачи: {n_trivial} — Haiku хватит"
@@ -95,6 +122,9 @@ def pick(open_tasks: list[dict[str, Any]]) -> dict[str, Any]:
             "architectural": n_archi,
             "trivial": n_trivial,
             "has_destructive": has_destructive,
+            "hint_opus": n_hint_opus,
+            "hint_sonnet": n_hint_sonnet,
+            "hint_haiku": n_hint_haiku,
         },
     }
 

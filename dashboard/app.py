@@ -1554,6 +1554,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             requires_approval=bool(data.get("requires_approval", False)),
             status=data.get("status", "todo"),
             labels=data.get("labels"),
+            model_hint=data.get("model_hint") or None,
             db_path=_db(),
         )
         if res["статус"] != "ok":

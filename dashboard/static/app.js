@@ -1607,12 +1607,14 @@
   $("#form-new-task").addEventListener("submit", async (e) => {
     e.preventDefault();
     const form = e.target;
+    const modelHintVal = form.model_hint ? form.model_hint.value : "auto";
     const body = {
       title: form.title.value.trim(),
       description: form.description.value,
       priority: form.priority.value,
       assignee: form.assignee.value || null,
       requires_approval: form.requires_approval.checked,
+      model_hint: modelHintVal === "auto" ? null : modelHintVal,
     };
     const r = await fetch("/api/tasks", {
       method: "POST",

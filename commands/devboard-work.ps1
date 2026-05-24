@@ -42,6 +42,10 @@ $TaskPrompt = @"
 
 Set-Location $REPO_ROOT
 
+# ADR-006 (S15.2): Prompt caching — экономит ~40-50% токенов на prefix (роль + AGENTS.md).
+# TTL кэша: 5 минут (ephemeral). Cache read стоит 10% от обычной цены input.
+$env:ANTHROPIC_PROMPT_CACHING_ENABLED = "1"
+
 # === Output locale (S2.2) ===
 $OutputLocale = "ru"
 $LocaleFile = Join-Path $REPO_ROOT "data\.output_locale"

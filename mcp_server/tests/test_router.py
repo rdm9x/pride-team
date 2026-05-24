@@ -138,6 +138,71 @@ def test_pick_handles_missing_fields() -> None:
     assert decision["model_alias"] in {"haiku", "sonnet", "opus"}
 
 
+# === model_hint (ADR-006 S17.2) ===
+
+
+def _th(title: str = "", model_hint: str | None = None, labels: list[str] | None = None) -> dict:
+    """Helper: task dict with model_hint field."""
+    return {"title": title, "labels": labels or [], "model_hint": model_hint}
+
+
+def test_pick_model_hint_opus_overrides_sonnet_default() -> None:
+    # Задача без архитектурных labels, но с model_hint=opus — должен выбрать opus.
+    decision = router.pick([_th(title="обычная задача", model_hint="opus")])
+    assert decision["model_alias"] == "opus"
+    assert "model_hint" in decision["reason"]
+    assert decision["counters"]["hint_opus"] == 1
+
+
+def test_pick_model_hint_sonnet_explicit() -> None:
+    decision = router.pick([_th(title="задача", model_hint="sonnet")])
+    assert decision["model_alias"] == "sonnet"
+    assert decision["counters"]["hint_sonnet"] == 1
+
+
+def test_pick_model_hint_haiku_explicit() -> None:
+    decision = router.pick([_th(title="задача", model_hint="haiku")])
+    assert decision["model_alias"] == "haiku"
+    assert decision["counters"]["hint_haiku"] == 1
+
+
+def test_pick_model_hint_max_rank_wins() -> None:
+    # Среди haiku и opus — выбирает opus (старший ранг).
+    decision = router.pick([
+        _th(title="a", model_hint="haiku"),
+        _th(title="b", model_hint="opus"),
+    ])
+    assert decision["model_alias"] == "opus"
+    assert decision["counters"]["hint_opus"] == 1
+    assert decision["counters"]["hint_haiku"] == 1
+
+
+def test_pick_model_hint_does_not_override_destructive() -> None:
+    # destructive имеет приоритет выше чем model_hint.
+    decision = router.pick([_th(title="dangerous", model_hint="haiku", labels=["destructive"])])
+    assert decision["model_alias"] == "opus"
+    assert "destructive" in decision["reason"]
+
+
+def test_pick_model_hint_does_not_override_architectural() -> None:
+    # Архитектурный label приоритетнее hint haiku.
+    decision = router.pick([_th(title="arch", model_hint="haiku", labels=["design"])])
+    assert decision["model_alias"] == "opus"
+
+
+def test_pick_model_hint_none_ignored() -> None:
+    # Задача без model_hint (None) — роутер работает как раньше.
+    decision = router.pick([_th(title="обычная задача", model_hint=None)])
+    assert decision["model_alias"] == "sonnet"
+    assert decision["counters"]["hint_opus"] == 0
+
+
+def test_pick_counters_include_hint_fields() -> None:
+    decision = router.pick([_th(title="x", model_hint="sonnet")])
+    for key in ("hint_opus", "hint_sonnet", "hint_haiku"):
+        assert key in decision["counters"], f"missing counter key: {key}"
+
+
 # === pick_from_db() ===
 
 

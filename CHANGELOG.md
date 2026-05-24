@@ -26,7 +26,20 @@ Upgrade from any v1.x to v2.0.0 is **automatic and idempotent**:
 
 See [`docs/migration-v2.md`](docs/migration-v2.md) for the full upgrade guide.
 
-## [Unreleased] / v2.0.2 (tutorial)
+## [2.1.0] - 2026-05-24
+
+Night-batch release: Windows reliability + tutorial + token optimization.
+Includes all of v2.0.1, v2.0.2, and v2.1.0 changes landed via automated sprints S13–S15.
+
+### Added
+- **Token optimization (ADR-006)** (S15.1/S15.2): `chat_recent` default limit 50→10; `model_hint` optional field on tasks (DB column + MCP tools `create_task`/`update_task`/`list_tasks`/`get_task`); `AGENTS.md` split into core (~70 lines) + `docs/AGENTS_EXTENDED.md` (full reference); `ANTHROPIC_PROMPT_CACHING_ENABLED` comment in `devboard-work.sh`. Expected: −30–50% tokens/session (baseline $2.92 → target $1.80).
+- **Tutorial вкладка /learn** — see v2.0.2 below.
+- **Docker-first + Windows reliability** — see v2.0.1 below.
+
+### Fixed
+- `scripts/migrate_s15_model_hint.py` — idempotent standalone migration for existing DBs.
+
+## [2.0.2] - 2026-05-24 (tutorial)
 
 ### Added
 - **Tutorial вкладка /learn** (S14.1): двухколоночный layout (TOC 200px + long-read article), 5 страниц, localStorage для текущей страницы, re-render при смене локали, a11y + light/dark.
@@ -34,7 +47,7 @@ See [`docs/migration-v2.md`](docs/migration-v2.md) for the full upgrade guide.
 - **Контент: Отделы + HR** (S14.3): когда нужен отдел, как создать, шаблоны; бриф для HR с примерами good/bad, edit-loop; EN + RU.
 - **Страница Shortcuts + wizard интеграция** (S14.4): таблица горячих клавиш (`Esc`, `Ctrl/Cmd+Enter`, `Ctrl/Cmd+K` coming soon); кнопка «Открыть обучение» в last step first-run wizard; кнопка Replay tutorial в Settings.
 
-## [Unreleased] / v2.0.1 (windows reliability)
+## [2.0.1] - 2026-05-24 (windows reliability)
 
 ### Added
 - **Docker-first Quick Start** (S13.1): `docker compose up` инструкция в README.md, README.ru.md, README_WINDOWS.md как primary path; порт исправлен 5000→4999 в Dockerfile EXPOSE/HEALTHCHECK и docker-compose.yml ports/healthcheck.

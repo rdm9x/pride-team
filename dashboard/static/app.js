@@ -621,6 +621,23 @@
 
   // ----- Wire up handlers (DOMContentLoaded) ------------------------------
   document.addEventListener("DOMContentLoaded", () => {
+    // Прогрев кеша моделей ролей — чтобы pickModelForTask (чипы карточек)
+    // знал модель каждой роли до открытия Roles tab.
+    fetch("/api/roles?department=__all__")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data) return;
+        const raw = data.роли || [];
+        const flat = raw.map((role) => {
+          const ext = (role.capabilities && typeof role.capabilities === "object" && !Array.isArray(role.capabilities)) ? role.capabilities : {};
+          return { name: role.name, model: ext.model || role.model || "" };
+        });
+        _refreshRoleModelCache(flat);
+        // Перерисуем доску чтобы чипы обновились
+        if (typeof refreshAll === "function") refreshAll();
+      })
+      .catch(() => {});
+
     const addBtn = document.getElementById("btn-add-department");
     if (addBtn) {
       addBtn.addEventListener("click", openCreateDeptModal);
@@ -686,12 +703,36 @@
 
   // Зеркало логики mcp_server/pride_tasks/router.pick для одной задачи.
   // Возвращает alias модели (haiku/sonnet/opus) или null для родительских эпиков.
+  // Учитываются: labels (приоритетные) + модель роли-исполнителя из БД.
+  const _ROLE_MODEL_CACHE = {}; // {assignee: "haiku"|"sonnet"|"opus"}
+
+  function _modelAliasFromFull(modelFull) {
+    if (!modelFull) return null;
+    if (modelFull.includes("opus")) return "opus";
+    if (modelFull.includes("sonnet")) return "sonnet";
+    if (modelFull.includes("haiku")) return "haiku";
+    return null;
+  }
+
+  // Заполняем кеш моделей ролей при загрузке /api/roles
+  function _refreshRoleModelCache(rolesList) {
+    for (const r of rolesList || []) {
+      const alias = _modelAliasFromFull(r.model || r.capabilities?.model);
+      if (alias) _ROLE_MODEL_CACHE[r.name] = alias;
+    }
+  }
+
   function pickModelForTask(t) {
     const labels = new Set(t.labels || []);
     if (labels.has("epic")) return null;
+    // Сильные label-сигналы перебивают модель роли.
     if (labels.has("destructive")) return "opus";
     if (labels.has("design") || labels.has("architecture") || labels.has("adr")) return "opus";
     if (labels.has("trivial") || labels.has("chore") || labels.has("rename") || labels.has("polish")) return "haiku";
+    // Если у роли-исполнителя в БД своя модель — используем её.
+    if (t.assignee && _ROLE_MODEL_CACHE[t.assignee]) {
+      return _ROLE_MODEL_CACHE[t.assignee];
+    }
     return "sonnet";
   }
 
@@ -3320,6 +3361,8 @@
         };
       });
       renderRolesTable(_rolesCache);
+      // Заполняем кеш для pickModelForTask (чтобы чипы карточек учитывали модель роли)
+      _refreshRoleModelCache(_rolesCache);
     } catch (e) {
       console.error("loadRoles:", e);
     }

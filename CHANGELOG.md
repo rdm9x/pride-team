@@ -5,6 +5,14 @@ All notable changes to **devboard** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — v2.1.1 tutorial deep dive
+
+### Added
+- **Tutorial Intro expanded** (S16.1): `learn.page.intro.body` 934→4271 chars — concept explanation vs ChatGPT/Copilot, 7-role guide with LLM model rationale, ASCII task lifecycle diagram, "what devboard cannot do" section.
+- **Tutorial Tasks expanded** (S16.1): `learn.page.tasks.body` 1548→8696 chars — 5 good/bad example pairs (UI fix, new feature, docs, business logic, analytics) with detailed breakdowns + "what to do when a task stalls" section.
+- **Tutorial Departments+HR expanded** (S16.2): `departments.body` +4524 chars (7 department scenarios, lifecycle, SVG diagram), `hr.body` +5353 chars (6-step state machine, 3 full chat transcripts, 5 templates, troubleshooting).
+- **Cmd+K global search** (S16.3): keyboard listener `Cmd/Ctrl+K` → focus `#search`; `?`/`Cmd+/` → shortcuts overlay; `Esc` closes modals. `shortcuts.body` expanded to 1584 chars with full shortcut table.
+
 ## [2.0.0] - 2026-05-23
 
 First multi-team release of **devboard**. The single-team kanban becomes a platform of AI departments, each with its own roles, kanban, and chat. Existing v1.x installs upgrade automatically via an idempotent migration that moves every existing task, role, and chat message into the default `dev` department. Three accepted ADRs lock in the design.

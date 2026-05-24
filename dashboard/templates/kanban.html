@@ -48,6 +48,23 @@
       </button>
     </nav>
 
+    <!-- ===== Departments (S9.1) ===== -->
+    <div class="departments-list" id="departments-list" role="region"
+         aria-labelledby="departments-list-title">
+      <div class="departments-list-header">
+        <span id="departments-list-title" class="muted"
+              data-i18n="sidebar.departments">Отделы</span>
+      </div>
+      <div class="departments-items" id="departments-items">
+        <!-- dept-item buttons рендерятся из JS (loadDepartments) -->
+      </div>
+      <button type="button" class="dept-add" id="btn-add-department"
+              data-i18n="sidebar.add_department"
+              data-i18n-attr="title:sidebar.add_department_title,aria-label:sidebar.add_department_title"
+              title="Добавить отдел"
+              aria-label="Добавить отдел">+ Department</button>
+    </div>
+
     <!-- (плашки router/silence/usage в footer — там эмодзи через .ico, см. ниже) -->
 
     <div class="sidebar-footer">
@@ -141,6 +158,35 @@
           <div class="inbox-list" data-list="questions"></div>
         </div>
       </div>
+
+      <!-- ===== S11.2: Inter-department sections (ADR-005) ===== -->
+      <!-- Lead-видимая секция: входящие запросы от других отделов в очередь текущего отдела -->
+      <section class="inbox-section" data-section="inter-dept" hidden
+               aria-labelledby="inter-dept-heading">
+        <h3 id="inter-dept-heading" class="inbox-section-title">
+          <span class="ico">🔀</span>
+          <span data-i18n="inbox.inter_dept.title">Запросы от других отделов</span>
+          <span class="g-count" id="inter-dept-count">0</span>
+        </h3>
+        <p class="inbox-section-hint" data-i18n="inbox.inter_dept.hint">
+          Другие отделы создали задачи для твоего. Возьми в очередь или предложи изменения.
+        </p>
+        <div class="inbox-list" id="inter-dept-list"></div>
+      </section>
+
+      <!-- Owner-видимая секция: эскалации (needs_approval) cross-task'ов -->
+      <section class="inbox-section" data-section="dept-requests" hidden
+               aria-labelledby="dept-requests-heading">
+        <h3 id="dept-requests-heading" class="inbox-section-title">
+          <span class="ico">📨</span>
+          <span data-i18n="inbox.dept_requests.title">Запросы между отделами</span>
+          <span class="g-count" id="dept-requests-count">0</span>
+        </h3>
+        <p class="inbox-section-hint" data-i18n="inbox.dept_requests.hint">
+          P1/P2 inter-department задачи ждут твоего одобрения.
+        </p>
+        <div class="inbox-list" id="dept-requests-list"></div>
+      </section>
     </section>
 
     <!-- View: Board (kanban) -->
@@ -654,7 +700,94 @@
       </div>
       <div class="actions">
         <button type="button" data-close="modal-new" data-i18n="common.cancel">Отмена</button>
+        <button type="button" id="btn-open-inter-dept"
+                class="secondary"
+                hidden
+                data-i18n="modal.new.btn.inter_dept"
+                title="Request work from another department"
+                data-i18n-attr="title:modal.new.btn.inter_dept_title">+ Запросить у другого отдела</button>
         <button type="submit" class="primary" data-i18n="common.create">Создать</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============== S11.2: Модалка inter-department запроса ============== -->
+<div id="modal-inter-dept" class="modal" hidden role="dialog" aria-modal="true"
+     aria-labelledby="modal-inter-dept-title">
+  <div class="modal-content">
+    <header>
+      <span id="modal-inter-dept-title" data-i18n="modal.inter_dept.title">Запрос другому отделу</span>
+      <button class="close" data-close="modal-inter-dept"
+              aria-label="Close" data-i18n-attr="aria-label:common.close">✕</button>
+    </header>
+    <form id="form-inter-dept" class="modal-body">
+      <label>
+        <span data-i18n="modal.inter_dept.field.target">Отдел-исполнитель</span>
+        <select name="target_department_id" id="inter-dept-target" required></select>
+      </label>
+      <label>
+        <span data-i18n="modal.inter_dept.field.title">Заголовок</span>
+        <input name="title" required maxlength="120"
+               data-i18n-attr="placeholder:modal.inter_dept.field.title_placeholder"
+               placeholder="Кратко — что нужно от отдела">
+      </label>
+      <label>
+        <span data-i18n="modal.inter_dept.field.description">Описание</span>
+        <textarea name="description" rows="4"
+                  data-i18n-attr="placeholder:modal.inter_dept.field.description_placeholder"
+                  placeholder="Контекст, дедлайн, требования…"></textarea>
+      </label>
+      <div class="row">
+        <label>
+          <span data-i18n="modal.inter_dept.field.priority">Приоритет</span>
+          <select name="priority" id="inter-dept-priority">
+            <option value="P1">P1</option>
+            <option value="P2">P2</option>
+            <option value="P3" selected>P3</option>
+          </select>
+        </label>
+      </div>
+      <div id="inter-dept-capacity-hint" class="capacity-hint" aria-live="polite" hidden></div>
+      <div id="inter-dept-error" class="form-error" role="alert" hidden></div>
+      <div class="actions">
+        <button type="button" data-close="modal-inter-dept" data-i18n="common.cancel">Отмена</button>
+        <button type="submit" class="primary" data-i18n="modal.inter_dept.submit">Запросить</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============== S11.2: Модалка counter-proposal ============== -->
+<div id="modal-counter" class="modal" hidden role="dialog" aria-modal="true"
+     aria-labelledby="modal-counter-title">
+  <div class="modal-content">
+    <header>
+      <span id="modal-counter-title" data-i18n="modal.counter.title">Counter-proposal</span>
+      <button class="close" data-close="modal-counter"
+              aria-label="Close" data-i18n-attr="aria-label:common.close">✕</button>
+    </header>
+    <form id="form-counter" class="modal-body">
+      <div class="muted" id="modal-counter-target"></div>
+      <label>
+        <span data-i18n="modal.counter.field.priority">Новый приоритет</span>
+        <select name="priority" id="counter-priority">
+          <option value="">— оставить как есть —</option>
+          <option value="P1">P1</option>
+          <option value="P2">P2</option>
+          <option value="P3">P3</option>
+        </select>
+      </label>
+      <label>
+        <span data-i18n="modal.counter.field.comment">Комментарий (обязательно)</span>
+        <textarea name="comment" rows="4" required
+                  data-i18n-attr="placeholder:modal.counter.field.comment_placeholder"
+                  placeholder="Объясни почему предлагаешь изменения…"></textarea>
+      </label>
+      <div id="counter-error" class="form-error" role="alert" hidden></div>
+      <div class="actions">
+        <button type="button" data-close="modal-counter" data-i18n="common.cancel">Отмена</button>
+        <button type="submit" class="primary" data-i18n="modal.counter.submit">Отправить</button>
       </div>
     </form>
   </div>
@@ -760,6 +893,126 @@
         <button type="button" id="btn-demo-confirm-cancel" data-i18n="common.cancel">Отмена</button>
         <button type="button" id="btn-demo-confirm-ok" class="primary" data-i18n="demo.confirm_ok">Загрузить</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== Модалка создания отдела (S10.4) ============== -->
+<div id="modal-create-department" class="modal" hidden role="dialog" aria-modal="true"
+     aria-labelledby="modal-create-department-title">
+  <div class="modal-content modal-create-department">
+    <header>
+      <span id="modal-create-department-title" data-i18n="dept.create.title">+ Создать отдел</span>
+      <button class="close" type="button" id="btn-create-dept-close"
+              data-i18n-attr="aria-label:common.close,title:common.close"
+              aria-label="Close" title="Close">✕</button>
+    </header>
+
+    <div class="modal-body create-dept-body">
+      <!-- ===== Step 1: form ===== -->
+      <section class="create-dept-step" data-step="1" id="create-dept-step-1">
+        <h3 class="create-dept-step-title" data-i18n="dept.create.step1.title">Шаг 1: что за отдел</h3>
+        <form id="form-create-dept" class="create-dept-form" autocomplete="off">
+          <label>
+            <span data-i18n="dept.create.field.name">Название</span>
+            <input type="text" name="name" id="create-dept-name" required
+                   maxlength="80" autocomplete="off"
+                   placeholder="Маркетинг"
+                   data-i18n-attr="placeholder:dept.create.field.name_placeholder">
+          </label>
+          <label>
+            <span data-i18n="dept.create.field.description">Описание</span>
+            <textarea name="description" id="create-dept-description" rows="3"
+                      placeholder="Что будет делать отдел: цели, аудитория, формат…"
+                      data-i18n-attr="placeholder:dept.create.field.description_placeholder"></textarea>
+          </label>
+
+          <fieldset class="create-dept-templates"
+                    aria-labelledby="create-dept-templates-label">
+            <legend id="create-dept-templates-label"
+                    data-i18n="dept.create.field.template_hint">Подсказка шаблона (optional)</legend>
+            <div class="create-dept-templates-grid" role="radiogroup"
+                 data-i18n-attr="aria-label:dept.create.field.template_hint"
+                 aria-label="Подсказка шаблона">
+              <label class="create-dept-template-radio">
+                <input type="radio" name="template_hint" value="marketing">
+                <span class="ico" aria-hidden="true">📣</span>
+                <span class="lbl" data-i18n="dept.create.template.marketing">Маркетинг</span>
+              </label>
+              <label class="create-dept-template-radio">
+                <input type="radio" name="template_hint" value="design">
+                <span class="ico" aria-hidden="true">🎨</span>
+                <span class="lbl" data-i18n="dept.create.template.design">Дизайн</span>
+              </label>
+              <label class="create-dept-template-radio">
+                <input type="radio" name="template_hint" value="sales">
+                <span class="ico" aria-hidden="true">💼</span>
+                <span class="lbl" data-i18n="dept.create.template.sales">Продажи</span>
+              </label>
+              <label class="create-dept-template-radio">
+                <input type="radio" name="template_hint" value="support">
+                <span class="ico" aria-hidden="true">🛟</span>
+                <span class="lbl" data-i18n="dept.create.template.support">Поддержка</span>
+              </label>
+              <label class="create-dept-template-radio">
+                <input type="radio" name="template_hint" value="operations">
+                <span class="ico" aria-hidden="true">⚙️</span>
+                <span class="lbl" data-i18n="dept.create.template.operations">Операции</span>
+              </label>
+              <label class="create-dept-template-radio">
+                <input type="radio" name="template_hint" value="" checked>
+                <span class="ico" aria-hidden="true">✨</span>
+                <span class="lbl" data-i18n="dept.create.template.ai">Подобрать AI</span>
+              </label>
+            </div>
+          </fieldset>
+
+          <div id="create-dept-step1-error" class="create-dept-error" hidden></div>
+
+          <div class="actions">
+            <button type="button" id="btn-create-dept-cancel"
+                    data-i18n="common.cancel">Отмена</button>
+            <button type="submit" class="primary" id="btn-create-dept-start"
+                    data-i18n="dept.create.step1.submit">Создать</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ===== Step 2: chat with HR ===== -->
+      <section class="create-dept-step" data-step="2" id="create-dept-step-2" hidden>
+        <h3 class="create-dept-step-title" data-i18n="dept.create.step2.title">Шаг 2: диалог с HR</h3>
+
+        <div class="create-dept-chat" id="create-dept-chat"
+             role="log" aria-live="polite" aria-atomic="false"
+             data-i18n-attr="aria-label:dept.create.step2.chat_aria"
+             aria-label="HR-диалог">
+          <!-- Сообщения рендерятся из JS -->
+        </div>
+
+        <div class="create-dept-state" id="create-dept-state" aria-live="polite">
+          <span class="create-dept-state-dot" aria-hidden="true"></span>
+          <span id="create-dept-state-label" data-i18n="dept.create.state.hr_planning">HR планирует…</span>
+        </div>
+
+        <form id="form-create-dept-answer" class="create-dept-answer-form">
+          <label class="sr-only" for="create-dept-answer-input"
+                 data-i18n="dept.create.step2.answer_label">Ваш ответ HR</label>
+          <textarea id="create-dept-answer-input" rows="2"
+                    placeholder="Напишите HR изменения или подтвердите план…"
+                    data-i18n-attr="placeholder:dept.create.step2.answer_placeholder"></textarea>
+          <button type="submit" class="primary" id="btn-create-dept-answer"
+                  data-i18n="dept.create.step2.send">Отправить</button>
+        </form>
+
+        <div id="create-dept-step2-error" class="create-dept-error" hidden></div>
+
+        <div class="actions">
+          <button type="button" id="btn-create-dept-edit"
+                  data-i18n="dept.create.step2.edit">Изменить</button>
+          <button type="button" class="primary" id="btn-create-dept-approve"
+                  data-i18n="dept.create.step2.approve">Активировать</button>
+        </div>
+      </section>
     </div>
   </div>
 </div>

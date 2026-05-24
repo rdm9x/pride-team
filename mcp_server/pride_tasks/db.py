@@ -104,6 +104,8 @@ CREATE TABLE IF NOT EXISTS tasks (
   completed_at INTEGER,
   result TEXT,                                 -- JSON object | NULL
   department_id TEXT REFERENCES departments(id),
+  requester_department_id TEXT REFERENCES departments(id),  -- S11.1: ADR-005, NULL для intra
+  requester_role_slug TEXT,                                  -- S11.1: ADR-005, slug Lead-заказчика
   FOREIGN KEY (parent_id) REFERENCES tasks(id)
 );
 
@@ -166,6 +168,26 @@ CREATE TABLE IF NOT EXISTS claude_sessions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_sessions_finished ON claude_sessions(finished_at);
+
+-- S10.3 (ADR-004): HR pipeline state machine.
+-- Состояния (column `state`):
+--   hr_planning | awaiting_owner_review | hr_revising | hr_activating
+--   active | aborted
+-- Подробное описание — ADR-004 §2.2.
+CREATE TABLE IF NOT EXISTS hr_sessions (
+  id                TEXT PRIMARY KEY,
+  department_name   TEXT NOT NULL,
+  state             TEXT NOT NULL,
+  plan_json         TEXT,
+  template_hint     TEXT,
+  started_at        INTEGER,
+  finished_at       INTEGER,
+  iteration_count   INTEGER NOT NULL DEFAULT 0,
+  last_message      TEXT,
+  attempt_count     INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_hr_sessions_state ON hr_sessions(state);
 """
 
 # Базовый набор ролей. Загружается при init_db, если ролей в таблице ещё нет.
@@ -281,6 +303,14 @@ def ensure_dev_department(conn: sqlite3.Connection) -> None:
     _add_column_if_missing(conn, "roles", "department_id", "TEXT REFERENCES departments(id)")
     _add_column_if_missing(conn, "chat_messages", "department_id", "TEXT REFERENCES departments(id)")
 
+    # S11.1 (ADR-005): inter-department колонки. Idempotent — добавляем только если ещё нет.
+    _add_column_if_missing(conn, "tasks", "requester_department_id", "TEXT REFERENCES departments(id)")
+    _add_column_if_missing(conn, "tasks", "requester_role_slug", "TEXT")
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_tasks_requester_dept "
+        "ON tasks(requester_department_id) WHERE requester_department_id IS NOT NULL"
+    )
+
     # Создать индексы если нет.
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_department  ON tasks(department_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_dept_status ON tasks(department_id, status)")
@@ -309,6 +339,39 @@ def ensure_dev_department(conn: sqlite3.Connection) -> None:
     )
 
 
+def _ensure_hr_sessions_columns(conn: sqlite3.Connection) -> None:
+    """Idempotent миграция колонок таблицы hr_sessions (S10.3, ADR-004).
+
+    На случай если БД создавалась до S10.3 и таблица была пуста / без
+    некоторых полей. SQLite не поддерживает ADD COLUMN IF NOT EXISTS, поэтому
+    делаем через PRAGMA + try/except. Безопасно вызывать многократно.
+    """
+    try:
+        existing = {row[1] for row in conn.execute("PRAGMA table_info(hr_sessions)")}
+        if not existing:
+            return  # таблицы вообще нет — её создаст SCHEMA_SQL выше
+        _expected = {
+            "plan_json":       "TEXT",
+            "template_hint":   "TEXT",
+            "started_at":      "INTEGER",
+            "finished_at":     "INTEGER",
+            "iteration_count": "INTEGER NOT NULL DEFAULT 0",
+            "last_message":    "TEXT",
+            "attempt_count":   "INTEGER NOT NULL DEFAULT 0",
+        }
+        for col, col_def in _expected.items():
+            if col not in existing:
+                try:
+                    conn.execute(f"ALTER TABLE hr_sessions ADD COLUMN {col} {col_def}")
+                except sqlite3.OperationalError:
+                    # Колонка уже добавлена в параллельном вызове или диалект SQLite
+                    # не позволил NOT NULL DEFAULT — игнорируем, главное не упасть.
+                    pass
+    except sqlite3.OperationalError:
+        # Таблица не существует — будет создана в SCHEMA_SQL.
+        pass
+
+
 def init_db(db_path: Optional[Path] = None) -> Path:
     """Создаёт схему и базовые роли. Идемпотентно."""
 
@@ -327,6 +390,7 @@ def init_db(db_path: Optional[Path] = None) -> Path:
                         (name, desc, json.dumps(caps, ensure_ascii=False)),
                     )
             ensure_dev_department(conn)
+            _ensure_hr_sessions_columns(conn)
             conn.execute("COMMIT")
         finally:
             conn.close()
@@ -355,6 +419,9 @@ def _row_to_task(row: sqlite3.Row) -> dict[str, Any]:
         "completed_at": row["completed_at"],
         "result": json.loads(row["result"]) if row["result"] else None,
         "department_id": row["department_id"] if "department_id" in keys else None,
+        # S11.1 (ADR-005): inter-department поля. NULL для intra/legacy задач.
+        "requester_department_id": row["requester_department_id"] if "requester_department_id" in keys else None,
+        "requester_role_slug": row["requester_role_slug"] if "requester_role_slug" in keys else None,
     }
 
 
@@ -404,8 +471,14 @@ def insert_task(
     status: str = "todo",
     labels: Optional[list[str]] = None,
     department_id: Optional[str] = "dev",
+    requester_department_id: Optional[str] = None,
+    requester_role_slug: Optional[str] = None,
 ) -> dict[str, Any]:
-    """Вставка задачи. Возвращает dict как _row_to_task."""
+    """Вставка задачи. Возвращает dict как _row_to_task.
+
+    requester_department_id / requester_role_slug — S11.1 (ADR-005), для
+    inter-department задач. NULL для обычных intra-задач.
+    """
 
     task_id = uuid.uuid4().hex[:12]
     now = int(time.time())
@@ -418,8 +491,8 @@ def insert_task(
                 INSERT INTO tasks (
                   id, title, description, status, assignee, reporter, priority,
                   labels, parent_id, requires_approval, created_at, updated_at,
-                  department_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  department_id, requester_department_id, requester_role_slug
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     task_id,
@@ -435,6 +508,8 @@ def insert_task(
                     now,
                     now,
                     department_id,
+                    requester_department_id,
+                    requester_role_slug,
                 ),
             )
             conn.execute("COMMIT")
@@ -1128,6 +1203,150 @@ def insert_system_comment(db_path: Path, task_id: str, text: str) -> dict[str, A
             conn.execute("COMMIT")
             cur = conn.execute("SELECT * FROM task_comments WHERE id = ?", (comment_id,))
             return _row_to_comment(cur.fetchone())
+        finally:
+            conn.close()
+
+
+# === HR sessions (S10.3, ADR-004) ===
+
+
+_HR_VALID_STATES = (
+    "hr_planning",
+    "awaiting_owner_review",
+    "hr_revising",
+    "hr_activating",
+    "active",
+    "aborted",
+)
+
+
+def _row_to_hr_session(row: sqlite3.Row) -> dict[str, Any]:
+    """sqlite3.Row → dict для hr_sessions."""
+    keys = row.keys() if hasattr(row, "keys") else []
+    plan_raw = row["plan_json"] if "plan_json" in keys else None
+    try:
+        plan = json.loads(plan_raw) if plan_raw else None
+    except (json.JSONDecodeError, TypeError):
+        plan = None
+    return {
+        "id":               row["id"],
+        "department_name":  row["department_name"],
+        "state":            row["state"],
+        "plan":             plan,
+        "plan_json":        plan_raw,
+        "template_hint":    row["template_hint"] if "template_hint" in keys else None,
+        "started_at":       row["started_at"] if "started_at" in keys else None,
+        "finished_at":      row["finished_at"] if "finished_at" in keys else None,
+        "iteration_count":  row["iteration_count"] if "iteration_count" in keys else 0,
+        "last_message":     row["last_message"] if "last_message" in keys else None,
+        "attempt_count":    row["attempt_count"] if "attempt_count" in keys else 0,
+    }
+
+
+def create_hr_session(
+    db_path: Path,
+    *,
+    department_name: str,
+    template_hint: Optional[str] = None,
+    state: str = "hr_planning",
+) -> dict[str, Any]:
+    """Создаёт новую запись hr_sessions, возвращает её dict.
+
+    id — uuid4 hex[:12]. started_at — now(). iteration_count=0, attempt_count=0.
+    """
+    if not department_name or not department_name.strip():
+        raise ValueError("department_name пустой")
+    if state not in _HR_VALID_STATES:
+        raise ValueError(f"невалидное state: {state!r}")
+    session_id = uuid.uuid4().hex[:12]
+    now = int(time.time())
+    with write_lock(db_path):
+        conn = _connect(db_path)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute(
+                """
+                INSERT INTO hr_sessions (
+                  id, department_name, state, plan_json, template_hint,
+                  started_at, finished_at, iteration_count, last_message,
+                  attempt_count
+                ) VALUES (?, ?, ?, NULL, ?, ?, NULL, 0, NULL, 0)
+                """,
+                (session_id, department_name.strip(), state, template_hint, now),
+            )
+            conn.execute("COMMIT")
+            cur = conn.execute(
+                "SELECT * FROM hr_sessions WHERE id = ?", (session_id,)
+            )
+            return _row_to_hr_session(cur.fetchone())
+        finally:
+            conn.close()
+
+
+def get_hr_session(db_path: Path, session_id: str) -> Optional[dict[str, Any]]:
+    """Прочитать hr_session по id. None если не найдена."""
+    conn = _connect(db_path)
+    try:
+        cur = conn.execute("SELECT * FROM hr_sessions WHERE id = ?", (session_id,))
+        row = cur.fetchone()
+        if row is None:
+            return None
+        return _row_to_hr_session(row)
+    finally:
+        conn.close()
+
+
+_HR_ALLOWED_UPDATE_FIELDS = {
+    "state",
+    "plan_json",
+    "iteration_count",
+    "last_message",
+    "attempt_count",
+    "finished_at",
+}
+
+
+def update_hr_session(
+    db_path: Path, session_id: str, **fields: Any
+) -> Optional[dict[str, Any]]:
+    """Обновить поля hr_session. Безопасные поля — из _HR_ALLOWED_UPDATE_FIELDS.
+
+    `state` валидируется по _HR_VALID_STATES. Возвращает обновлённый dict
+    или None если сессия не найдена.
+    """
+    if not fields:
+        return get_hr_session(db_path, session_id)
+
+    bad = set(fields) - _HR_ALLOWED_UPDATE_FIELDS
+    if bad:
+        raise ValueError(f"Недопустимые поля hr_session: {sorted(bad)}")
+
+    if "state" in fields and fields["state"] not in _HR_VALID_STATES:
+        raise ValueError(f"невалидное state: {fields['state']!r}")
+
+    sets: list[str] = []
+    args: list[Any] = []
+    for key, value in fields.items():
+        sets.append(f"{key} = ?")
+        args.append(value)
+    args.append(session_id)
+
+    with write_lock(db_path):
+        conn = _connect(db_path)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            cur = conn.execute(
+                f"UPDATE hr_sessions SET {', '.join(sets)} WHERE id = ?",
+                args,
+            )
+            if cur.rowcount == 0:
+                conn.execute("ROLLBACK")
+                return None
+            conn.execute("COMMIT")
+            cur = conn.execute(
+                "SELECT * FROM hr_sessions WHERE id = ?", (session_id,)
+            )
+            return _row_to_hr_session(cur.fetchone())
         finally:
             conn.close()
 

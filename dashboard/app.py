@@ -36,6 +36,10 @@ from flask import Flask, Response, jsonify, render_template, request  # noqa: E4
 
 from pride_tasks import db, tools  # noqa: E402
 
+# S10.3 (ADR-004): HR pipeline runner и валидатор плана.
+import hr as hr_runner  # noqa: E402
+from roles.validator import validate_hr_plan  # noqa: E402
+
 logging.basicConfig(
     level=os.environ.get("PRIDE_DASHBOARD_LOG_LEVEL", "INFO"),
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -614,6 +618,126 @@ def _team_status() -> dict[str, Any]:
     }
 
 
+# === Inter-department helpers (S11.1, ADR-005) ===
+
+# Сортировка задач в очереди отдела: сначала по приоритету (P0<P1<P2<P3), потом по created_at.
+_PRIORITY_RANK: dict[str, int] = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
+# Статусы которые считаются «в очереди» для capacity hint.
+_QUEUE_STATUSES = ("todo", "wip", "needs_approval")
+
+
+def _is_lead_role_slug(role_slug: str, requester_dept_id: str) -> bool:
+    """Проверяет что role_slug — это Lead отдела requester_dept_id или owner.
+
+    Принимаем (ADR-005 §2.2 + legacy):
+      - owner / пользователь          — глобальный owner
+      - <dept>-lead                    — формат v2.0 (marketing-lead, design-lead)
+      - тимлид                         — legacy v1.x dev-команда
+      - тимлид-<dept> / lead-<dept>    — на всякий случай альтернативный формат
+    """
+    if not role_slug:
+        return False
+    s = role_slug.strip().lower()
+    if s in ("owner", "пользователь"):
+        return True
+    # Legacy v1: dev-команда, тимлид. Считаем валидным только если requester=dev.
+    if s == "тимлид" and requester_dept_id == "dev":
+        return True
+    dept = requester_dept_id.lower()
+    if s == f"{dept}-lead":
+        return True
+    if s in (f"тимлид-{dept}", f"lead-{dept}"):
+        return True
+    return False
+
+
+def _find_lead_for_department(db_path: Path, dept_id: str) -> Optional[str]:
+    """Ищет slug Lead-роли указанного отдела (для проставления assignee inter-task'у).
+
+    Возвращает name роли, у которой department_id=dept_id и name заканчивается на '-lead'.
+    Для legacy 'dev' — возвращает 'тимлид'. None если не нашли.
+    """
+    if dept_id == "dev":
+        return "тимлид"
+    conn = db._connect(db_path)
+    try:
+        row = conn.execute(
+            "SELECT name FROM roles WHERE department_id = ? AND name LIKE '%-lead' LIMIT 1",
+            (dept_id,),
+        ).fetchone()
+        if row is not None:
+            return row["name"]
+        return None
+    finally:
+        conn.close()
+
+
+def _compute_queue_position(
+    db_path: Path, dept_id: str, task_id: str
+) -> tuple[Optional[int], int]:
+    """Возвращает (position, total) задачи task_id в очереди отдела dept_id.
+
+    position — 1-based индекс. None если task_id нет в очереди отдела.
+    total — общее число задач в очереди (status in _QUEUE_STATUSES).
+    Сортировка: priority (P0<P1<P2<P3), затем created_at ASC.
+    """
+    conn = db._connect(db_path)
+    try:
+        placeholders = ",".join("?" * len(_QUEUE_STATUSES))
+        rows = conn.execute(
+            f"SELECT rowid AS _rowid, id, priority, created_at FROM tasks "
+            f"WHERE department_id = ? AND status IN ({placeholders})",
+            (dept_id, *_QUEUE_STATUSES),
+        ).fetchall()
+        # Сортируем по (priority_rank, created_at, rowid) — rowid даёт
+        # детерминированный порядок вставки при равных created_at (секундная
+        # гранулярность). UUID id для tie-break псевдослучаен и делает тест flaky.
+        items = sorted(
+            rows,
+            key=lambda r: (
+                _PRIORITY_RANK.get(r["priority"], 99),
+                r["created_at"],
+                r["_rowid"],
+            ),
+        )
+        total = len(items)
+        position: Optional[int] = None
+        for idx, r in enumerate(items, start=1):
+            if r["id"] == task_id:
+                position = idx
+                break
+        return position, total
+    finally:
+        conn.close()
+
+
+def _preview_queue_position(
+    db_path: Path, dept_id: str, priority: str
+) -> tuple[int, int]:
+    """Предсказывает позицию ещё-несозданной задачи с приоритетом priority.
+
+    Возвращает (position, total_after_insert).
+    """
+    rank = _PRIORITY_RANK.get(priority.upper(), 99)
+    conn = db._connect(db_path)
+    try:
+        placeholders = ",".join("?" * len(_QUEUE_STATUSES))
+        rows = conn.execute(
+            f"SELECT priority, created_at FROM tasks "
+            f"WHERE department_id = ? AND status IN ({placeholders})",
+            (dept_id, *_QUEUE_STATUSES),
+        ).fetchall()
+        # Считаем сколько задач сейчас стоят впереди (с лучшим/равным приоритетом).
+        # Новая задача будет ПОСЛЕ всех уже существующих с приоритетом <= rank
+        # (т.к. она только что создаётся; для одинакового priority created_at новой больше).
+        ahead = sum(1 for r in rows if _PRIORITY_RANK.get(r["priority"], 99) <= rank)
+        total = len(rows) + 1
+        position = ahead + 1
+        return position, total
+    finally:
+        conn.close()
+
+
 # === Flask app ===
 
 
@@ -681,11 +805,40 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
 
     @app.get("/api/departments/<dept_id>")
     def api_get_department(dept_id: str) -> Any:
-        """Детали одного отдела. 404 если не найден."""
+        """Детали одного отдела. 404 если не найден.
+
+        S11.1 (ADR-005): при ?task_id=<id> добавляет capacity hint:
+          - queue_position: int (1-based позиция задачи в очереди отдела по
+            приоритету+created_at; считает только status in ('todo','wip','needs_approval')).
+          - queue_total:    int (всего задач в очереди отдела).
+        Если task_id не найден или не принадлежит отделу → queue_position=null.
+        """
         dept = db.get_department(_db(), dept_id)
         if dept is None:
             return jsonify({"статус": "not_found", "status": "not_found"}), 404
+
+        task_id = request.args.get("task_id")
+        if task_id:
+            position, total = _compute_queue_position(_db(), dept_id, task_id)
+            dept["queue_position"] = position
+            dept["queue_total"] = total
         return jsonify({"department": dept})
+
+    @app.get("/api/departments/<dept_id>/queue-position")
+    def api_queue_position_preview(dept_id: str) -> Any:
+        """S11.1 (ADR-005): preview позиции в очереди для новой задачи.
+
+        Параметры:
+          - priority (query, default P3): приоритет создаваемой задачи.
+
+        Возвращает {position, total} — где position это «будет N-м в очереди».
+        Используется фронтом перед submit cross-task. 404 если отдела нет.
+        """
+        if db.get_department(_db(), dept_id) is None:
+            return jsonify({"статус": "not_found", "status": "not_found"}), 404
+        priority = request.args.get("priority", "P3")
+        position, total = _preview_queue_position(_db(), dept_id, priority)
+        return jsonify({"position": position, "total": total})
 
     @app.post("/api/departments")
     def api_create_department() -> Any:
@@ -757,6 +910,560 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
                 "archived_at": row["archived_at"],
             }
         })
+
+    # === Inter-department (S11.1, ADR-005) ===
+
+    @app.post("/api/departments/<target_id>/tasks")
+    def api_create_inter_department_task(target_id: str) -> Any:
+        """Создание inter-department task (ADR-005 §2.2).
+
+        Body (JSON):
+          - title: str (обязательно)
+          - description: str (опц.)
+          - priority: P1|P2|P3 (default P3)
+          - labels: list[str] (опц.) — наличие 'destructive' → needs_approval
+          - requester_department_id: str (обязательно) — id отдела-заказчика
+          - requester_role_slug: str (обязательно) — slug Lead отдела A (или owner)
+
+        Pipeline:
+          1) Target dept существует и не архивирован → иначе 404 / 410.
+          2) requester_department_id существует.
+          3) requester_role_slug — Lead отдела A или owner → иначе 403.
+          4) Escalation gate:
+             - priority in (P1, P2) ИЛИ 'destructive' in labels →
+                 status='needs_approval', requires_approval=true, assignee='пользователь'
+             - priority='P3' → status='todo', assignee=<target_dept>-lead (если нет — None,
+                               задача попадёт в общую очередь target отдела)
+          5) INSERT в tasks с department_id=target, requester_department_id, requester_role_slug.
+          6) Audit-сообщение в global inter-department channel (chat_messages.department_id=NULL).
+        """
+        data = request.get_json(silent=True) or {}
+        title = (data.get("title") or "").strip()
+        if not title:
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": "title обязателен", "reason": "title is required",
+            }), 400
+
+        requester_dept = (data.get("requester_department_id") or "").strip()
+        if not requester_dept:
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": "requester_department_id обязателен",
+                "reason": "requester_department_id is required",
+            }), 400
+
+        requester_role = (data.get("requester_role_slug") or "").strip()
+        if not requester_role:
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": "requester_role_slug обязателен",
+                "reason": "requester_role_slug is required",
+            }), 400
+
+        # 1. target dept существует и не архивирован
+        target = db.get_department(_db(), target_id)
+        if target is None:
+            return jsonify({"статус": "not_found", "status": "not_found"}), 404
+        if target.get("archived_at"):
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": "target department архивирован",
+                "reason": "target department is archived",
+            }), 410
+
+        # 2. requester dept существует
+        requester = db.get_department(_db(), requester_dept)
+        if requester is None:
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": f"requester_department_id={requester_dept!r} не существует",
+                "reason": f"requester_department_id={requester_dept!r} not found",
+            }), 400
+
+        # 3. AuthZ: requester_role_slug — Lead отдела A или owner
+        if not _is_lead_role_slug(requester_role, requester_dept):
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": (
+                    f"только Lead отдела {requester_dept!r} или owner может создавать "
+                    f"inter-department задачи; получено role_slug={requester_role!r}"
+                ),
+                "reason": "only Lead of requester department or owner can create cross-department tasks",
+                "your_role": requester_role,
+            }), 403
+
+        # 4. Escalation gate
+        priority = (data.get("priority") or "P3").upper()
+        labels = list(data.get("labels") or [])
+        is_destructive = "destructive" in labels
+        is_high_pri = priority in ("P1", "P2")
+        if is_high_pri or is_destructive:
+            status = "needs_approval"
+            requires_approval = True
+            # Эскалация owner'у: задача попадает в его Inbox.
+            assignee = "пользователь"
+        else:
+            status = "todo"
+            requires_approval = False
+            # Назначаем Lead'у target-отдела если можем его найти; иначе None.
+            assignee = _find_lead_for_department(_db(), target_id)
+
+        # 5. Insert
+        task = db.insert_task(
+            _db(),
+            title=title,
+            description=(data.get("description") or "").strip(),
+            assignee=assignee,
+            reporter=requester_role,
+            priority=priority,
+            labels=labels,
+            requires_approval=requires_approval,
+            status=status,
+            department_id=target_id,
+            requester_department_id=requester_dept,
+            requester_role_slug=requester_role,
+        )
+
+        # 6. Audit в global inter-department channel
+        try:
+            audit_text = (
+                f"[{requester_dept} → {target_id}] #{task['id'][:6]} {title!r} ({priority}) — "
+                f"created{' (needs_approval)' if requires_approval else ''}"
+            )
+            db.post_chat_message(_db(), "system", audit_text, department_id=None)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("inter-department audit log failed: %s", exc)
+
+        return jsonify({"статус": "ok", "задача": task}), 201
+
+    @app.get("/api/chat/inter-department")
+    def api_chat_inter_department() -> Any:
+        """S11.1 (ADR-005 §2.6): global inter-department channel.
+
+        Это специальный канал — все сообщения с department_id IS NULL.
+        Сюда система пишет audit-события cross-task'ов (created / counter / completed).
+        Параметры: since (unix-ts), limit (default 100).
+        """
+        since = int(request.args.get("since", 0))
+        limit = int(request.args.get("limit", 100))
+        msgs = db.list_chat_messages(_db(), since=since, limit=limit, department_id=None)
+        return jsonify({"messages": msgs})
+
+    @app.post("/api/tasks/<task_id>/counter")
+    def api_task_counter(task_id: str) -> Any:
+        """S11.1 (ADR-005 §2.3): counter-proposal от target Lead.
+
+        Body (JSON):
+          - priority: P1|P2|P3 (опц.) — новый приоритет.
+          - due_at:   int unix-ts (опц.) — предлагаемый срок.
+          - comment:  str — обязательный комментарий (мотивация counter'а).
+
+        Эффект:
+          - Если priority задан и валиден — обновляем поле задачи.
+          - Если due_at задан — обновляем поле задачи.
+          - В историю задачи пишется comment c автором 'system' + меткой counter-proposal.
+          - В global inter-department channel пишется audit-запись.
+          - В чат отдела-заказчика (department_id=requester_department_id) шлётся notify
+            от 'system' — origin Lead увидит.
+        404 если задача не найдена. 400 если задача не inter-department (нечего counter'ить).
+        """
+        data = request.get_json(silent=True) or {}
+        comment = (data.get("comment") or "").strip()
+        if not comment:
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": "comment обязателен", "reason": "comment is required",
+            }), 400
+
+        # Читаем задачу
+        existing = db.get_task(_db(), task_id)
+        if existing is None:
+            return jsonify({"статус": "not_found", "status": "not_found"}), 404
+
+        # Проверяем что задача inter-department
+        req_dept = existing.get("requester_department_id")
+        tgt_dept = existing.get("department_id")
+        if not req_dept or req_dept == tgt_dept:
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": "задача не inter-department (нечего counter'ить)",
+                "reason": "task is not inter-department",
+            }), 400
+
+        # Опциональное обновление priority
+        update_fields: dict[str, Any] = {}
+        new_priority = data.get("priority")
+        if new_priority is not None:
+            new_priority = str(new_priority).upper()
+            from pride_tasks.models import PRIORITIES
+            if new_priority not in PRIORITIES:
+                return jsonify({
+                    "статус": "error", "status": "error",
+                    "причина": f"недопустимый priority={new_priority!r}, ожидалось {PRIORITIES}",
+                    "reason": f"invalid priority, expected one of {PRIORITIES}",
+                }), 400
+            update_fields["priority"] = new_priority
+
+        new_due_at = data.get("due_at")
+        if new_due_at is not None:
+            try:
+                update_fields["due_at"] = int(new_due_at)
+            except (TypeError, ValueError):
+                return jsonify({
+                    "статус": "error", "status": "error",
+                    "причина": "due_at должен быть unix-ts (int)",
+                    "reason": "due_at must be unix timestamp (int)",
+                }), 400
+
+        old_priority = existing.get("priority")
+        if update_fields:
+            db.update_task(_db(), task_id, **update_fields)
+
+        # Запись в историю задачи
+        counter_text = "[counter-proposal] " + comment
+        if "priority" in update_fields:
+            counter_text += f" | priority {old_priority}→{update_fields['priority']}"
+        if "due_at" in update_fields:
+            counter_text += f" | due_at→{update_fields['due_at']}"
+        db.add_comment(_db(), task_id, "system", counter_text)
+
+        # Audit в global inter-department channel
+        try:
+            short = task_id[:6]
+            audit = (
+                f"[{req_dept} → {tgt_dept}] #{short} "
+                f"— counter-proposed"
+            )
+            if "priority" in update_fields:
+                audit += f": priority {old_priority}→{update_fields['priority']}"
+            db.post_chat_message(_db(), "system", audit, department_id=None)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("inter-department counter audit log failed: %s", exc)
+
+        # Notify origin (push в отдел-заказчик: department_id=requester_department_id)
+        try:
+            db.post_chat_message(
+                _db(),
+                "system",
+                f"counter-proposal на задаче #{task_id[:6]}: {comment}",
+                department_id=req_dept,
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("inter-department counter notify failed: %s", exc)
+
+        # Возвращаем обновлённую задачу
+        updated = db.get_task(_db(), task_id)
+        return jsonify({"статус": "ok", "задача": updated}), 200
+
+    # === HR pipeline (S10.3, ADR-004 §2.2) ===
+
+    @app.post("/api/hr/start")
+    def api_hr_start() -> Any:
+        """Старт HR-сессии создания отдела.
+
+        Body (JSON): {name: str, description: str, template_hint?: str}.
+        Создаёт запись в hr_sessions (state='hr_planning'), спавнит claude CLI
+        subprocess с HR system-prompt. Возвращает {hr_session_id, state}.
+        """
+        data = request.get_json(silent=True) or {}
+        name = (data.get("name") or "").strip()
+        description = (data.get("description") or "").strip()
+        template_hint = (data.get("template_hint") or "").strip() or None
+
+        if not name:
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": "name обязателен", "reason": "name is required",
+            }), 400
+
+        try:
+            session = db.create_hr_session(
+                _db(),
+                department_name=name,
+                template_hint=template_hint,
+                state="hr_planning",
+            )
+        except ValueError as exc:
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": str(exc), "reason": str(exc),
+            }), 400
+
+        # Initial message для HR — owner-описание + hint.
+        initial_message = description
+        if template_hint:
+            initial_message += f"\n[template_hint: {template_hint}]"
+        if not initial_message:
+            initial_message = f"Создай отдел: {name}"
+
+        proc = hr_runner.spawn_hr_subprocess(
+            session["id"], initial_message
+        )
+        if proc is None:
+            # Spawn упал — переводим сразу в aborted.
+            db.update_hr_session(
+                _db(), session["id"],
+                state="aborted",
+                last_message="failed to spawn HR subprocess",
+                finished_at=int(time.time()),
+            )
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": "не удалось запустить HR subprocess",
+                "reason": "failed to spawn HR subprocess",
+                "hr_session_id": session["id"],
+            }), 500
+
+        return jsonify({
+            "hr_session_id": session["id"],
+            "state": session["state"],
+            "department_name": session["department_name"],
+        }), 201
+
+    @app.post("/api/hr/answer")
+    def api_hr_answer() -> Any:
+        """Owner отправляет правки/ответ в активную HR-сессию.
+
+        Body (JSON): {hr_session_id: str, message: str}.
+        Прокидывает в stdin subprocess, увеличивает iteration_count,
+        переводит state в hr_revising (если был awaiting_owner_review/hr_planning).
+        """
+        data = request.get_json(silent=True) or {}
+        sid = (data.get("hr_session_id") or "").strip()
+        message = (data.get("message") or "").strip()
+
+        if not sid:
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": "hr_session_id обязателен",
+                "reason": "hr_session_id is required",
+            }), 400
+        if not message:
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": "message обязателен", "reason": "message is required",
+            }), 400
+
+        session = db.get_hr_session(_db(), sid)
+        if session is None:
+            return jsonify({"статус": "not_found", "status": "not_found"}), 404
+
+        # Нельзя отвечать в завершённую сессию.
+        if session["state"] in ("active", "aborted"):
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": f"hr_session в финальном состоянии {session['state']}",
+                "reason": f"session is in final state {session['state']}",
+            }), 409
+
+        sent = hr_runner.send_to_hr_subprocess(sid, message)
+        if not sent:
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": "HR subprocess недоступен (упал или не запущен)",
+                "reason": "HR subprocess not available",
+            }), 502
+
+        new_state = "hr_revising" if session["state"] == "awaiting_owner_review" else session["state"]
+        updated = db.update_hr_session(
+            _db(), sid,
+            state=new_state,
+            iteration_count=session["iteration_count"] + 1,
+            last_message=message,
+        )
+
+        return jsonify({
+            "hr_session_id": sid,
+            "state": updated["state"],
+            "iteration_count": updated["iteration_count"],
+        }), 200
+
+    @app.post("/api/hr/approve")
+    def api_hr_approve() -> Any:
+        """Owner аппрувит план — запускается активация.
+
+        Body (JSON): {hr_session_id: str, plan?: dict}.
+        - state → hr_activating
+        - валидируем план через validate_hr_plan
+        - если invalid: increment attempt_count, при ≥3 → aborted
+        - если valid: materialize_roles + create_department в БД → state=active
+
+        План берётся либо из body.plan (если HR/UI передаёт явно), либо из
+        session.plan (если HR ранее запостил его).
+        """
+        data = request.get_json(silent=True) or {}
+        sid = (data.get("hr_session_id") or "").strip()
+        if not sid:
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": "hr_session_id обязателен",
+                "reason": "hr_session_id is required",
+            }), 400
+
+        session = db.get_hr_session(_db(), sid)
+        if session is None:
+            return jsonify({"статус": "not_found", "status": "not_found"}), 404
+
+        if session["state"] in ("active", "aborted"):
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": f"hr_session в финальном состоянии {session['state']}",
+                "reason": f"session is in final state {session['state']}",
+            }), 409
+
+        plan = data.get("plan")
+        if plan is None:
+            plan = session.get("plan")
+
+        if not isinstance(plan, dict):
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": "plan отсутствует или невалиден",
+                "reason": "plan is missing or invalid",
+            }), 400
+
+        # Переводим в hr_activating.
+        db.update_hr_session(_db(), sid, state="hr_activating", plan_json=json.dumps(plan, ensure_ascii=False))
+
+        # Валидируем план.
+        result = validate_hr_plan(plan)
+        if not result.ok:
+            new_attempt = session["attempt_count"] + 1
+            if new_attempt >= hr_runner.HR_MAX_VALIDATION_ATTEMPTS:
+                # Слишком много попыток → aborted.
+                db.update_hr_session(
+                    _db(), sid,
+                    state="aborted",
+                    attempt_count=new_attempt,
+                    last_message=f"validation failed after {new_attempt} attempts: {'; '.join(result.errors[:5])}",
+                    finished_at=int(time.time()),
+                )
+                hr_runner.close_hr_subprocess(sid)
+                return jsonify({
+                    "статус": "aborted", "status": "aborted",
+                    "причина": "план не прошёл валидацию 3 раза подряд",
+                    "reason": "plan failed validation 3 times in a row",
+                    "errors": result.errors,
+                    "attempts": new_attempt,
+                }), 422
+            # Иначе — возвращаем ошибки + сбрасываем в hr_revising, HR должен сгенерировать новый план.
+            db.update_hr_session(
+                _db(), sid,
+                state="hr_revising",
+                attempt_count=new_attempt,
+                last_message="; ".join(result.errors[:5]),
+            )
+            return jsonify({
+                "статус": "invalid_plan", "status": "invalid_plan",
+                "errors": result.errors,
+                "attempts": new_attempt,
+                "max_attempts": hr_runner.HR_MAX_VALIDATION_ATTEMPTS,
+            }), 422
+
+        # План валидный → материализуем роли + создаём отдел в БД.
+        dept_name = plan.get("department", {}).get("name") or session["department_name"]
+        dept_desc = plan.get("department", {}).get("description") or ""
+        dept_icon = plan.get("department", {}).get("icon") or "🗂"
+        dept_slug = hr_runner.department_slug(dept_name)
+
+        created_files, mat_errors = hr_runner.materialize_roles(plan)
+        if mat_errors:
+            db.update_hr_session(
+                _db(), sid,
+                state="aborted",
+                last_message=f"materialize failed: {'; '.join(mat_errors)}",
+                finished_at=int(time.time()),
+            )
+            hr_runner.close_hr_subprocess(sid)
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": "не удалось записать файлы ролей",
+                "reason": "failed to write role files",
+                "errors": mat_errors,
+            }), 500
+
+        # Создаём department в БД (idempotent если уже есть — добавим суффикс).
+        try:
+            dept = db.create_department(
+                _db(),
+                dept_id=dept_slug,
+                name=dept_name,
+                description=dept_desc,
+                template_id=plan.get("template_id"),
+                icon=dept_icon,
+            )
+        except ValueError as exc:
+            # Уже есть отдел с таким id/name. Пробуем с суффиксом.
+            try:
+                dept = db.create_department(
+                    _db(),
+                    dept_id=f"{dept_slug}-{sid[:6]}",
+                    name=f"{dept_name} ({sid[:6]})",
+                    description=dept_desc,
+                    template_id=plan.get("template_id"),
+                    icon=dept_icon,
+                )
+            except ValueError as exc2:
+                # Rollback файлов и aborted.
+                for f in created_files:
+                    try:
+                        f.unlink()
+                    except OSError:
+                        pass
+                db.update_hr_session(
+                    _db(), sid,
+                    state="aborted",
+                    last_message=f"department insert failed: {exc}; {exc2}",
+                    finished_at=int(time.time()),
+                )
+                hr_runner.close_hr_subprocess(sid)
+                return jsonify({
+                    "статус": "error", "status": "error",
+                    "причина": str(exc),
+                    "reason": str(exc),
+                }), 409
+
+        # Активация успешна.
+        db.update_hr_session(
+            _db(), sid,
+            state="active",
+            last_message=f"activated: {dept['id']} ({len(created_files)} roles)",
+            finished_at=int(time.time()),
+        )
+        hr_runner.close_hr_subprocess(sid)
+
+        return jsonify({
+            "статус": "ok", "status": "ok",
+            "hr_session_id": sid,
+            "state": "active",
+            "department": dept,
+            "roles_created": [str(p) for p in created_files],
+        }), 200
+
+    @app.get("/api/hr/status/<session_id>")
+    def api_hr_status(session_id: str) -> Any:
+        """Текущий state HR-сессии + последний message.
+
+        Возвращает: {hr_session_id, state, department_name, iteration_count,
+                     attempt_count, last_message, plan, finished_at}.
+        404 если сессия не найдена.
+        """
+        session = db.get_hr_session(_db(), session_id)
+        if session is None:
+            return jsonify({"статус": "not_found", "status": "not_found"}), 404
+        return jsonify({
+            "hr_session_id": session["id"],
+            "state": session["state"],
+            "department_name": session["department_name"],
+            "iteration_count": session["iteration_count"],
+            "attempt_count": session["attempt_count"],
+            "last_message": session["last_message"],
+            "plan": session.get("plan"),
+            "started_at": session["started_at"],
+            "finished_at": session["finished_at"],
+            "template_hint": session["template_hint"],
+        }), 200
 
     # === Tasks ===
 
@@ -925,21 +1632,61 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         с assignee=пользователь, ждёт. После approve задача:
           - переходит в status=todo (НЕ wip — wip = «исполнитель уже работает»,
             а тут как раз нужно чтобы новый прогон тимлида взял задачу).
-          - assignee возвращается на reporter'а (создателя), чтобы при
-            следующем list_tasks(assignee=тимлид) она попала к нему обратно.
+          - assignee — зависит от типа задачи (intra vs cross-task):
+              * intra (requester_department_id is None): assignee = reporter
+                (создатель задачи), или 'тимлид' если reporter не задан.
+                Backward-compat поведение для v1.x.
+              * cross-task (requester_department_id is not None, ADR-005):
+                assignee = Lead отдела-исполнителя (target = department_id).
+                Reporter здесь — заказчик (<dept>-lead), не исполнитель;
+                ставить его в assignee неправильно семантически И ломает
+                валидацию ROLES в tools.update_task (баг #5933b0f3b933).
+                Fallback: если Lead не найден, оставляем 'пользователь'
+                (owner оставляет себе для повторного делегирования вручную).
         """
         existing = tools.get_task(task_id, db_path=_db())
         if existing["статус"] == "not_found":
             return jsonify(existing), 404
-        reporter = existing["задача"].get("reporter") or "тимлид"
-        upd = tools.update_task(
-            task_id,
-            status="todo",
-            assignee=reporter,
-            db_path=_db(),
-        )
-        if upd["статус"] != "ok":
-            return jsonify(upd), 400
+        task_obj = existing["задача"]
+        # S11.1 (ADR-005): cross-task если requester_department_id заполнен.
+        requester_dept = task_obj.get("requester_department_id")
+        is_cross_task = bool(requester_dept)
+        if is_cross_task:
+            target_dept = task_obj.get("department_id")
+            new_assignee = (
+                _find_lead_for_department(_db(), target_dept) if target_dept else None
+            )
+            if not new_assignee:
+                # Lead отдела-исполнителя не найден (например, отдел без Lead-роли
+                # либо department_id отсутствует) — owner оставляет задачу себе.
+                new_assignee = "пользователь"
+        else:
+            # Intra-task (legacy v1.x): возвращаем на reporter'а.
+            new_assignee = task_obj.get("reporter") or "тимлид"
+
+        # tools.update_task валидирует assignee против фиксированного whitelist
+        # ROLES (v1.x). Для cross-task assignee — это динамическая dept-роль
+        # (например 'design-lead'), которой нет в whitelist. Обходим: для
+        # cross-task используем db.update_task напрямую (UI-путь, аналогично
+        # созданию cross-task в api_create_inter_task — там тоже db.insert_task,
+        # а не tools.create_task). Для intra-task сохраняем штатный путь через
+        # tools.update_task — это даёт нам бесплатный safety-net.
+        if is_cross_task:
+            updated = db.update_task(
+                _db(), task_id, status="todo", assignee=new_assignee
+            )
+            if updated is None:
+                return jsonify({"статус": "not_found", "status": "not_found"}), 404
+            upd = {"статус": "ok", "задача": updated}
+        else:
+            upd = tools.update_task(
+                task_id,
+                status="todo",
+                assignee=new_assignee,
+                db_path=_db(),
+            )
+            if upd["статус"] != "ok":
+                return jsonify(upd), 400
         comment_text = (request.get_json(silent=True) or {}).get(
             "text", f"approved at {time.strftime('%Y-%m-%d %H:%M:%S')}"
         )
@@ -986,7 +1733,20 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
 
     @app.get("/api/roles")
     def api_roles() -> Any:
+        """Список ролей.
+
+        S9.2: поддержка ?department=<id>:
+          - ?department=__all__ (или отсутствует) → ВСЕ роли (global + per-dept).
+          - ?department=<id>                      → только роли отдела <id>
+                                                    (включая global, у которых
+                                                     department_id IS NULL).
+
+        Поле `department_id` поднимается в верхний уровень результата
+        (берётся напрямую из БД, так как tools.list_roles его не возвращает).
+        """
+        dept_param = request.args.get("department")
         result = tools.list_roles(db_path=_db())
+
         # Поднимаем поля capabilities.{llm,model,temperature,max_tokens,system_prompt}
         # на верхний уровень — фронт ждёт плоский формат (r.model и т.п.).
         for role in result.get("роли", []):
@@ -995,6 +1755,32 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
                 for key in ("llm", "model", "temperature", "max_tokens", "system_prompt"):
                     if key in caps and key not in role:
                         role[key] = caps[key]
+
+        # S9.2: подтягиваем department_id напрямую из БД (tools.list_roles не возвращает).
+        conn = db._connect(_db())  # type: ignore
+        try:
+            rows = conn.execute("SELECT name, department_id FROM roles").fetchall()
+        finally:
+            conn.close()
+        dept_by_name: dict[str, Optional[str]] = {}
+        for r in rows:
+            try:
+                dept_by_name[r["name"]] = r["department_id"]
+            except Exception:
+                # Колонка department_id может отсутствовать в старых БД (до S8.1) — игнорируем.
+                pass
+        for role in result.get("роли", []):
+            role["department_id"] = dept_by_name.get(role.get("name"))
+
+        # Фильтрация по department, если запрошена конкретная (не __all__).
+        if dept_param and dept_param != "__all__":
+            filtered = [
+                r for r in result.get("роли", [])
+                if (r.get("department_id") is None) or (r.get("department_id") == dept_param)
+            ]
+            result["роли"] = filtered
+            result["всего"] = len(filtered)
+
         return jsonify(result)
 
     @app.post("/api/roles")
@@ -1683,14 +2469,32 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
                        поглощения в approvals — здесь approvals имеет приоритет,
                        поэтому needs_approval-задача не попадёт сюда).
         Каждая задача попадает РОВНО в одну группу: approvals > reviews > questions.
+
+        S9.2: поддержка ?department=<id>:
+          - ?department=__all__   → без фильтра (показать всё)
+          - ?department=<id>      → только задачи этого отдела
+          - не указан             → default 'dev' (backward compat)
         """
-        approval_tasks = db.list_tasks(_db(), status="needs_approval", limit=200)
-        review_tasks = db.list_tasks(_db(), status="review", limit=200)
+        dept_param = request.args.get("department")
+        if dept_param == "__all__":
+            dept_filter: Optional[str] = None
+        elif dept_param is not None:
+            dept_filter = dept_param
+        else:
+            dept_filter = "dev"
+
+        def _by_dept(tasks: list) -> list:
+            if dept_filter is None:
+                return tasks
+            return [t for t in tasks if t.get("department_id") == dept_filter]
+
+        approval_tasks = _by_dept(db.list_tasks(_db(), status="needs_approval", limit=200))
+        review_tasks = _by_dept(db.list_tasks(_db(), status="review", limit=200))
         approval_ids = {t["id"] for t in approval_tasks}
         review_ids = {t["id"] for t in review_tasks}
         # questions: задачи назначенные пользователю, не попавшие в первые две группы.
         questions: list = []
-        for t in db.list_tasks(_db(), assignee="пользователь", limit=200):
+        for t in _by_dept(db.list_tasks(_db(), assignee="пользователь", limit=200)):
             if t["status"] in ("done", "blocked"):
                 continue
             if t["id"] in approval_ids or t["id"] in review_ids:

@@ -79,6 +79,9 @@
   },
   "sidebar": {
     "team": "Team",
+    "departments": "Departments",
+    "add_department": "+ Department",
+    "add_department_title": "Create new department",
     "role": {
       "teamlead": "Team Lead",
       "backend": "Backend",
@@ -87,6 +90,62 @@
       "frontend": "Frontend",
       "devops": "DevOps",
       "tech_writer": "Tech Writer"
+    }
+  },
+  "dept": {
+    "dev": "Development",
+    "create": {
+      "title": "+ Create department",
+      "step1": {
+        "title": "Step 1: what kind of department",
+        "submit": "Create"
+      },
+      "step2": {
+        "title": "Step 2: chat with HR",
+        "chat_aria": "Chat with HR",
+        "answer_label": "Your reply to HR",
+        "answer_placeholder": "Tell HR what to change or confirm the plan…",
+        "send": "Send",
+        "edit": "Edit",
+        "approve": "Activate",
+        "hr_label": "HR",
+        "you_label": "You",
+        "system_label": "System",
+        "waiting_hr": "HR is thinking…",
+        "first_hint": "HR session started. Wait for HR to reply — this may take a few seconds."
+      },
+      "field": {
+        "name": "Name",
+        "name_placeholder": "Marketing",
+        "description": "Description",
+        "description_placeholder": "What the department does: goals, audience, format…",
+        "template_hint": "Template hint (optional)"
+      },
+      "template": {
+        "marketing": "Marketing",
+        "design": "Design",
+        "sales": "Sales",
+        "support": "Support",
+        "operations": "Operations",
+        "ai": "Let AI pick"
+      },
+      "state": {
+        "hr_planning": "HR planning…",
+        "awaiting_owner_review": "Awaiting your review",
+        "hr_revising": "HR revising…",
+        "hr_activating": "Activating department…",
+        "active": "Department active",
+        "aborted": "Session aborted"
+      },
+      "errors": {
+        "name_required": "Department name is required.",
+        "start_failed": "Failed to start HR session.",
+        "answer_failed": "Failed to send message to HR.",
+        "approve_failed": "Activation failed. You can edit the plan and try again.",
+        "session_lost": "HR session lost — try creating the department again.",
+        "aborted": "HR session aborted. Close the window and try again."
+      },
+      "success": "Department \"{name}\" created and activated."
     }
   },
   "topbar": {
@@ -442,9 +501,13 @@
     "col": {
       "name": "Name",
       "description": "Description",
+      "department": "Department",
       "llm": "LLM",
       "model": "Model",
       "actions": "Actions"
+    },
+    "dept": {
+      "global": "Global"
     },
     "btn": {
       "edit": "Edit",

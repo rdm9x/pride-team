@@ -5,6 +5,27 @@ All notable changes to **devboard** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-05-23
+
+First multi-team release of **devboard**. The single-team kanban becomes a platform of AI departments, each with its own roles, kanban, and chat. Existing v1.x installs upgrade automatically via an idempotent migration that moves every existing task, role, and chat message into the default `dev` department. Three accepted ADRs lock in the design.
+
+### Added
+
+- **Departments (ADR-003).** New `departments` table; `department_id` foreign key on `tasks`, `roles`, and `chat_messages`. `NULL` is reserved for global rows — HR/owner roles and the inter-department audit channel. Indexes `(department_id, status)` keep per-department kanban queries cheap. Migration script `scripts/migrate_v2_departments.py` is atomic, idempotent, and supports `--rollback`. Three new MCP tools (`list_departments`, `get_department`, `create_department`); existing tools (`create_task`, `list_tasks`, `chat_post`, `chat_recent`) accept an optional `department_id` (default `'dev'`). REST endpoints: `GET /api/departments`, `GET /api/departments/<id>`, `POST /api/departments`, `PATCH /api/departments/<id>/archive`. `GET /api/tasks` and `GET /api/chat` honour `?department=<id>` and fall back to `dev`.
+- **HR role + 5 department templates (ADR-004).** New global role `roles/hr.md` (`department_id = NULL`) — a meta-agent that creates departments from YAML templates via a chat-driven edit loop with the owner. Five MVP templates live in `templates/departments/`: `marketing-v1`, `design-v1`, `sales-v1`, `support-v1`, `operations-v1`. HR pipeline state machine (`idle → hr_planning → awaiting_owner_review → hr_revising → hr_activating → active`) with hard limits: max 8 roles per department, max 5 edit iterations, whitelisted models only, no destructive-labelled roles. Every generated role file carries `extras.hr_meta` (template_id, hr_session_id, customizations) for auditable history.
+- **Inter-department workflow (ADR-005).** New columns `tasks.requester_department_id` and `tasks.requester_role_slug`. Only a department Lead (or owner) can create cross-department tasks via `POST /api/departments/<target>/tasks`; rank-and-file roles are blocked at both the REST layer and the MCP layer. The receiving Lead may **take** or **counter-propose** — there is no `Decline`. `P1`/`P2` priorities and `requires_budget`/`destructive` labels escalate to the owner's Inbox. Global append-only `inter_department_events` table with SQL triggers that reject UPDATE/DELETE. Capacity badges in the sidebar (`N in work, M in queue`), position-preview on cross-task creation; no ETA promises. Owner has two escape hatches: `priority-bump` and `admin-override`. Rate limit: 10 `P3` cross-tasks per 24h per (requester, target) pair.
+
+### Migration
+
+Upgrade from any v1.x to v2.0.0 is **automatic and idempotent**:
+
+- The dashboard runs `scripts/migrate_v2_departments.py` on first start. It creates the `departments` table, inserts the default row `id='dev'`, adds the `department_id` column to `tasks`/`roles`/`chat_messages`, and backfills every existing row to `'dev'`. Global roles (`hr`, `owner`, `user`, `пользователь`) keep `department_id = NULL`.
+- The migration is wrapped in a single transaction. If any step fails the database is left on v1.x.
+- A `--rollback` mode restores from the auto-created `*.pre-v2.bak` backup.
+- The v1.6 → v2.0 path is covered end-to-end by the smoke test `mcp_server/tests/test_v2_migration_smoke.py` (replays the anonymised fixture `tests/fixtures/v1.6_snapshot.db`, asserts no row counts change, asserts the second and third runs are no-ops).
+
+See [`docs/migration-v2.md`](docs/migration-v2.md) for the full upgrade guide.
+
 ## [Unreleased] / v2.0-alpha.1 (departments backend)
 
 ### Added

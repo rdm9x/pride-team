@@ -72,6 +72,48 @@ Once the dashboard is up:
 3. When a task moves to **REVIEW**, open the card and click **Accept** or **Send back**.
 4. When you see a task in **NEEDS APPROVAL ⚠**, open it, read what the agent wants to do, and click **Approve** or **Reject**.
 
+## Multi-team mode (v2.0)
+
+Devboard v2.0 turns the single-team kanban into a **multi-department platform**. One instance can host several departments — `Dev`, `Marketing`, `Design`, `Sales`, `Support`, `Operations` — each with its own kanban, its own roles, and its own per-department chat. The current department is stored in `localStorage` and sent on every request via the `X-Department` header; legacy `/api/tasks` and `/api/chat` calls fall back to `dev` so v1.x clients keep working.
+
+A new global **HR role** spawns new departments through a chat-driven pipeline. HR picks the closest of five built-in YAML templates (`marketing-v1`, `design-v1`, `sales-v1`, `support-v1`, `operations-v1`), customises it for you in a 1–5 turn edit loop, and writes the role files only after you approve. All audit lives in `extras.hr_meta` of each generated role and in the `hr_sessions` table.
+
+Departments coordinate through a strict **Lead-to-Lead inter-department workflow**. Only a department Lead (or owner) can post a cross-department task via `POST /api/departments/<target>/tasks`. The receiving Lead may take the task into queue or counter-propose — there is no *Decline*. `P1`/`P2` cross-tasks and anything labelled `requires_budget` escalate to the owner's Inbox. A global append-only `inter-department` channel records every cross-task event.
+
+```mermaid
+graph TB
+  owner((Owner<br/>global))
+  hr[HR Role<br/>department_id = NULL<br/>creates departments]
+  dev_dept[Department: dev<br/>Team Lead, Backend, QA,<br/>Architect, Frontend,<br/>DevOps, Tech Writer]
+  mkt_dept[Department: marketing<br/>Marketing Lead, Content Writer,<br/>SEO Researcher, SMM]
+  design_dept[Department: design<br/>Design Lead, UI, Visual, UX]
+  ops_dept[Department: operations<br/>Ops Lead, Analyst, Automation]
+  inter_chat{{Inter-department channel<br/>department_id = NULL<br/>append-only audit log}}
+
+  owner -- creates --> hr
+  hr -- spawns --> mkt_dept
+  hr -- spawns --> design_dept
+  hr -- spawns --> ops_dept
+  owner -. owns .-> dev_dept
+  owner -. owns .-> mkt_dept
+  owner -. owns .-> design_dept
+  owner -. owns .-> ops_dept
+
+  dev_dept -- Lead-to-Lead --> mkt_dept
+  mkt_dept -- Lead-to-Lead --> design_dept
+  design_dept -- Lead-to-Lead --> dev_dept
+
+  dev_dept -.events.-> inter_chat
+  mkt_dept -.events.-> inter_chat
+  design_dept -.events.-> inter_chat
+  ops_dept -.events.-> inter_chat
+  inter_chat -.read by.-> owner
+```
+
+Design rationale lives in three ADRs: [ADR-003](docs/adr/0003-departments.md) (data model), [ADR-004](docs/adr/0004-hr-role.md) (HR role), [ADR-005](docs/adr/0005-inter-department.md) (cross-department workflow).
+
+Upgrading from v1.x? See the **[v2 migration guide](docs/migration-v2.md)** — the migration is automatic, idempotent, and preserves every existing task, role, and chat message under `department_id = 'dev'`.
+
 ## Screenshots
 
 <p align="center">

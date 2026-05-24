@@ -79,6 +79,9 @@
   },
   "sidebar": {
     "team": "Команда",
+    "departments": "Отделы",
+    "add_department": "+ Отдел",
+    "add_department_title": "Создать новый отдел",
     "role": {
       "teamlead": "тимлид",
       "backend": "бэкенд",
@@ -87,6 +90,62 @@
       "frontend": "frontend",
       "devops": "devops",
       "tech_writer": "техписатель"
+    }
+  },
+  "dept": {
+    "dev": "Разработка",
+    "create": {
+      "title": "+ Создать отдел",
+      "step1": {
+        "title": "Шаг 1: что за отдел",
+        "submit": "Создать"
+      },
+      "step2": {
+        "title": "Шаг 2: диалог с HR",
+        "chat_aria": "Диалог с HR",
+        "answer_label": "Ваш ответ HR",
+        "answer_placeholder": "Напишите HR изменения или подтвердите план…",
+        "send": "Отправить",
+        "edit": "Изменить",
+        "approve": "Активировать",
+        "hr_label": "HR",
+        "you_label": "Вы",
+        "system_label": "Система",
+        "waiting_hr": "HR думает…",
+        "first_hint": "HR-сессия запущена. Дождитесь сообщения от HR — это может занять несколько секунд."
+      },
+      "field": {
+        "name": "Название",
+        "name_placeholder": "Маркетинг",
+        "description": "Описание",
+        "description_placeholder": "Что будет делать отдел: цели, аудитория, формат…",
+        "template_hint": "Подсказка шаблона (optional)"
+      },
+      "template": {
+        "marketing": "Маркетинг",
+        "design": "Дизайн",
+        "sales": "Продажи",
+        "support": "Поддержка",
+        "operations": "Операции",
+        "ai": "Подобрать AI"
+      },
+      "state": {
+        "hr_planning": "HR планирует…",
+        "awaiting_owner_review": "Ожидает вашего ревью",
+        "hr_revising": "HR вносит правки…",
+        "hr_activating": "Активация отдела…",
+        "active": "Отдел активен",
+        "aborted": "Сессия прервана"
+      },
+      "errors": {
+        "name_required": "Введите название отдела.",
+        "start_failed": "Не удалось запустить HR-сессию.",
+        "answer_failed": "Не удалось отправить сообщение HR.",
+        "approve_failed": "Активация не удалась. Можно отредактировать план и повторить.",
+        "session_lost": "HR-сессия потеряна — попробуйте создать отдел заново.",
+        "aborted": "HR-сессия прервана. Закройте окно и попробуйте снова."
+      },
+      "success": "Отдел «{name}» создан и активирован."
     }
   },
   "topbar": {
@@ -442,9 +501,13 @@
     "col": {
       "name": "Имя",
       "description": "Описание",
+      "department": "Отдел",
       "llm": "LLM",
       "model": "Модель",
       "actions": "Действия"
+    },
+    "dept": {
+      "global": "Глобально"
     },
     "btn": {
       "edit": "Редактировать",

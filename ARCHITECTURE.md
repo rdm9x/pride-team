@@ -435,7 +435,76 @@ Tools are pure functions of `(args, db_path) → dict`. Agents and the dashboard
 
 ---
 
-## 8. ADR index
+## 8. Departments — multi-team layer (v2.0)
+
+v2.0 turns devboard from a single-team kanban into a multi-department platform. The kanban / chat / role tables stay the same — every row simply gains a `department_id` foreign key. One global HR role creates new departments; Lead-to-Lead messages cross department boundaries through a single explicit endpoint.
+
+```mermaid
+graph TB
+  owner((Owner<br/>global, dept = NULL))
+  hr[HR Role<br/>global, dept = NULL<br/>spawns departments]
+
+  subgraph dept_dev["Department: dev (legacy v1.x)"]
+    dev_lead[Team Lead]
+    dev_backend[Backend]
+    dev_qa[QA]
+    dev_extra[Architect / Frontend /<br/>DevOps / Tech Writer]
+  end
+
+  subgraph dept_mkt["Department: marketing"]
+    mkt_lead[Marketing Lead]
+    mkt_content[Content Writer]
+    mkt_seo[SEO Researcher]
+    mkt_smm[Social Media Manager]
+  end
+
+  subgraph dept_design["Department: design"]
+    design_lead[Design Lead]
+    design_ui[UI Designer]
+    design_visual[Visual Designer]
+    design_ux[UX Researcher]
+  end
+
+  subgraph dept_ops["Department: operations"]
+    ops_lead[Ops Lead]
+    ops_analyst[Process Analyst]
+    ops_auto[Automation Engineer]
+  end
+
+  inter_chat{{Inter-department channel<br/>department_id = NULL<br/>append-only audit}}
+
+  owner -- creates --> hr
+  hr -- spawns --> dept_mkt
+  hr -- spawns --> dept_design
+  hr -- spawns --> dept_ops
+
+  owner -. owns .-> dept_dev
+  owner -. owns .-> dept_mkt
+  owner -. owns .-> dept_design
+  owner -. owns .-> dept_ops
+
+  dev_lead <-. Lead-to-Lead .-> mkt_lead
+  mkt_lead <-. Lead-to-Lead .-> design_lead
+  design_lead <-. Lead-to-Lead .-> ops_lead
+  ops_lead <-. Lead-to-Lead .-> dev_lead
+
+  dept_dev -.events.-> inter_chat
+  dept_mkt -.events.-> inter_chat
+  dept_design -.events.-> inter_chat
+  dept_ops -.events.-> inter_chat
+  inter_chat -.read by.-> owner
+```
+
+Key invariants:
+
+- **Per-department kanban / chat / roles.** `tasks`, `chat_messages`, and `roles` all carry `department_id`. SQL queries scope by index `(department_id, status)`; nothing else changes in the kanban data model.
+- **Global roles use `department_id = NULL`.** HR and owner are not bound to a department — they create and supervise them.
+- **Cross-team work goes through the Lead.** Only `<dept>-lead` (or `owner`) can call `POST /api/departments/<target>/tasks`. Rank-and-file roles are blocked at both the REST layer and the MCP layer. The receiving Lead can **take** or **counter-propose** — there is no Decline.
+- **One append-only audit channel.** Every cross-department event lands in `inter_department_events` with an SQL trigger that rejects UPDATE/DELETE. The owner sees the full feed; Leads see only entries they participated in.
+
+Backward compatibility is explicit: legacy `/api/tasks` and `/api/chat` calls without `X-Department` fall back to `dev`, the default department created automatically by the v2 migration. See [docs/migration-v2.md](docs/migration-v2.md) for the upgrade path.
+
+## 9. ADR index
 
 Architecture decisions live in [`docs/adr/`](docs/adr/). One Markdown file per decision, numbered, status tracked in the header.
 
@@ -443,6 +512,9 @@ Architecture decisions live in [`docs/adr/`](docs/adr/). One Markdown file per d
 |---|---|---|---|
 | [ADR-001](docs/adr/0001-llm-provider.md) | `LLMProvider` interface — Anthropic-style messages, lazy SDKs, MCP bridge inside providers | Accepted | 2026-05-21 |
 | [ADR-002](docs/adr/0002-role-format.md) | Role-prompt frontmatter format (`llm`, `model`, `temperature`, `name_en`) | Accepted | 2026-05-22 |
+| [ADR-003](docs/adr/0003-departments.md) | `departments` table + `department_id` on `tasks`, `roles`, `chat_messages` | Accepted | 2026-05-22 |
+| [ADR-004](docs/adr/0004-hr-role.md) | HR role + 5 YAML department templates + chat-driven create pipeline | Accepted | 2026-05-22 |
+| [ADR-005](docs/adr/0005-inter-department.md) | Lead-to-Lead cross-department workflow, capacity hints, owner escalation | Accepted | 2026-05-22 |
 
 The ADR template is short on purpose: Context → Decision → Consequences → Alternatives → Implementation plan → Open questions → References. See ADR-001 for the canonical example.
 

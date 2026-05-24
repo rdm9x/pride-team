@@ -134,10 +134,533 @@
     b.addEventListener("click", () => switchView(b.dataset.view)),
   );
 
+  // ===================== Departments (S9.1) =====================
+  // Storage key — выбранный пользователем отдел; fallback на 'dev' (default).
+  const DEPT_STORAGE_KEY = "devboard-current-department";
+  let _departmentsCache = [];
+
+  function currentDepartment() {
+    try {
+      return localStorage.getItem(DEPT_STORAGE_KEY) || "dev";
+    } catch (_) {
+      return "dev";
+    }
+  }
+
+  function setCurrentDepartment(id) {
+    if (!id) return;
+    const prev = currentDepartment();
+    try { localStorage.setItem(DEPT_STORAGE_KEY, id); } catch (_) {}
+    // Подсветка активного отдела
+    $$(".dept-item").forEach((b) => {
+      const active = b.dataset.dept === id;
+      b.classList.toggle("active", active);
+      b.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+    if (prev !== id) {
+      // S9.2: Полный refresh всех views (board/inbox/chat/...)
+      try { refresh(); } catch (_) {}
+      // Активная "тяжёлая" view может не входить в refresh-цикл —
+      // обновим её отдельно, чтобы переключение отдела было виже за <500ms.
+      try {
+        if (currentView === "archive") loadArchive();
+        if (currentView === "roles") loadRoles();
+        // stats — глобальные (см. S9.2), не зависят от отдела.
+      } catch (_) {}
+    }
+  }
+
+  // Локализованное имя отдела:
+  // 1) явный display_name_en / display_name_ru из API (если backend добавит)
+  // 2) i18n ключ dept.<id>
+  // 3) name из API
+  // 4) id
+  function deptDisplayName(d) {
+    const locale = (window.getLocale && window.getLocale()) || "ru";
+    if (locale === "en" && d.display_name_en) return d.display_name_en;
+    if (locale === "ru" && d.display_name_ru) return d.display_name_ru;
+    const i18nKey = "dept." + d.id;
+    const translated = (typeof window.t === "function") ? window.t(i18nKey) : i18nKey;
+    if (translated && translated !== i18nKey) return translated;
+    return d.name || d.id;
+  }
+
+  function renderDepartments(depts) {
+    const wrap = document.getElementById("departments-items");
+    if (!wrap) return;
+    _departmentsCache = depts;
+
+    // Если текущий отдел не найден среди активных — упасть обратно на 'dev'
+    const cur = currentDepartment();
+    const exists = depts.some((d) => d.id === cur);
+    if (!exists && depts.length > 0) {
+      const fallback = depts.some((d) => d.id === "dev") ? "dev" : depts[0].id;
+      try { localStorage.setItem(DEPT_STORAGE_KEY, fallback); } catch (_) {}
+    }
+    const activeId = currentDepartment();
+
+    wrap.innerHTML = "";
+    depts.forEach((d) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "dept-item" + (d.id === activeId ? " active" : "");
+      btn.dataset.dept = d.id;
+      btn.setAttribute("aria-pressed", d.id === activeId ? "true" : "false");
+
+      const ico = document.createElement("span");
+      ico.className = "ico";
+      ico.textContent = d.icon || "🗂";
+
+      const lbl = document.createElement("span");
+      lbl.className = "lbl";
+      lbl.textContent = deptDisplayName(d);
+
+      // S11.2: показываем (open/total) — open = задачи требующие внимания
+      // (todo/wip/blocked/needs_approval), total = все активные (без archived).
+      const openCount = (d.counts && (d.counts.open || 0)) || 0;
+      const totalCount = (d.counts && (d.counts.total != null ? d.counts.total : openCount)) || 0;
+      const badge = document.createElement("span");
+      badge.className = "badge counts" + (totalCount === 0 ? " zero" : "");
+      // Семантика: "5/12" — открытые/всего. Если нет ни одной — единственный "0".
+      if (totalCount === 0) {
+        badge.textContent = "0";
+      } else {
+        badge.innerHTML = `<span class="open">${openCount}</span>` +
+          `<span class="total">/${totalCount}</span>`;
+      }
+      // Tooltip с расшифровкой counts
+      const countsTitle = (typeof window.t === "function")
+        ? window.t("sidebar.dept_counts_title", { open: openCount, total: totalCount })
+        : `${openCount} open / ${totalCount} total`;
+      badge.title = countsTitle;
+      badge.setAttribute("aria-label", countsTitle);
+
+      btn.title = (d.description && d.description.length > 0)
+        ? d.description
+        : deptDisplayName(d);
+
+      btn.appendChild(ico);
+      btn.appendChild(lbl);
+      btn.appendChild(badge);
+
+      btn.addEventListener("click", () => setCurrentDepartment(d.id));
+      wrap.appendChild(btn);
+    });
+  }
+
+  async function loadDepartments() {
+    try {
+      const r = await fetch("/api/departments");
+      if (!r.ok) return;
+      const data = await r.json();
+      renderDepartments(data.departments || []);
+    } catch (e) {
+      console.error("loadDepartments failed", e);
+    }
+  }
+
+  // ===================== Create-department modal (S10.4) =====================
+  // Открывает модалку с 2 шагами: form → HR-chat-loop.
+  // Использует REST API из S10.3: /api/hr/start, /api/hr/answer, /api/hr/approve,
+  // /api/hr/status/<id> (polling 2s пока модалка открыта на шаге 2).
+  const HR_POLL_MS = 2000;
+  const HR_FINAL_STATES = new Set(["active", "aborted"]);
+
+  const createDeptState = {
+    sessionId: null,
+    state: null,
+    lastMessage: null,
+    pollTimer: null,
+    lastFocus: null,        // элемент, на котором был фокус до открытия модалки
+    keydownHandler: null,   // focus-trap + Esc
+    activeSinceOpen: false, // показывали ли мы tail-сообщение «активирован»
+  };
+
+  function _i18nDeptCreate(key, params) {
+    return i18n("dept.create." + key, params);
+  }
+
+  // ----- Focus trap + Escape ----------------------------------------------
+  function _createDeptKeydown(e) {
+    const modal = document.getElementById("modal-create-department");
+    if (!modal || modal.hidden) return;
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      closeCreateDeptModal();
+      return;
+    }
+    if (e.key !== "Tab") return;
+    const focusables = Array.from(modal.querySelectorAll(
+      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )).filter((el) => !el.hidden && el.offsetParent !== null);
+    if (focusables.length === 0) return;
+    const first = focusables[0];
+    const last  = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  // ----- Chat rendering ---------------------------------------------------
+  function _appendDeptChatMessage(role, text) {
+    const wrap = document.getElementById("create-dept-chat");
+    if (!wrap) return;
+    const row = document.createElement("div");
+    row.className = "create-dept-msg create-dept-msg-" + role;
+
+    const who = document.createElement("span");
+    who.className = "create-dept-msg-who";
+    let label = "";
+    if (role === "hr")        label = _i18nDeptCreate("step2.hr_label");
+    else if (role === "you")  label = _i18nDeptCreate("step2.you_label");
+    else                      label = _i18nDeptCreate("step2.system_label");
+    who.textContent = label;
+
+    const body = document.createElement("span");
+    body.className = "create-dept-msg-body";
+    body.textContent = text || "";
+
+    row.appendChild(who);
+    row.appendChild(body);
+    wrap.appendChild(row);
+    // auto-scroll к низу
+    wrap.scrollTop = wrap.scrollHeight;
+  }
+
+  function _updateDeptStateLabel(state) {
+    const lbl = document.getElementById("create-dept-state-label");
+    const dot = document.querySelector("#create-dept-state .create-dept-state-dot");
+    const cont = document.getElementById("create-dept-state");
+    if (!lbl || !cont) return;
+    const key = "state." + (state || "hr_planning");
+    lbl.textContent = _i18nDeptCreate(key);
+    if (dot) {
+      dot.className = "create-dept-state-dot create-dept-state-dot-" + (state || "hr_planning");
+    }
+    cont.dataset.state = state || "";
+  }
+
+  function _setDeptError(stepId, text) {
+    const el = document.getElementById(stepId);
+    if (!el) return;
+    if (text) {
+      el.textContent = text;
+      el.hidden = false;
+    } else {
+      el.textContent = "";
+      el.hidden = true;
+    }
+  }
+
+  function _setDeptStep(n) {
+    const s1 = document.getElementById("create-dept-step-1");
+    const s2 = document.getElementById("create-dept-step-2");
+    if (s1) s1.hidden = n !== 1;
+    if (s2) s2.hidden = n !== 2;
+  }
+
+  function _disableDeptStep2Buttons(disabled) {
+    ["btn-create-dept-approve", "btn-create-dept-edit",
+     "btn-create-dept-answer", "create-dept-answer-input"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = disabled;
+    });
+  }
+
+  // ----- Polling ----------------------------------------------------------
+  function _stopDeptPolling() {
+    if (createDeptState.pollTimer) {
+      clearInterval(createDeptState.pollTimer);
+      createDeptState.pollTimer = null;
+    }
+  }
+
+  function _startDeptPolling() {
+    _stopDeptPolling();
+    createDeptState.pollTimer = setInterval(_pollDeptStatus, HR_POLL_MS);
+  }
+
+  async function _pollDeptStatus() {
+    if (!createDeptState.sessionId) return;
+    try {
+      const r = await fetch("/api/hr/status/" + encodeURIComponent(createDeptState.sessionId));
+      if (r.status === 404) {
+        _setDeptError("create-dept-step2-error", _i18nDeptCreate("errors.session_lost"));
+        _stopDeptPolling();
+        return;
+      }
+      if (!r.ok) return;
+      const data = await r.json();
+
+      // Новое сообщение от HR?
+      if (data.last_message && data.last_message !== createDeptState.lastMessage) {
+        // last_message в БД — это последнее, что записано (может быть и owner-msg,
+        // и HR-msg). На owner-side мы локально показываем то, что отправил юзер,
+        // поэтому здесь добавляем только если это НЕ совпадает с тем, что мы
+        // только что отправили (см. handler "answer" — он не апдейтит lastMessage
+        // на owner-text, только инициализация).
+        createDeptState.lastMessage = data.last_message;
+        // На owner-стороне: показываем как HR, т.к. owner-сообщения мы добавляем сами.
+        if (!data._owner_echo) {
+          _appendDeptChatMessage("hr", data.last_message);
+        }
+      }
+
+      if (data.state && data.state !== createDeptState.state) {
+        createDeptState.state = data.state;
+        _updateDeptStateLabel(data.state);
+      }
+
+      // Финальное состояние: active → закрыть модалку и обновить sidebar.
+      if (data.state === "active" && !createDeptState.activeSinceOpen) {
+        createDeptState.activeSinceOpen = true;
+        const name = data.department_name || "";
+        _appendDeptChatMessage("system",
+          _i18nDeptCreate("success", { name: name }));
+        _stopDeptPolling();
+        // Небольшая пауза, чтобы пользователь увидел успешное сообщение
+        setTimeout(() => {
+          closeCreateDeptModal();
+          try { loadDepartments(); } catch (_) {}
+        }, 900);
+      } else if (data.state === "aborted") {
+        _setDeptError("create-dept-step2-error", _i18nDeptCreate("errors.aborted"));
+        _disableDeptStep2Buttons(true);
+        _stopDeptPolling();
+      }
+    } catch (e) {
+      // network — тихо игнорируем, следующая итерация retry
+    }
+  }
+
+  // ----- Open / close -----------------------------------------------------
+  function openCreateDeptModal() {
+    const modal = document.getElementById("modal-create-department");
+    if (!modal) return;
+    // reset state
+    createDeptState.sessionId = null;
+    createDeptState.state = null;
+    createDeptState.lastMessage = null;
+    createDeptState.activeSinceOpen = false;
+    createDeptState.lastFocus = document.activeElement;
+
+    // Reset form
+    const form = document.getElementById("form-create-dept");
+    if (form) form.reset();
+    const aiRadio = document.querySelector('#form-create-dept input[name="template_hint"][value=""]');
+    if (aiRadio) aiRadio.checked = true;
+    const chat = document.getElementById("create-dept-chat");
+    if (chat) chat.innerHTML = "";
+    _setDeptError("create-dept-step1-error", null);
+    _setDeptError("create-dept-step2-error", null);
+    _disableDeptStep2Buttons(false);
+    _setDeptStep(1);
+    _updateDeptStateLabel("hr_planning");
+
+    modal.hidden = false;
+    // Установить focus на первое поле
+    setTimeout(() => {
+      const nameInput = document.getElementById("create-dept-name");
+      if (nameInput) nameInput.focus();
+    }, 50);
+
+    // Подключить keydown handler (focus trap + Esc)
+    createDeptState.keydownHandler = _createDeptKeydown;
+    document.addEventListener("keydown", createDeptState.keydownHandler, true);
+  }
+
+  function closeCreateDeptModal() {
+    const modal = document.getElementById("modal-create-department");
+    if (!modal) return;
+    modal.hidden = true;
+    _stopDeptPolling();
+    if (createDeptState.keydownHandler) {
+      document.removeEventListener("keydown", createDeptState.keydownHandler, true);
+      createDeptState.keydownHandler = null;
+    }
+    // Вернуть фокус на инициатор
+    try {
+      if (createDeptState.lastFocus && typeof createDeptState.lastFocus.focus === "function") {
+        createDeptState.lastFocus.focus();
+      }
+    } catch (_) {}
+  }
+
+  // ----- Step 1: submit (start HR) ----------------------------------------
+  async function _onCreateDeptStart(e) {
+    if (e) e.preventDefault();
+    const nameInput = document.getElementById("create-dept-name");
+    const descInput = document.getElementById("create-dept-description");
+    const hintInput = document.querySelector('#form-create-dept input[name="template_hint"]:checked');
+    const startBtn = document.getElementById("btn-create-dept-start");
+
+    const name = (nameInput?.value || "").trim();
+    const description = (descInput?.value || "").trim();
+    const templateHint = (hintInput?.value || "").trim() || null;
+
+    if (!name) {
+      _setDeptError("create-dept-step1-error", _i18nDeptCreate("errors.name_required"));
+      nameInput?.focus();
+      return;
+    }
+    _setDeptError("create-dept-step1-error", null);
+
+    const body = { name, description };
+    if (templateHint) body.template_hint = templateHint;
+
+    if (startBtn) startBtn.disabled = true;
+
+    try {
+      const r = await fetch("/api/hr/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        const reason = err.причина || err.reason || ("HTTP " + r.status);
+        _setDeptError("create-dept-step1-error",
+          _i18nDeptCreate("errors.start_failed") + " " + reason);
+        return;
+      }
+      const data = await r.json();
+      createDeptState.sessionId = data.hr_session_id;
+      createDeptState.state = data.state || "hr_planning";
+
+      _setDeptStep(2);
+      _updateDeptStateLabel(createDeptState.state);
+      _appendDeptChatMessage("you",
+        description || ("Создай отдел: " + name));
+      _appendDeptChatMessage("system", _i18nDeptCreate("step2.first_hint"));
+
+      // focus в поле ответа
+      setTimeout(() => {
+        const ans = document.getElementById("create-dept-answer-input");
+        if (ans) ans.focus();
+      }, 50);
+
+      _startDeptPolling();
+    } catch (e2) {
+      _setDeptError("create-dept-step1-error", _i18nDeptCreate("errors.start_failed"));
+    } finally {
+      if (startBtn) startBtn.disabled = false;
+    }
+  }
+
+  // ----- Step 2: send answer ----------------------------------------------
+  async function _onCreateDeptAnswer(e) {
+    if (e) e.preventDefault();
+    if (!createDeptState.sessionId) return;
+    const inp = document.getElementById("create-dept-answer-input");
+    const text = (inp?.value || "").trim();
+    if (!text) return;
+
+    _setDeptError("create-dept-step2-error", null);
+    _appendDeptChatMessage("you", text);
+    if (inp) {
+      inp.value = "";
+      inp.focus();
+    }
+
+    try {
+      const r = await fetch("/api/hr/answer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hr_session_id: createDeptState.sessionId,
+          message: text,
+        }),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        const reason = err.причина || err.reason || ("HTTP " + r.status);
+        _setDeptError("create-dept-step2-error",
+          _i18nDeptCreate("errors.answer_failed") + " " + reason);
+        return;
+      }
+      // Owner-сообщение записывается в last_message в БД — чтобы polling
+      // не показал его повторно как HR-message, синхронизируем локально.
+      createDeptState.lastMessage = text;
+    } catch (e2) {
+      _setDeptError("create-dept-step2-error", _i18nDeptCreate("errors.answer_failed"));
+    }
+  }
+
+  // ----- Step 2: approve --------------------------------------------------
+  async function _onCreateDeptApprove() {
+    if (!createDeptState.sessionId) return;
+    _setDeptError("create-dept-step2-error", null);
+    _disableDeptStep2Buttons(true);
+
+    try {
+      const r = await fetch("/api/hr/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hr_session_id: createDeptState.sessionId }),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        const reason = err.причина || err.reason || ("HTTP " + r.status);
+        _setDeptError("create-dept-step2-error",
+          _i18nDeptCreate("errors.approve_failed") + " " + reason);
+        _disableDeptStep2Buttons(false);
+        return;
+      }
+      // Polling сам подхватит переход в active/aborted.
+      // Кратко покажем activation state:
+      _updateDeptStateLabel("hr_activating");
+    } catch (e2) {
+      _setDeptError("create-dept-step2-error", _i18nDeptCreate("errors.approve_failed"));
+      _disableDeptStep2Buttons(false);
+    }
+  }
+
+  // ----- Wire up handlers (DOMContentLoaded) ------------------------------
+  document.addEventListener("DOMContentLoaded", () => {
+    const addBtn = document.getElementById("btn-add-department");
+    if (addBtn) {
+      addBtn.addEventListener("click", openCreateDeptModal);
+    }
+
+    const closeBtn = document.getElementById("btn-create-dept-close");
+    if (closeBtn) closeBtn.addEventListener("click", closeCreateDeptModal);
+
+    const cancelBtn = document.getElementById("btn-create-dept-cancel");
+    if (cancelBtn) cancelBtn.addEventListener("click", closeCreateDeptModal);
+
+    const form = document.getElementById("form-create-dept");
+    if (form) form.addEventListener("submit", _onCreateDeptStart);
+
+    const ansForm = document.getElementById("form-create-dept-answer");
+    if (ansForm) ansForm.addEventListener("submit", _onCreateDeptAnswer);
+
+    const editBtn = document.getElementById("btn-create-dept-edit");
+    if (editBtn) editBtn.addEventListener("click", () => {
+      // Просто фокус в поле ответа — owner может писать правки HR.
+      const ans = document.getElementById("create-dept-answer-input");
+      if (ans) ans.focus();
+    });
+
+    const approveBtn = document.getElementById("btn-create-dept-approve");
+    if (approveBtn) approveBtn.addEventListener("click", _onCreateDeptApprove);
+
+    // Клик по backdrop модалки — закрытие.
+    const modal = document.getElementById("modal-create-department");
+    if (modal) {
+      modal.addEventListener("click", (ev) => {
+        if (ev.target === modal) closeCreateDeptModal();
+      });
+    }
+  });
+
   // ===================== Tasks: list & render =====================
 
   async function fetchTasks() {
-    const r = await fetch("/api/tasks");
+    const r = await fetch("/api/tasks?department=" + encodeURIComponent(currentDepartment()));
     if (!r.ok) throw new Error("api/tasks " + r.status);
     return r.json();
   }
@@ -1348,10 +1871,388 @@
 
   // ===================== Inbox =====================
   async function refreshInbox() {
-    const r = await fetch("/api/inbox");
+    // S9.1: добавляем ?department= для будущей per-dept фильтрации (S9.2).
+    const r = await fetch("/api/inbox?department=" + encodeURIComponent(currentDepartment()));
     if (!r.ok) return;
     const inbox = await r.json();
     renderInbox(inbox);
+    // S11.2: загружаем inter-dept секции (Lead inbox + Owner escalations)
+    try { await refreshInterDeptSections(); } catch (_) { /* non-blocking */ }
+  }
+
+  // ===================== S11.2: Inter-department inbox (ADR-005) =====================
+  // currentUserRoleSlug(): slug текущего пользователя дашборда.
+  // По умолчанию owner ("пользователь"). LocalStorage может хранить override
+  // (например, "marketing-lead" если бы у нас был role-switcher).
+  function currentUserRoleSlug() {
+    try {
+      return localStorage.getItem("devboard-current-role") || "пользователь";
+    } catch (_) {
+      return "пользователь";
+    }
+  }
+  // isCurrentUserLead(): true если owner ИЛИ slug заканчивается на -lead / совпадает с "тимлид"
+  function isCurrentUserLead() {
+    const slug = currentUserRoleSlug();
+    if (!slug) return false;
+    const s = slug.toLowerCase();
+    if (s === "пользователь" || s === "owner") return true; // owner всегда видит как Lead
+    if (s === "тимлид") return true;
+    if (s.endsWith("-lead")) return true;
+    return false;
+  }
+  function isCurrentUserOwner() {
+    const s = (currentUserRoleSlug() || "").toLowerCase();
+    return s === "пользователь" || s === "owner";
+  }
+
+  async function refreshInterDeptSections() {
+    const leadSection = document.querySelector('[data-section="inter-dept"]');
+    const ownerSection = document.querySelector('[data-section="dept-requests"]');
+    if (!leadSection && !ownerSection) return;
+
+    const showLead = isCurrentUserLead();
+    const showOwner = isCurrentUserOwner();
+    if (leadSection) leadSection.hidden = !showLead;
+    if (ownerSection) ownerSection.hidden = !showOwner;
+
+    if (!showLead && !showOwner) return;
+
+    // Тянем все задачи (без department-фильтра), фильтруем сами.
+    const r = await fetch("/api/tasks?department=__all__");
+    if (!r.ok) return;
+    const data = await r.json();
+    const tasks = data.задачи || data.tasks || [];
+
+    if (showLead) {
+      // Inter-dept задачи, направленные в current department,
+      // ещё не взятые в работу (status in [todo, needs_approval]).
+      const curDept = currentDepartment();
+      const incoming = tasks.filter((t) =>
+        t.requester_department_id &&
+        t.requester_department_id !== t.department_id &&
+        t.department_id === curDept &&
+        ["todo", "needs_approval"].includes(t.status)
+      );
+      renderInterDeptList(incoming);
+    }
+
+    if (showOwner) {
+      // Owner escalations: все cross-dept задачи в needs_approval (P1/P2).
+      const escalations = tasks.filter((t) =>
+        t.requester_department_id &&
+        t.requester_department_id !== t.department_id &&
+        t.status === "needs_approval"
+      );
+      renderDeptRequestsList(escalations);
+    }
+  }
+
+  // Локализованное имя отдела по id (использует _departmentsCache).
+  function _deptNameById(id) {
+    if (!id) return "";
+    const d = (_departmentsCache || []).find((x) => x.id === id);
+    return d ? deptDisplayName(d) : id;
+  }
+  function _deptIconById(id) {
+    if (!id) return "🗂";
+    const d = (_departmentsCache || []).find((x) => x.id === id);
+    return (d && d.icon) || "🗂";
+  }
+
+  function _renderDeptBadge(deptId, variant) {
+    const cls = variant === "target" ? "dept-origin-badge is-target" : "dept-origin-badge";
+    return `<span class="${cls}">` +
+      `<span class="ico">${escapeHtml(_deptIconById(deptId))}</span>` +
+      `<span>${escapeHtml(_deptNameById(deptId))}</span>` +
+      `</span>`;
+  }
+
+  function renderInterDeptList(tasks) {
+    const list = document.getElementById("inter-dept-list");
+    const count = document.getElementById("inter-dept-count");
+    if (!list) return;
+    if (count) count.textContent = String(tasks.length);
+    list.innerHTML = "";
+    if (tasks.length === 0) {
+      const hint = document.createElement("div");
+      hint.className = "inbox-empty-hint";
+      hint.textContent = i18n("inbox.inter_dept.empty");
+      list.appendChild(hint);
+      return;
+    }
+    tasks.forEach((t) => {
+      const item = document.createElement("div");
+      item.className = "inbox-item";
+      const requester = t.requester_role_slug || t.reporter || "—";
+      item.innerHTML = `
+        <div class="ttl" data-task-id="${escapeAttr(t.id)}">${escapeHtml(t.title)}</div>
+        <div class="meta">
+          <span>#${t.id.slice(0, 6)}</span>
+          <span class="priority-chip prio-${escapeAttr(t.priority || "P3")}">${escapeHtml(t.priority || "P3")}</span>
+          ${_renderDeptBadge(t.requester_department_id, "origin")}
+          <span class="role">${i18n("inbox.from_prefix")}${escapeHtml(displayRole(requester))}</span>
+        </div>
+        <div class="inbox-actions"></div>
+      `;
+      const actions = item.querySelector(".inbox-actions");
+      // Take into queue → PATCH status=todo + assignee=current role slug
+      const takeBtn = document.createElement("button");
+      takeBtn.className = "ok";
+      takeBtn.textContent = i18n("inbox.inter_dept.take");
+      takeBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        interDeptTake(t);
+      });
+      actions.appendChild(takeBtn);
+      // Counter
+      const counterBtn = document.createElement("button");
+      counterBtn.className = "neutral";
+      counterBtn.textContent = i18n("inbox.inter_dept.counter");
+      counterBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openCounterModal(t);
+      });
+      actions.appendChild(counterBtn);
+      item.querySelector(".ttl").addEventListener("click", () => openTaskModal(t.id));
+      list.appendChild(item);
+    });
+  }
+
+  function renderDeptRequestsList(tasks) {
+    const list = document.getElementById("dept-requests-list");
+    const count = document.getElementById("dept-requests-count");
+    if (!list) return;
+    if (count) count.textContent = String(tasks.length);
+    list.innerHTML = "";
+    if (tasks.length === 0) {
+      const hint = document.createElement("div");
+      hint.className = "inbox-empty-hint";
+      hint.textContent = i18n("inbox.dept_requests.empty");
+      list.appendChild(hint);
+      return;
+    }
+    tasks.forEach((t) => {
+      const item = document.createElement("div");
+      item.className = "inbox-item";
+      item.innerHTML = `
+        <div class="ttl" data-task-id="${escapeAttr(t.id)}">${escapeHtml(t.title)}</div>
+        <div class="meta">
+          <span>#${t.id.slice(0, 6)}</span>
+          <span class="priority-chip prio-${escapeAttr(t.priority || "P3")}">${escapeHtml(t.priority || "P3")}</span>
+          ${_renderDeptBadge(t.requester_department_id, "origin")}
+          <span aria-hidden="true">→</span>
+          ${_renderDeptBadge(t.department_id, "target")}
+        </div>
+        <div class="inbox-actions"></div>
+      `;
+      const actions = item.querySelector(".inbox-actions");
+      const okBtn = document.createElement("button");
+      okBtn.className = "ok";
+      okBtn.textContent = i18n("inbox.action.approve");
+      okBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        inboxAction(t, "approve").then(refresh).catch(() => {});
+      });
+      actions.appendChild(okBtn);
+      const noBtn = document.createElement("button");
+      noBtn.className = "no";
+      noBtn.textContent = i18n("inbox.action.reject");
+      noBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        inboxAction(t, "reject").then(refresh).catch(() => {});
+      });
+      actions.appendChild(noBtn);
+      item.querySelector(".ttl").addEventListener("click", () => openTaskModal(t.id));
+      list.appendChild(item);
+    });
+  }
+
+  async function interDeptTake(task) {
+    // Lead берёт задачу в очередь target department: status=todo, assignee=self.
+    const assignee = currentUserRoleSlug();
+    try {
+      const r = await fetch(`/api/tasks/${encodeURIComponent(task.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "todo", assignee }),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        alert(i18n("inbox.inter_dept.error.take") + (err.причина || err.reason || r.status));
+        return;
+      }
+      refresh();
+    } catch (e) {
+      console.error("interDeptTake:", e);
+    }
+  }
+
+  // -------- Counter-proposal modal --------
+  let _counterCurrentTask = null;
+  function openCounterModal(task) {
+    _counterCurrentTask = task;
+    const modal = document.getElementById("modal-counter");
+    if (!modal) return;
+    // Сброс полей
+    const form = document.getElementById("form-counter");
+    if (form) form.reset();
+    document.getElementById("counter-priority").value = "";
+    document.getElementById("counter-error").hidden = true;
+    document.getElementById("modal-counter-target").innerHTML =
+      `<span>${escapeHtml(task.title)}</span> — #${escapeHtml(task.id.slice(0, 6))} (` +
+      `${escapeHtml(task.priority || "P3")})`;
+    modal.hidden = false;
+    setTimeout(() => {
+      const ta = form && form.querySelector("textarea[name=comment]");
+      if (ta) ta.focus();
+    }, 50);
+  }
+
+  async function submitCounter(e) {
+    e.preventDefault();
+    const task = _counterCurrentTask;
+    if (!task) return;
+    const errBox = document.getElementById("counter-error");
+    errBox.hidden = true;
+    const priority = document.getElementById("counter-priority").value || null;
+    const form = e.target;
+    const comment = (form.comment.value || "").trim();
+    if (!comment) {
+      errBox.textContent = i18n("modal.counter.error.comment_required");
+      errBox.hidden = false;
+      return;
+    }
+    const body = { comment };
+    if (priority) body.priority = priority;
+    try {
+      const r = await fetch(`/api/tasks/${encodeURIComponent(task.id)}/counter`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        errBox.textContent = i18n("modal.counter.error.failed") + " " + (err.причина || err.reason || r.status);
+        errBox.hidden = false;
+        return;
+      }
+      closeModal("modal-counter");
+      _counterCurrentTask = null;
+      refresh();
+    } catch (e2) {
+      errBox.textContent = i18n("modal.counter.error.failed") + " " + (e2.message || e2);
+      errBox.hidden = false;
+    }
+  }
+
+  // -------- Inter-department create modal --------
+  function openInterDeptModal() {
+    const modal = document.getElementById("modal-inter-dept");
+    if (!modal) return;
+    // Заполняем dropdown target = все отделы кроме текущего (и не archived).
+    const sel = document.getElementById("inter-dept-target");
+    sel.innerHTML = "";
+    const cur = currentDepartment();
+    (_departmentsCache || []).forEach((d) => {
+      if (d.id === cur) return;
+      const opt = document.createElement("option");
+      opt.value = d.id;
+      opt.textContent = deptDisplayName(d);
+      sel.appendChild(opt);
+    });
+    if (sel.options.length === 0) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = i18n("modal.inter_dept.no_targets");
+      opt.disabled = true;
+      sel.appendChild(opt);
+    }
+    // Reset
+    const form = document.getElementById("form-inter-dept");
+    if (form) {
+      form.title.value = "";
+      form.description.value = "";
+      form.priority.value = "P3";
+    }
+    document.getElementById("inter-dept-error").hidden = true;
+    document.getElementById("inter-dept-capacity-hint").hidden = true;
+    // Close new-task modal if open
+    closeModal("modal-new");
+    modal.hidden = false;
+    setTimeout(() => { sel.focus(); }, 50);
+    // Capacity hint refresh
+    updateInterDeptCapacityHint();
+  }
+
+  async function updateInterDeptCapacityHint() {
+    const sel = document.getElementById("inter-dept-target");
+    const pri = document.getElementById("inter-dept-priority");
+    const hint = document.getElementById("inter-dept-capacity-hint");
+    if (!sel || !pri || !hint) return;
+    const target = sel.value;
+    const priority = pri.value || "P3";
+    if (!target) { hint.hidden = true; return; }
+    try {
+      const r = await fetch(
+        `/api/departments/${encodeURIComponent(target)}/queue-position?priority=${encodeURIComponent(priority)}`
+      );
+      if (!r.ok) { hint.hidden = true; return; }
+      const data = await r.json();
+      const pos = data.position;
+      const tot = data.total;
+      hint.textContent = i18n("modal.inter_dept.capacity_hint", { position: pos, total: tot });
+      hint.classList.toggle("is-busy", pos >= 5);
+      hint.hidden = false;
+    } catch (_) {
+      hint.hidden = true;
+    }
+  }
+
+  async function submitInterDept(e) {
+    e.preventDefault();
+    const form = e.target;
+    const errBox = document.getElementById("inter-dept-error");
+    errBox.hidden = true;
+    const target = form.target_department_id.value;
+    const title = (form.title.value || "").trim();
+    const description = (form.description.value || "").trim();
+    const priority = form.priority.value || "P3";
+    if (!target) {
+      errBox.textContent = i18n("modal.inter_dept.error.no_target");
+      errBox.hidden = false;
+      return;
+    }
+    if (!title) {
+      errBox.textContent = i18n("modal.inter_dept.error.no_title");
+      errBox.hidden = false;
+      return;
+    }
+    const body = {
+      title,
+      description,
+      priority,
+      requester_department_id: currentDepartment(),
+      requester_role_slug: currentUserRoleSlug(),
+    };
+    try {
+      const r = await fetch(`/api/departments/${encodeURIComponent(target)}/tasks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        errBox.textContent = i18n("modal.inter_dept.error.failed") + " " + (err.причина || err.reason || r.status);
+        errBox.hidden = false;
+        return;
+      }
+      closeModal("modal-inter-dept");
+      refresh();
+    } catch (e2) {
+      errBox.textContent = i18n("modal.inter_dept.error.failed") + " " + (e2.message || e2);
+      errBox.hidden = false;
+    }
   }
 
   // ===== Inbox notifications — пингуем при появлении новых задач =====
@@ -1512,7 +2413,11 @@
 
   // ===================== Archive view =====================
   async function loadArchive() {
-    const r = await fetch("/api/tasks?archived=1");
+    // S9.2: archive фильтруется по текущему отделу (backend reuse /api/tasks?archived=1).
+    const url =
+      "/api/tasks?archived=1&department=" +
+      encodeURIComponent(currentDepartment());
+    const r = await fetch(url);
     if (!r.ok) return;
     const data = await r.json();
     const body = $("#archive-body");
@@ -1844,7 +2749,10 @@
   if (chatScrollBtn) chatScrollBtn.addEventListener('click', () => scrollToBottom(true));
 
   async function refreshChat() {
-    const r = await fetch("/api/chat?limit=200");
+    // S9.1: per-department chat (backend поддерживает ?department=<id>).
+    const r = await fetch(
+      "/api/chat?limit=200&department=" + encodeURIComponent(currentDepartment())
+    );
     if (!r.ok) return;
     const data = await r.json();
     renderChat(data.messages || []);
@@ -2081,11 +2989,15 @@
     const text = input.value.trim();
     if (!text) return;
     input.value = "";
-    const r = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ author: "пользователь", text }),
-    });
+    // S9.1: сообщение пишется в чат текущего отдела.
+    const r = await fetch(
+      "/api/chat?department=" + encodeURIComponent(currentDepartment()),
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ author: "пользователь", text }),
+      }
+    );
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
       alert(i18n("chat.send_failed") + (err.причина || err.reason || r.status));
@@ -2274,6 +3186,23 @@
 
     const locale = (typeof window.getLocale === "function") ? window.getLocale() : "ru";
 
+    // S9.2: для колонки Department нужно локализованное имя отдела.
+    // Берём из _departmentsCache (заполняется loadDepartments).
+    const _deptById = {};
+    (_departmentsCache || []).forEach((d) => { _deptById[d.id] = d; });
+    const globalLabel = i18n("roles.dept.global");
+    const _resolveDeptLabel = (deptId) => {
+      if (!deptId) return globalLabel;
+      const d = _deptById[deptId];
+      if (d) return deptDisplayName(d);
+      // fallback: i18n или сам id
+      const i18nKey = "dept." + deptId;
+      const i18nVal = i18n(i18nKey);
+      return (i18nVal !== i18nKey) ? i18nVal : deptId;
+    };
+
+    const activeDept = currentDepartment();
+
     const rows = roles.map((r) => {
       const llm = r.llm || "—";
       const model = escapeHtml(r.model || "—");
@@ -2306,9 +3235,23 @@
         const i18nVal = i18n(i18nKey);
         displayName = (i18nVal !== i18nKey) ? i18nVal : r.name;
       }
+      // S9.2: department-cell — бейдж с локализованным именем или "Global".
+      const deptId = r.department_id || null;
+      const deptLabel = _resolveDeptLabel(deptId);
+      const isActiveDept = deptId && deptId === activeDept;
+      const isGlobal = !deptId;
+      const deptCellCls =
+        "role-dept-cell" +
+        (isGlobal ? " is-global" : "") +
+        (isActiveDept ? " is-active" : "");
+      const deptBadgeCls =
+        "role-dept-badge" +
+        (isGlobal ? " role-dept-badge--global" : "") +
+        (isActiveDept ? " role-dept-badge--active" : "");
       return `<tr data-role-name="${escapeAttr(r.name)}">
         <td class="role-name-cell"><span class="role-display-name">${escapeHtml(displayName)}</span></td>
         <td class="role-desc-cell">${desc}</td>
+        <td class="${deptCellCls}"><span class="${deptBadgeCls}">${escapeHtml(deptLabel)}</span></td>
         <td class="role-llm-cell">${escapeHtml(llm)}</td>
         <td class="role-model-cell">${model}</td>
         <td class="role-actions-cell">
@@ -2326,6 +3269,7 @@
           <tr>
             <th>${i18n("roles.col.name")}</th>
             <th>${i18n("roles.col.description")}</th>
+            <th>${i18n("roles.col.department")}</th>
             <th>${i18n("roles.col.llm")}</th>
             <th>${i18n("roles.col.model")}</th>
             <th>${i18n("roles.col.actions")}</th>
@@ -2352,10 +3296,12 @@
 
   async function loadRoles() {
     try {
-      const r = await fetch("/api/roles");
+      // S9.2: Roles tab показывает ВСЕ роли (global + per-department).
+      // ?department=__all__ → backend отключает фильтр по department_id.
+      const r = await fetch("/api/roles?department=__all__");
       if (!r.ok) throw new Error("api/roles " + r.status);
       const data = await r.json();
-      // API returns {статус, всего, роли:[{name, description, capabilities}]}
+      // API returns {статус, всего, роли:[{name, description, capabilities, department_id}]}
       // capabilities can be a JSON object with extended fields (llm, model, etc.)
       const raw = data.роли || [];
       _rolesCache = raw.map((role) => {
@@ -2364,6 +3310,8 @@
         return {
           name: role.name,
           description: role.description,
+          // S9.2: department_id — null/undefined для global ролей, иначе id отдела.
+          department_id: role.department_id || null,
           llm: ext.llm || "claude",
           model: ext.model || "",
           temperature: ext.temperature != null ? ext.temperature : 1,
@@ -2576,6 +3524,8 @@
     if (inFlight) return;
     inFlight = true;
     try {
+      // S9.1: список отделов + counts обновляем на каждом цикле (lightweight call).
+      await loadDepartments();
       const data = await fetchTasks();
       renderBoard(data);
       refreshDemoState(data.задачи || []);

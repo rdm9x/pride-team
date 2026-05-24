@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import glob as _glob
+import os
 import re
 import sys
 from pathlib import Path
@@ -289,6 +290,197 @@ def validate_role_file(path: Path | str) -> ValidationResult:
         config=config if ok else config,  # config может быть полезен и при FAIL для дебага
         body_length=body_length,
     )
+
+
+# ---------------------------------------------------------------------------
+# S10.3 (ADR-004): HR-plan validator
+# ---------------------------------------------------------------------------
+
+# Whitelist моделей для HR-сгенерированных ролей (ADR-004 §2.3 уровень 1).
+# Можно расширять через env HR_ALLOWED_MODELS (CSV).
+_DEFAULT_HR_ALLOWED_MODELS = (
+    "claude-opus-4-7",
+    "claude-sonnet-4-6",
+    "claude-haiku-4-5",
+    "gpt-4o",
+    "gpt-4o-mini",
+    "llama3.1",
+)
+
+# Запретные подстроки в `output_spec` (защита от destructive-ролей).
+_DESTRUCTIVE_PATTERNS = (
+    "delete ",
+    "drop table",
+    "truncate",
+    "rm -rf",
+    "force push",
+    "git push --force",
+)
+
+# Slug-regex для роли внутри отдела (ADR-004 §2.1 — `^[a-z][a-z0-9-]{1,31}$`).
+_ROLE_SLUG_RE = re.compile(r"^[a-z][a-z0-9-]{1,31}$")
+
+# Лимиты — см. ADR-004.
+_HR_MAX_ROLES_PER_DEPT = 8
+_HR_OUTPUT_SPEC_MIN = 50
+_HR_OUTPUT_SPEC_MAX = 800
+_HR_MAX_SYSTEM_PROMPT_LINES = 500  # ≈12 KB; ADR-004 §2.3 уровень 3.
+
+
+def _hr_allowed_models() -> set[str]:
+    """Финальный whitelist моделей: default + env HR_ALLOWED_MODELS (CSV)."""
+    extra = os.environ.get("HR_ALLOWED_MODELS", "")
+    extras = {m.strip() for m in extra.split(",") if m.strip()}
+    return set(_DEFAULT_HR_ALLOWED_MODELS) | extras
+
+
+def validate_hr_plan(plan: Any) -> ValidationResult:  # noqa: C901 -- проверок много
+    """Валидация HR-плана отдела (ADR-004 §2.3 уровень 2).
+
+    `plan` — dict вида:
+        {
+          "department": {"name": str, "description": str, "icon": str?},
+          "template_id": "marketing-v1",   # опционально
+          "roles": [
+            {"slug": "...", "name_ru": "...", "name_en": "...",
+             "model": "claude-opus-4-7", "skills": [...],
+             "is_lead": bool, "output_spec": "...",
+             "system_prompt": "..."},
+            ...
+          ]
+        }
+
+    Проверки (см. ADR-004 §2.3):
+        - Корректная структура (dict, обязательные ключи).
+        - Уникальные slug'и в roles[].
+        - Ровно один is_lead=true.
+        - len(roles) ≤ 8, ≥ 1.
+        - Каждая роль: slug regex, model в whitelist, output_spec 50…800,
+          system_prompt ≤ 500 строк, no labels.destructive,
+          no destructive-патернов в output_spec.
+
+    При invalid — ValidationResult(ok=False, errors=[список замечаний]).
+    """
+    errors: list[str] = []
+
+    if not isinstance(plan, dict):
+        return ValidationResult(
+            ok=False,
+            errors=[f"plan must be a dict, got {type(plan).__name__}"],
+        )
+
+    # department block
+    dept = plan.get("department")
+    if not isinstance(dept, dict):
+        errors.append("plan.department must be a dict")
+    else:
+        name = dept.get("name")
+        if not isinstance(name, str) or not name.strip():
+            errors.append("plan.department.name is required (non-empty string)")
+        desc = dept.get("description", "")
+        if not isinstance(desc, str):
+            errors.append("plan.department.description must be a string")
+
+    # roles block
+    roles = plan.get("roles")
+    if not isinstance(roles, list):
+        errors.append("plan.roles must be a list")
+        return ValidationResult(ok=False, errors=errors)
+
+    if len(roles) == 0:
+        errors.append("plan.roles must contain at least 1 role")
+    if len(roles) > _HR_MAX_ROLES_PER_DEPT:
+        errors.append(
+            f"plan.roles exceeds limit {_HR_MAX_ROLES_PER_DEPT} "
+            f"(got {len(roles)} roles; ADR-004 §2.5)"
+        )
+
+    seen_slugs: set[str] = set()
+    leads_count = 0
+    allowed_models = _hr_allowed_models()
+
+    for i, role in enumerate(roles):
+        prefix = f"plan.roles[{i}]"
+        if not isinstance(role, dict):
+            errors.append(f"{prefix} must be a dict")
+            continue
+
+        # slug
+        slug = role.get("slug")
+        if not isinstance(slug, str) or not _ROLE_SLUG_RE.match(slug):
+            errors.append(
+                f"{prefix}.slug must match {_ROLE_SLUG_RE.pattern} (got {slug!r})"
+            )
+        else:
+            if slug in seen_slugs:
+                errors.append(f"{prefix}.slug={slug!r} duplicates earlier role")
+            seen_slugs.add(slug)
+
+        # is_lead — bool, не больше одного true
+        is_lead = role.get("is_lead", False)
+        if not isinstance(is_lead, bool):
+            errors.append(f"{prefix}.is_lead must be bool (got {type(is_lead).__name__})")
+        elif is_lead:
+            leads_count += 1
+
+        # model whitelist
+        model = role.get("model")
+        if not isinstance(model, str) or not model:
+            errors.append(f"{prefix}.model is required (non-empty string)")
+        elif model not in allowed_models:
+            errors.append(
+                f"{prefix}.model={model!r} not in whitelist "
+                f"(allowed: {sorted(allowed_models)}; ADR-004 §2.3)"
+            )
+
+        # output_spec
+        ospec = role.get("output_spec")
+        if not isinstance(ospec, str):
+            errors.append(f"{prefix}.output_spec is required (string)")
+        else:
+            length = len(ospec.strip())
+            if length < _HR_OUTPUT_SPEC_MIN or length > _HR_OUTPUT_SPEC_MAX:
+                errors.append(
+                    f"{prefix}.output_spec length must be in "
+                    f"[{_HR_OUTPUT_SPEC_MIN}..{_HR_OUTPUT_SPEC_MAX}] chars (got {length})"
+                )
+            # destructive-патерны
+            lowered = ospec.lower()
+            for pat in _DESTRUCTIVE_PATTERNS:
+                if pat in lowered:
+                    errors.append(
+                        f"{prefix}.output_spec contains destructive pattern {pat!r} "
+                        f"(forbidden by ADR-004 §2.3)"
+                    )
+                    break
+
+        # labels (опционально). Запрет 'destructive'.
+        labels = role.get("labels", [])
+        if labels and isinstance(labels, list):
+            if "destructive" in labels:
+                errors.append(
+                    f"{prefix}.labels contains 'destructive' (forbidden by ADR-004 §2.3)"
+                )
+
+        # system_prompt — лимит строк (если присутствует).
+        sp = role.get("system_prompt") or role.get("system_prompt_template")
+        if isinstance(sp, str) and sp:
+            n_lines = sp.count("\n") + 1
+            if n_lines > _HR_MAX_SYSTEM_PROMPT_LINES:
+                errors.append(
+                    f"{prefix}.system_prompt has {n_lines} lines, "
+                    f"exceeds limit {_HR_MAX_SYSTEM_PROMPT_LINES} "
+                    f"(ADR-004 §2.3 уровень 3)"
+                )
+
+    if leads_count == 0 and len(roles) > 0:
+        errors.append("plan.roles must contain exactly one role with is_lead=true (got 0)")
+    elif leads_count > 1:
+        errors.append(
+            f"plan.roles must contain exactly one role with is_lead=true (got {leads_count})"
+        )
+
+    return ValidationResult(ok=not errors, errors=errors)
 
 
 def validate_all(directory: Path | str) -> dict[str, ValidationResult]:

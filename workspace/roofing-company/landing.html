@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Рекламные конструкции - PRIDE</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            color: #333;
+            line-height: 1.6;
+            background-color: #f9f9f9;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+
+        nav {
+            background-color: #fff;
+            padding: 0;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        nav li {
+            margin: 0;
+        }
+
+        nav a {
+            display: block;
+            padding: 15px 25px;
+            text-decoration: none;
+            color: #333;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        nav a:hover {
+            background-color: #667eea;
+            color: white;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        section {
+            padding: 60px 20px;
+            margin: 20px 0;
+        }
+
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+        }
+
+        .hero-section h2 {
+            font-size: 2em;
+            margin-bottom: 20px;
+        }
+
+        .hero-section p {
+            font-size: 1.1em;
+            margin-bottom: 30px;
+        }
+
+        .cta-button {
+            display: inline-block;
+            padding: 15px 40px;
+            background-color: #fff;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: 600;
+            font-size: 1.1em;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        .feature-card {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .feature-card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .feature-card p {
+            color: #666;
+            line-height: 1.8;
+        }
+
+        .pricing {
+            background-color: #f0f4ff;
+            border-radius: 8px;
+            padding: 30px;
+            margin-top: 30px;
+        }
+
+        .pricing h3 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .price-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px 0;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .price-item:last-child {
+            border-bottom: none;
+        }
+
+        .price-item span:first-child {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .price-item span:last-child {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .testimonials {
+            background-color: white;
+        }
+
+        .testimonial {
+            background-color: #f9f9f9;
+            padding: 25px;
+            border-left: 4px solid #667eea;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .testimonial p {
+            font-style: italic;
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        .testimonial strong {
+            color: #333;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 30px;
+            text-align: center;
+            margin: 40px 0;
+        }
+
+        .stat {
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-number {
+            font-size: 2.5em;
+            color: #667eea;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.95em;
+        }
+
+        .contact-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+        }
+
+        .contact-section h2 {
+            margin-bottom: 30px;
+        }
+
+        .contact-form {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 1em;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+        }
+
+        .submit-button {
+            background-color: white;
+            color: #667eea;
+            padding: 12px 40px;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 1em;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .submit-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        footer {
+            background-color: #333;
+            color: white;
+            text-align: center;
+            padding: 30px 20px;
+            margin-top: 60px;
+        }
+
+        footer p {
+            margin: 10px 0;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.8em;
+            }
+
+            .hero-section h2 {
+                font-size: 1.5em;
+            }
+
+            nav ul {
+                flex-direction: column;
+            }
+
+            nav li {
+                border-bottom: 1px solid #eee;
+            }
+
+            .features {
+                grid-template-columns: 1fr;
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            header {
+                padding: 30px 10px;
+            }
+
+            header h1 {
+                font-size: 1.5em;
+            }
+
+            header p {
+                font-size: 0.95em;
+            }
+
+            nav a {
+                padding: 12px 15px;
+                font-size: 0.9em;
+            }
+
+            section {
+                padding: 40px 15px;
+            }
+
+            .cta-button {
+                padding: 12px 30px;
+                font-size: 1em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Рекламные конструкции PRIDE</h1>
+        <p>Надежные решения для современных крыш</p>
+    </header>
+
+    <nav>
+        <ul>
+            <li><a href="#features">Преимущества</a></li>
+            <li><a href="#pricing">Цены</a></li>
+            <li><a href="#testimonials">Отзывы</a></li>
+            <li><a href="#contact">Контакты</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <section class="hero-section">
+            <h2>Почему выбирают PRIDE?</h2>
+            <p>Более 10 лет опыта в производстве качественных рекламных конструкций</p>
+            <a href="#contact" class="cta-button">Заказать консультацию</a>
+        </section>
+
+        <section id="features">
+            <h2 style="text-align: center; color: #667eea; margin-bottom: 40px;">Наши преимущества</h2>
+            <div class="features">
+                <div class="feature-card">
+                    <h3>Высокое качество</h3>
+                    <p>Используем только лучшие материалы и современные технологии производства. Каждая конструкция проходит строгий контроль качества.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h3>Индивидуальный подход</h3>
+                    <p>Разрабатываем проекты рекламных конструкций с учетом особенностей вашего объекта и климатических условий.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h3>Опытная команда</h3>
+                    <p>Инженеры с 10+ летним стажем разработают оптимальное решение для вашего проекта.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h3>Быстрая доставка</h3>
+                    <p>Собственный парк логистики позволяет доставлять конструкции в сроки, согласованные с клиентом.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h3>Гарантия</h3>
+                    <p>Предоставляем гарантию на все изготовленные конструкции в соответствии с договором.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h3>Поддержка</h3>
+                    <p>Наша служба поддержки готова помочь вам на любом этапе сотрудничества и эксплуатации.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="stats">
+            <div class="stat">
+                <div class="stat-number">500+</div>
+                <div class="stat-label">Проектов реализовано</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">95%</div>
+                <div class="stat-label">Довольных клиентов</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">10+</div>
+                <div class="stat-label">Лет на рынке</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">24/7</div>
+                <div class="stat-label">Техническая поддержка</div>
+            </div>
+        </section>
+
+        <section id="pricing">
+            <h2 style="text-align: center; color: #667eea; margin-bottom: 30px;">Ценообразование</h2>
+            <div class="pricing">
+                <h3>Стандартные решения</h3>
+                <div class="price-item">
+                    <span>Металлическая кровля (м²)</span>
+                    <span>от 1,200 руб.</span>
+                </div>
+                <div class="price-item">
+                    <span>Битумная черепица (м²)</span>
+                    <span>от 850 руб.</span>
+                </div>
+                <div class="price-item">
+                    <span>Керамическая черепица (м²)</span>
+                    <span>от 1,500 руб.</span>
+                </div>
+                <div class="price-item">
+                    <span>Проектирование</span>
+                    <span>от 50,000 руб.</span>
+                </div>
+                <div class="price-item">
+                    <span>Монтажные работы (м²)</span>
+                    <span>от 500 руб.</span>
+                </div>
+
+                <h3 style="margin-top: 30px;">Индивидуальные проекты</h3>
+                <p style="color: #666; margin: 15px 0;">Стоимость рассчитывается по смете в зависимости от сложности и объема работ</p>
+            </div>
+        </section>
+
+        <section id="testimonials" class="testimonials">
+            <h2 style="text-align: center; color: #667eea; margin-bottom: 40px;">Что говорят наши клиенты</h2>
+
+            <div class="testimonial">
+                <p>"Отличная работа! Установили крышу за две недели, качество превосходит ожидания. Рекомендуем всем!"</p>
+                <strong>— Иван П., Москва</strong>
+            </div>
+
+            <div class="testimonial">
+                <p>"Профессиональный подход от консультации до монтажа. Инженеры помогли выбрать оптимальное решение для нашего здания."</p>
+                <strong>— Елена К., Санкт-Петербург</strong>
+            </div>
+
+            <div class="testimonial">
+                <p>"Уже 5 лет прошло после монтажа, крыша работает без проблем. Спасибо за качество!"</p>
+                <strong>— Сергей М., Казань</strong>
+            </div>
+
+            <div class="testimonial">
+                <p>"Логистика работает четко, доставили в условленный срок. Цена справедливая, больше всего понравилась гарантия."</p>
+                <strong>— Ольга Л., Новосибирск</strong>
+            </div>
+        </section>
+
+        <section id="contact" class="contact-section">
+            <h2>Свяжитесь с нами</h2>
+            <form class="contact-form" name="contact-form">
+                <div class="form-group">
+                    <label for="name">Ваше имя</label>
+                    <input type="text" id="name" name="name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="phone">Телефон</label>
+                    <input type="tel" id="phone" name="phone">
+                </div>
+
+                <div class="form-group">
+                    <label for="subject">Тема обращения</label>
+                    <input type="text" id="subject" name="subject" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="message">Сообщение</label>
+                    <textarea id="message" name="message" required></textarea>
+                </div>
+
+                <button type="submit" class="submit-button">Отправить запрос</button>
+            </form>
+        </section>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 PRIDE - Рекламные конструкции. Все права защищены.</p>
+        <p>Москва, ул. Ленина, д. 100 | +7 (495) 123-45-67 | info@pride-roofing.ru</p>
+        <p>Режим работы: Пн-Пт 9:00-18:00 | Сб 10:00-16:00 | Вс - выходной</p>
+    </footer>
+
+    <script>
+        document.querySelector('form[name="contact-form"]').addEventListener('submit', function(e) {
+            e.preventDefault();
+            alert('Спасибо за ваше обращение! Мы свяжемся с вами в ближайшее время.');
+            this.reset();
+        });
+    </script>
+</body>
+</html>

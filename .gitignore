@@ -209,3 +209,6 @@ MARKETING_PLAN.md
 !/workspace/dev/.gitkeep
 !/workspace/marketing/
 !/workspace/marketing/.gitkeep
+# E2E test artifacts
+!/workspace/roofing-company/
+!/workspace/roofing-company/landing.html

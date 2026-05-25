@@ -534,6 +534,51 @@ def _auto_monitor_loop() -> None:
             log.warning("auto-monitor: исключение: %s", exc)
 
 
+def _smart_default_role(db_path: "Path | None" = None) -> str:
+    """Smart-default для кнопки «Запустить» без явного выбора роли.
+
+    Phase 1.7 fix: раньше JS hardcoded "managing-director" → запускался Управляющий,
+    игнорируя haiku-задачи дев-команды. Теперь:
+
+    - Если есть todo задачи с assignee=*-lead → запускаем lead с самой свежей задачи.
+    - Если есть todo задачи на специалистов (без lead) → запускаем lead их отдела.
+    - Иначе → managing-director (координатор).
+
+    Returns:
+        slug роли для запуска.
+    """
+    from pride_tasks import db as _db_mod
+    path = db_path or DB_PATH
+    try:
+        all_todo = _db_mod.list_tasks(path, status="todo", limit=500)
+    except Exception:
+        return "managing-director"
+    if not all_todo:
+        return "managing-director"
+
+    # 1. Lead-задачи с самой свежей датой.
+    lead_tasks = [t for t in all_todo
+                  if (t.get("assignee") or "").endswith("-lead")]
+    if lead_tasks:
+        latest = max(lead_tasks, key=lambda x: x.get("created_at", 0))
+        return latest["assignee"]
+
+    # 2. Задача на специалиста → определить lead его отдела.
+    for t in sorted(all_todo, key=lambda x: x.get("created_at", 0), reverse=True):
+        dept_id = t.get("department_id")
+        if not dept_id:
+            continue
+        try:
+            lead_name = _find_lead_for_department(path, dept_id)
+            if lead_name:
+                return lead_name
+        except Exception:
+            continue
+
+    # 3. Никого не нашли — запускаем Управляющего.
+    return "managing-director"
+
+
 def pick_model_for_role(role: str, db_path: "Path | None" = None) -> str:
     """Выбрать alias модели (haiku/sonnet/opus) для роли по её очереди задач.
 
@@ -2507,8 +2552,16 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         expertise_file.parent.mkdir(exist_ok=True)
         expertise_file.write_text(user_expertise)
 
-        # Роль для запуска: managing-director (default) или slug другой роли
-        role = body.get("role", "managing-director") or "managing-director"
+        # Роль для запуска. Phase 1.7 fix:
+        # Если role явно не передан или = managing-director (legacy default из JS),
+        # делаем smart-default: смотрим какая очередь не пустая и запускаем
+        # соответствующего lead-а. Иначе запускаем явно указанную роль.
+        explicit_role = body.get("role")
+        if explicit_role and explicit_role != "managing-director":
+            role = explicit_role
+        else:
+            # Smart-default: ищем lead-роль с самой свежей todo задачей.
+            role = _smart_default_role(_db())
 
         res = _start_team_process(role=role)
         if not res["ok"]:

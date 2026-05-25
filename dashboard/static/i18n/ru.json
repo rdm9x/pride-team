@@ -114,8 +114,16 @@
   "sidebar": {
     "team": "Команда",
     "departments": "Отделы",
-    "add_department": "+ Отдел",
-    "add_department_title": "Создать новый отдел",
+    "add_department": {
+      "label": "+ Отдел",
+      "title": "Добавить отдел",
+      "ready_templates": "🚀 Готовые шаблоны",
+      "coming_soon": "Доступно в Фазе 3",
+      "phase3_badge": "скоро",
+      "hr_custom": "🧑‍💼 Создать через HR (custom)",
+      "created_ok": "Отдел «{name}» создан.",
+      "error": "Не удалось создать отдел:"
+    },
     "role": {
       "teamlead": "тимлид",
       "backend": "бэкенд",
@@ -132,6 +140,17 @@
   },
   "dept": {
     "dev": "Разработка",
+    "marketing": { "name": "Маркетинг" },
+    "sales": { "name": "Продажи" },
+    "legal": { "name": "Юристы" },
+    "finance": { "name": "Финансы" },
+    "customer_support": { "name": "Поддержка клиентов" },
+    "product_management": { "name": "Продакт-менеджмент" },
+    "engineering": { "name": "Разработка (engineering)" },
+    "human_resources": { "name": "HR" },
+    "design": { "name": "Дизайн" },
+    "data": { "name": "Данные" },
+    "operations": { "name": "Операции" },
     "create": {
       "title": "+ Создать отдел",
       "step1": {

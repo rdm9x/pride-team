@@ -723,10 +723,13 @@
       })
       .catch(() => {});
 
+    // ADR-009 §2.7.1 (F1): кнопка «+ Department» открывает fast-path модалку
+    // с 11 шаблонами. HR-flow доступен в ней через отдельную кнопку «через HR».
     const addBtn = document.getElementById("btn-add-department");
     if (addBtn) {
-      addBtn.addEventListener("click", openCreateDeptModal);
+      addBtn.addEventListener("click", openAddDeptModal);
     }
+    _wireAddDeptModal();
 
     const closeBtn = document.getElementById("btn-create-dept-close");
     if (closeBtn) closeBtn.addEventListener("click", closeCreateDeptModal);
@@ -758,6 +761,175 @@
       });
     }
   });
+
+  // ===================== ADR-009 §2.7.1 — Add-department fast-path modal =====================
+  // Открывается по клику на «+ Department». Показывает 11 шаблонов:
+  // marketing — активен (Phase 2), остальные 10 disabled (Phase 3).
+  // Клик по активному шаблону → POST /api/departments {template_id: <slug>-v2}.
+  // Кнопка «🧑‍💼 Создать через HR» — открывает старую модалку ADR-004.
+  const addDeptState = {
+    lastFocus: null,
+    keydownHandler: null,
+    busy: false,
+  };
+
+  function _addDeptKeydown(e) {
+    const modal = document.getElementById("modal-add-department");
+    if (!modal || modal.hidden) return;
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      closeAddDeptModal();
+      return;
+    }
+    if (e.key !== "Tab") return;
+    const focusables = Array.from(modal.querySelectorAll(
+      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )).filter((el) => !el.hidden && el.offsetParent !== null);
+    if (focusables.length === 0) return;
+    const first = focusables[0];
+    const last  = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  function _setAddDeptError(text) {
+    const el = document.getElementById("add-dept-error");
+    if (!el) return;
+    if (text) {
+      el.textContent = text;
+      el.hidden = false;
+    } else {
+      el.textContent = "";
+      el.hidden = true;
+    }
+  }
+
+  function openAddDeptModal() {
+    const modal = document.getElementById("modal-add-department");
+    if (!modal) return;
+    addDeptState.lastFocus = document.activeElement;
+    addDeptState.busy = false;
+    _setAddDeptError(null);
+    modal.hidden = false;
+
+    // focus на первую активную карточку (marketing)
+    setTimeout(() => {
+      const firstActive = modal.querySelector(".add-dept-card-active");
+      if (firstActive) firstActive.focus();
+    }, 50);
+
+    addDeptState.keydownHandler = _addDeptKeydown;
+    document.addEventListener("keydown", addDeptState.keydownHandler, true);
+  }
+
+  function closeAddDeptModal() {
+    const modal = document.getElementById("modal-add-department");
+    if (!modal) return;
+    modal.hidden = true;
+    if (addDeptState.keydownHandler) {
+      document.removeEventListener("keydown", addDeptState.keydownHandler, true);
+      addDeptState.keydownHandler = null;
+    }
+    try {
+      if (addDeptState.lastFocus && typeof addDeptState.lastFocus.focus === "function") {
+        addDeptState.lastFocus.focus();
+      }
+    } catch (_) {}
+  }
+
+  async function _createDepartmentFromTemplate(templateId, cardEl) {
+    if (addDeptState.busy) return;
+    addDeptState.busy = true;
+    _setAddDeptError(null);
+    if (cardEl) cardEl.classList.add("is-loading");
+
+    try {
+      const r = await fetch("/api/departments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ template_id: templateId }),
+      });
+      if (r.status === 201) {
+        const data = await r.json().catch(() => ({}));
+        const deptName = (data.department && (data.department.name || data.department.id)) || templateId;
+        // Закрываем модалку.
+        closeAddDeptModal();
+        // Обновляем sidebar (без полной перезагрузки страницы — state сохраняем).
+        try { await loadDepartments(); } catch (_) {}
+        // toast / desktop notification.
+        const okText = i18n("sidebar.add_department.created_ok", { name: deptName });
+        try {
+          if (typeof notify === "function") notify("info", okText, "");
+        } catch (_) {}
+        // Также alert на случай если уведомления выключены — short visual feedback.
+        try {
+          if (typeof window.flashToast === "function") {
+            window.flashToast(okText);
+          }
+        } catch (_) {}
+        return;
+      }
+      // Ошибка: 400 / 404 / 409
+      let errMsg = "";
+      try {
+        const err = await r.json();
+        errMsg = err.причина || err.reason || ("HTTP " + r.status);
+        if (Array.isArray(err.missing) && err.missing.length) {
+          errMsg += " (" + err.missing.slice(0, 3).join("; ") + ")";
+        }
+      } catch (_) {
+        errMsg = "HTTP " + r.status;
+      }
+      _setAddDeptError(i18n("sidebar.add_department.error") + " " + errMsg);
+    } catch (e) {
+      _setAddDeptError(i18n("sidebar.add_department.error") + " " + (e && e.message ? e.message : ""));
+    } finally {
+      addDeptState.busy = false;
+      if (cardEl) cardEl.classList.remove("is-loading");
+    }
+  }
+
+  function _onAddDeptHrCustom() {
+    // Переключаемся со fast-path модалки на старую HR-flow модалку (ADR-004).
+    closeAddDeptModal();
+    try {
+      if (typeof openCreateDeptModal === "function") openCreateDeptModal();
+    } catch (_) {}
+  }
+
+  function _wireAddDeptModal() {
+    const modal = document.getElementById("modal-add-department");
+    if (!modal) return;
+
+    // Карточки шаблонов.
+    modal.querySelectorAll(".add-dept-card").forEach((card) => {
+      card.addEventListener("click", (ev) => {
+        if (card.disabled || card.getAttribute("aria-disabled") === "true") return;
+        ev.preventDefault();
+        const templateId = card.getAttribute("data-template-id");
+        if (!templateId) return;
+        _createDepartmentFromTemplate(templateId, card);
+      });
+    });
+
+    // Close button.
+    const closeBtn = document.getElementById("btn-add-dept-close");
+    if (closeBtn) closeBtn.addEventListener("click", closeAddDeptModal);
+
+    // HR custom button.
+    const hrBtn = document.getElementById("btn-add-dept-hr-custom");
+    if (hrBtn) hrBtn.addEventListener("click", _onAddDeptHrCustom);
+
+    // Backdrop click.
+    modal.addEventListener("click", (ev) => {
+      if (ev.target === modal) closeAddDeptModal();
+    });
+  }
 
   // ===================== Tasks: list & render =====================
 

@@ -28,3 +28,6 @@
 *.jpeg binary
 *.ico binary
 *.gif binary
+
+# Vendored third-party code (ADR-009 §10 D3)
+vendored/** linguist-vendored=true

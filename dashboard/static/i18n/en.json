@@ -114,8 +114,16 @@
   "sidebar": {
     "team": "Team",
     "departments": "Departments",
-    "add_department": "+ Department",
-    "add_department_title": "Create new department",
+    "add_department": {
+      "label": "+ Department",
+      "title": "Add department",
+      "ready_templates": "🚀 Ready-made templates",
+      "coming_soon": "Available in Phase 3",
+      "phase3_badge": "soon",
+      "hr_custom": "🧑‍💼 Create via HR (custom)",
+      "created_ok": "Department \"{name}\" created.",
+      "error": "Failed to create department:"
+    },
     "role": {
       "teamlead": "Team Lead",
       "backend": "Backend",
@@ -132,6 +140,17 @@
   },
   "dept": {
     "dev": "Development",
+    "marketing": { "name": "Marketing" },
+    "sales": { "name": "Sales" },
+    "legal": { "name": "Legal" },
+    "finance": { "name": "Finance" },
+    "customer_support": { "name": "Customer Support" },
+    "product_management": { "name": "Product Management" },
+    "engineering": { "name": "Engineering" },
+    "human_resources": { "name": "Human Resources" },
+    "design": { "name": "Design" },
+    "data": { "name": "Data" },
+    "operations": { "name": "Operations" },
     "create": {
       "title": "+ Create department",
       "step1": {

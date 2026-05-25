@@ -79,11 +79,10 @@
         <!-- dept-item buttons рендерятся из JS (loadDepartments) -->
       </div>
       <button type="button" class="dept-add" id="btn-add-department"
-              data-i18n="sidebar.add_department"
-              data-i18n-attr="title:sidebar.add_department_title,aria-label:sidebar.add_department_title"
+              data-i18n="sidebar.add_department.label"
+              data-i18n-attr="title:sidebar.add_department.title,aria-label:sidebar.add_department.title"
               title="Добавить отдел"
-              aria-label="Добавить отдел"
-              hidden>+ Department</button>
+              aria-label="Добавить отдел">+ Department</button>
     </div>
 
     <!-- (плашки router/silence/usage в footer — там эмодзи через .ico, см. ниже) -->
@@ -1017,6 +1016,168 @@
         <button type="button" id="btn-demo-confirm-cancel" data-i18n="common.cancel">Отмена</button>
         <button type="button" id="btn-demo-confirm-ok" class="primary" data-i18n="demo.confirm_ok">Загрузить</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== ADR-009 §2.7.1 — Модалка «+ Department» (F1) ==============
+  Fast-path для готовых отделов из knowledge-work-plugins.
+  Активный шаблон: marketing (Phase 2). Остальные 10 — disabled (Phase 3).
+  Внизу — кнопка «Создать через HR», открывает старую модалку ADR-004.
+-->
+<div id="modal-add-department" class="modal" hidden role="dialog" aria-modal="true"
+     aria-labelledby="modal-add-department-title">
+  <div class="modal-content modal-add-department">
+    <header>
+      <span id="modal-add-department-title"
+            data-i18n="sidebar.add_department.title">Добавить отдел</span>
+      <button class="close" type="button" id="btn-add-dept-close"
+              data-i18n-attr="aria-label:common.close,title:common.close"
+              aria-label="Close" title="Close">✕</button>
+    </header>
+
+    <div class="modal-body add-dept-body">
+
+      <h3 class="add-dept-section-title"
+          data-i18n="sidebar.add_department.ready_templates">
+        🚀 Готовые шаблоны
+      </h3>
+
+      <div class="add-dept-grid" role="list">
+        <!-- АКТИВНЫЙ: Marketing (Phase 2) -->
+        <button type="button" class="add-dept-card add-dept-card-active"
+                data-template-id="marketing-v2"
+                role="listitem"
+                data-i18n-attr="aria-label:dept.marketing.name">
+          <span class="add-dept-card-ico" aria-hidden="true">📣</span>
+          <span class="add-dept-card-name" data-i18n="dept.marketing.name">Marketing</span>
+        </button>
+
+        <!-- DISABLED — 10 шаблонов Phase 3 -->
+        <button type="button" class="add-dept-card add-dept-card-disabled"
+                data-template-id="sales-v2" disabled aria-disabled="true"
+                title="Доступно в Фазе 3"
+                data-i18n-attr="title:sidebar.add_department.coming_soon,aria-label:dept.sales.name"
+                role="listitem">
+          <span class="add-dept-card-ico" aria-hidden="true">🤝</span>
+          <span class="add-dept-card-name" data-i18n="dept.sales.name">Sales</span>
+          <span class="add-dept-card-badge"
+                data-i18n="sidebar.add_department.phase3_badge">скоро</span>
+        </button>
+
+        <button type="button" class="add-dept-card add-dept-card-disabled"
+                data-template-id="legal-v2" disabled aria-disabled="true"
+                title="Доступно в Фазе 3"
+                data-i18n-attr="title:sidebar.add_department.coming_soon,aria-label:dept.legal.name"
+                role="listitem">
+          <span class="add-dept-card-ico" aria-hidden="true">⚖️</span>
+          <span class="add-dept-card-name" data-i18n="dept.legal.name">Legal</span>
+          <span class="add-dept-card-badge"
+                data-i18n="sidebar.add_department.phase3_badge">скоро</span>
+        </button>
+
+        <button type="button" class="add-dept-card add-dept-card-disabled"
+                data-template-id="finance-v2" disabled aria-disabled="true"
+                title="Доступно в Фазе 3"
+                data-i18n-attr="title:sidebar.add_department.coming_soon,aria-label:dept.finance.name"
+                role="listitem">
+          <span class="add-dept-card-ico" aria-hidden="true">💰</span>
+          <span class="add-dept-card-name" data-i18n="dept.finance.name">Finance</span>
+          <span class="add-dept-card-badge"
+                data-i18n="sidebar.add_department.phase3_badge">скоро</span>
+        </button>
+
+        <button type="button" class="add-dept-card add-dept-card-disabled"
+                data-template-id="customer-support-v2" disabled aria-disabled="true"
+                title="Доступно в Фазе 3"
+                data-i18n-attr="title:sidebar.add_department.coming_soon,aria-label:dept.customer_support.name"
+                role="listitem">
+          <span class="add-dept-card-ico" aria-hidden="true">🎧</span>
+          <span class="add-dept-card-name"
+                data-i18n="dept.customer_support.name">Customer Support</span>
+          <span class="add-dept-card-badge"
+                data-i18n="sidebar.add_department.phase3_badge">скоро</span>
+        </button>
+
+        <button type="button" class="add-dept-card add-dept-card-disabled"
+                data-template-id="product-management-v2" disabled aria-disabled="true"
+                title="Доступно в Фазе 3"
+                data-i18n-attr="title:sidebar.add_department.coming_soon,aria-label:dept.product_management.name"
+                role="listitem">
+          <span class="add-dept-card-ico" aria-hidden="true">📦</span>
+          <span class="add-dept-card-name"
+                data-i18n="dept.product_management.name">Product Management</span>
+          <span class="add-dept-card-badge"
+                data-i18n="sidebar.add_department.phase3_badge">скоро</span>
+        </button>
+
+        <button type="button" class="add-dept-card add-dept-card-disabled"
+                data-template-id="engineering-v2" disabled aria-disabled="true"
+                title="Доступно в Фазе 3"
+                data-i18n-attr="title:sidebar.add_department.coming_soon,aria-label:dept.engineering.name"
+                role="listitem">
+          <span class="add-dept-card-ico" aria-hidden="true">💻</span>
+          <span class="add-dept-card-name"
+                data-i18n="dept.engineering.name">Engineering</span>
+          <span class="add-dept-card-badge"
+                data-i18n="sidebar.add_department.phase3_badge">скоро</span>
+        </button>
+
+        <button type="button" class="add-dept-card add-dept-card-disabled"
+                data-template-id="human-resources-v2" disabled aria-disabled="true"
+                title="Доступно в Фазе 3"
+                data-i18n-attr="title:sidebar.add_department.coming_soon,aria-label:dept.human_resources.name"
+                role="listitem">
+          <span class="add-dept-card-ico" aria-hidden="true">👥</span>
+          <span class="add-dept-card-name"
+                data-i18n="dept.human_resources.name">Human Resources</span>
+          <span class="add-dept-card-badge"
+                data-i18n="sidebar.add_department.phase3_badge">скоро</span>
+        </button>
+
+        <button type="button" class="add-dept-card add-dept-card-disabled"
+                data-template-id="design-v2" disabled aria-disabled="true"
+                title="Доступно в Фазе 3"
+                data-i18n-attr="title:sidebar.add_department.coming_soon,aria-label:dept.design.name"
+                role="listitem">
+          <span class="add-dept-card-ico" aria-hidden="true">🎨</span>
+          <span class="add-dept-card-name" data-i18n="dept.design.name">Design</span>
+          <span class="add-dept-card-badge"
+                data-i18n="sidebar.add_department.phase3_badge">скоро</span>
+        </button>
+
+        <button type="button" class="add-dept-card add-dept-card-disabled"
+                data-template-id="data-v2" disabled aria-disabled="true"
+                title="Доступно в Фазе 3"
+                data-i18n-attr="title:sidebar.add_department.coming_soon,aria-label:dept.data.name"
+                role="listitem">
+          <span class="add-dept-card-ico" aria-hidden="true">📊</span>
+          <span class="add-dept-card-name" data-i18n="dept.data.name">Data</span>
+          <span class="add-dept-card-badge"
+                data-i18n="sidebar.add_department.phase3_badge">скоро</span>
+        </button>
+
+        <button type="button" class="add-dept-card add-dept-card-disabled"
+                data-template-id="operations-v2" disabled aria-disabled="true"
+                title="Доступно в Фазе 3"
+                data-i18n-attr="title:sidebar.add_department.coming_soon,aria-label:dept.operations.name"
+                role="listitem">
+          <span class="add-dept-card-ico" aria-hidden="true">⚙️</span>
+          <span class="add-dept-card-name"
+                data-i18n="dept.operations.name">Operations</span>
+          <span class="add-dept-card-badge"
+                data-i18n="sidebar.add_department.phase3_badge">скоро</span>
+        </button>
+      </div>
+
+      <div class="add-dept-divider" role="separator" aria-hidden="true"></div>
+
+      <button type="button" class="add-dept-hr-btn" id="btn-add-dept-hr-custom"
+              data-i18n="sidebar.add_department.hr_custom">
+        🧑‍💼 Создать через HR (custom)
+      </button>
+
+      <div id="add-dept-error" class="add-dept-error" hidden></div>
     </div>
   </div>
 </div>

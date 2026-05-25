@@ -52,6 +52,8 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent  # devboard root
 _DATA_DIR = _REPO_ROOT / "data"
 _ROLES_DIR = _REPO_ROOT / "roles"
 _COMMANDS_DIR = _REPO_ROOT / "commands"
+_TEMPLATES_DIR = _REPO_ROOT / "templates" / "departments"
+_VENDORED_KWP_DIR = _REPO_ROOT / "vendored" / "knowledge-work-plugins"
 _PID_FILE = _DATA_DIR / "team.pid"
 _LIVE_LOG = _DATA_DIR / "team.log"
 
@@ -934,9 +936,21 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
 
     @app.post("/api/departments")
     def api_create_department() -> Any:
-        """Создание отдела. Валидация: name уникальное, id = slug из name. 409 если уже есть."""
+        """Создание отдела. Валидация: name уникальное, id = slug из name. 409 если уже есть.
+
+        ADR-009 fast-path: если body содержит `template_id` оканчивающийся на '-v2',
+        читаем templates/departments/<template_id>.yaml, создаём отдел И все его
+        роли (с инжекцией SKILL.md из vendored через inherits_skills mechanism).
+        См. §2.5, §2.7.1.
+        """
         import re as _re_slug2
         data = request.get_json(silent=True) or {}
+        template_id = data.get("template_id")
+
+        # === ADR-009 fast-path: -v2 шаблоны ===
+        if isinstance(template_id, str) and template_id.endswith("-v2"):
+            return _create_department_from_v2_template(template_id)
+
         name = (data.get("name") or "").strip()
         if not name:
             return jsonify({"статус": "error", "status": "error", "причина": "name обязателен", "reason": "name обязателен"}), 400
@@ -947,7 +961,6 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             return jsonify({"статус": "error", "status": "error", "причина": "name не допускает slug", "reason": "name не допускает slug"}), 400
 
         description = (data.get("description") or "").strip()
-        template_id = data.get("template_id")
         icon = (data.get("icon") or "🗂").strip() or "🗂"
 
         try:
@@ -963,6 +976,182 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             return jsonify({"статус": "error", "status": "error", "причина": str(exc), "reason": str(exc)}), 409
 
         return jsonify({"department": dept}), 201
+
+    def _create_department_from_v2_template(template_id: str) -> Any:
+        """ADR-009 §2.5 / §2.7.1 fast-path: создать отдел из v2-шаблона.
+
+        Шаги:
+          1. Открыть templates/departments/<template_id>.yaml (404 если нет).
+          2. Извлечь dept_slug = template_id без суффикса '-v2'.
+          3. Создать запись в `departments`.
+          4. Для каждой роли — собрать system_prompt через
+             template_loader.load_role_with_inherits() (читает base + SKILL.md).
+          5. Вставить роли в SQL-таблицу `roles` (capabilities JSON содержит
+             model/system_prompt/is_lead).
+
+        Ошибки:
+          - 404 если YAML не найден.
+          - 400 если хоть один SKILL.md отсутствует (список в `missing`).
+          - 409 если отдел с таким id/name уже существует.
+          - 400 при невалидном YAML.
+        """
+        # Локальный импорт чтобы не тащить yaml/template_loader в hot-path остальных endpoint'ов.
+        import yaml  # type: ignore[import-untyped]
+        from pride_tasks.template_loader import load_role_with_inherits  # noqa: E402
+
+        yaml_path = _TEMPLATES_DIR / f"{template_id}.yaml"
+        if not yaml_path.is_file():
+            return jsonify({
+                "статус": "not_found", "status": "not_found",
+                "причина": f"шаблон {template_id} не найден",
+                "reason": f"template {template_id} not found",
+            }), 404
+
+        try:
+            template = yaml.safe_load(yaml_path.read_text(encoding="utf-8")) or {}
+        except yaml.YAMLError as exc:
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": f"невалидный YAML: {exc}",
+                "reason": f"invalid YAML: {exc}",
+            }), 400
+
+        if not isinstance(template, dict):
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": "YAML должен быть mapping на верхнем уровне",
+                "reason": "YAML must be a top-level mapping",
+            }), 400
+
+        # dept_slug = template_id без суффикса '-v2'
+        dept_slug = template_id[: -len("-v2")]
+        dept_name = (template.get("name") or "").strip() or dept_slug.capitalize()
+        dept_desc = (template.get("description") or "").strip()
+        dept_icon = (template.get("icon") or "🗂").strip() or "🗂"
+
+        roles_list = template.get("roles") or []
+        if not isinstance(roles_list, list) or not roles_list:
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": "в шаблоне нет ролей",
+                "reason": "template has no roles",
+            }), 400
+
+        # Соберём system_prompt'ы для всех ролей ДО create_department —
+        # если SKILL.md отсутствуют, отвалимся с 400 без частичного создания.
+        prepared_roles: list[dict[str, Any]] = []
+        missing_all: list[str] = []
+        for role in roles_list:
+            if not isinstance(role, dict) or not role.get("slug"):
+                return jsonify({
+                    "статус": "error", "status": "error",
+                    "причина": "роль без slug в шаблоне",
+                    "reason": "role missing slug in template",
+                }), 400
+            try:
+                system_prompt = load_role_with_inherits(
+                    role,
+                    dept_slug=dept_slug,
+                    vendored_root=_VENDORED_KWP_DIR,
+                    roles_root=_ROLES_DIR,
+                )
+            except ValueError as exc:
+                # ValueError несёт список missing — добавим в общий аккумулятор.
+                missing_all.append(str(exc))
+                continue
+            prepared_roles.append({
+                "slug": role["slug"],
+                "name_ru": role.get("name_ru") or role["slug"],
+                "name_en": role.get("name_en") or role["slug"],
+                "model": role.get("model") or "claude-sonnet-4-6",
+                "is_lead": bool(role.get("is_lead", False)),
+                "output_spec": (role.get("output_spec") or "").strip(),
+                "system_prompt": system_prompt,
+            })
+
+        if missing_all:
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": "не все SKILL.md найдены",
+                "reason": "missing SKILL.md files",
+                "missing": missing_all,
+            }), 400
+
+        # Создаём отдел.
+        try:
+            dept = db.create_department(
+                _db(),
+                dept_id=dept_slug,
+                name=dept_name,
+                description=dept_desc,
+                template_id=template_id,
+                icon=dept_icon,
+            )
+        except ValueError as exc:
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": str(exc), "reason": str(exc),
+            }), 409
+
+        # Вставляем роли в SQL.
+        created_roles: list[dict[str, Any]] = []
+        with db.write_lock(_db()):
+            conn = db._connect(_db())
+            try:
+                conn.execute("BEGIN IMMEDIATE")
+                for role in prepared_roles:
+                    caps = {
+                        "llm": "claude",
+                        "model": role["model"],
+                        "temperature": 0.3,
+                        "max_tokens": 16000,
+                        "system_prompt": role["system_prompt"],
+                        "is_lead": role["is_lead"],
+                        "name_ru": role["name_ru"],
+                        "name_en": role["name_en"],
+                    }
+                    # Description — output_spec (single-line, ≤200 char для UI).
+                    one_line = " ".join(role["output_spec"].split())
+                    if len(one_line) > 200:
+                        one_line = one_line[:197] + "..."
+                    if not one_line:
+                        one_line = f"{role['name_ru']} в отделе {dept_name}"
+                    # name PK — может коллидировать с уже существующей default-ролью.
+                    # Для v2-шаблонов используем bare slug (соответствует ADR-009 §2.3).
+                    try:
+                        conn.execute(
+                            "INSERT INTO roles (name, description, capabilities, department_id) "
+                            "VALUES (?, ?, ?, ?)",
+                            (
+                                role["slug"],
+                                one_line,
+                                json.dumps(caps, ensure_ascii=False),
+                                dept_slug,
+                            ),
+                        )
+                    except Exception as exc:
+                        conn.execute("ROLLBACK")
+                        return jsonify({
+                            "статус": "error", "status": "error",
+                            "причина": f"не удалось вставить роль {role['slug']}: {exc}",
+                            "reason": f"failed to insert role {role['slug']}: {exc}",
+                        }), 409
+                    created_roles.append({
+                        "slug": role["slug"],
+                        "name_ru": role["name_ru"],
+                        "model": role["model"],
+                        "is_lead": role["is_lead"],
+                        "system_prompt_len": len(role["system_prompt"]),
+                    })
+                conn.execute("COMMIT")
+            finally:
+                conn.close()
+
+        return jsonify({
+            "department": dept,
+            "roles": created_roles,
+            "template_id": template_id,
+        }), 201
 
     @app.patch("/api/departments/<dept_id>/archive")
     def api_archive_department(dept_id: str) -> Any:

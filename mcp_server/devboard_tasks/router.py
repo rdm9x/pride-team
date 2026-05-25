@@ -59,14 +59,12 @@ def pick(open_tasks: list[dict[str, Any]]) -> dict[str, Any]:
     has_destructive = False
 
     # model_hint counters (ADR-006 S17.2):
-    # Выбираем максимальный hint по рангу (opus > sonnet > haiku).
-    # При равных рангах выбираем самую свежую задачу (max created_at) для
-    # отражения последнего явного выбора пользователя.
+    # Выбираем самую свежую задачу с model_hint (max created_at),
+    # независимо от ранга модели. Это отражает последний явный выбор пользователя.
     _HINT_VALID = {"opus", "sonnet", "haiku"}
-    _HINT_RANK = {"opus": 3, "sonnet": 2, "haiku": 1}
-    hint_max_alias: str | None = None
-    hint_max_rank = 0
-    hint_latest_ts_for_max_rank = -1
+
+    # Собрать все задачи с model_hint и найти самую свежую
+    hint_tasks = []  # [(alias, created_at), ...]
     n_hint_opus = 0
     n_hint_sonnet = 0
     n_hint_haiku = 0
@@ -82,18 +80,18 @@ def pick(open_tasks: list[dict[str, Any]]) -> dict[str, Any]:
         mh = (t.get("model_hint") or "").lower()
         if mh in _HINT_VALID:
             ts = t.get("created_at") or 0
-            rank = _HINT_RANK.get(mh, 0)
-            # Выбираем больший ранг, или при равном ранге — более свежую задачу
-            if rank > hint_max_rank or (rank == hint_max_rank and ts > hint_latest_ts_for_max_rank):
-                hint_max_rank = rank
-                hint_max_alias = mh
-                hint_latest_ts_for_max_rank = ts
+            hint_tasks.append((mh, ts))
             if mh == "opus":
                 n_hint_opus += 1
             elif mh == "sonnet":
                 n_hint_sonnet += 1
             elif mh == "haiku":
                 n_hint_haiku += 1
+
+    # Выбрать самую свежую задачу с model_hint
+    hint_max_alias: str | None = None
+    if hint_tasks:
+        hint_max_alias = max(hint_tasks, key=lambda x: x[1])[0]
 
     n_epics_filtered = len(open_tasks) - n_total
 

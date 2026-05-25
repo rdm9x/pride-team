@@ -159,15 +159,45 @@ CREATE TABLE IF NOT EXISTS task_dependencies (
 CREATE INDEX IF NOT EXISTS idx_deps_task    ON task_dependencies(task_id);
 CREATE INDEX IF NOT EXISTS idx_deps_blocker ON task_dependencies(depends_on);
 
+-- Phase 3a (B1, ADR-011 §2.3): Threads для чата Owner ↔ Управляющий.
+-- Типы: 'direct' (повседневные) и 'planning' (планёрка с обсуждением лидов).
+-- Создаём перед chat_messages, т.к. messages ссылаются на threads.
+CREATE TABLE IF NOT EXISTS chat_threads (
+  id                      TEXT PRIMARY KEY,
+  title                   TEXT NOT NULL,
+  kind                    TEXT NOT NULL DEFAULT 'direct' CHECK (kind IN ('direct','planning')),
+  participants            TEXT NOT NULL DEFAULT '[]',     -- JSON: [{role_slug, joined_at}]
+  status                  TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','finished','archived','aborted')),
+  created_at              INTEGER NOT NULL,
+  updated_at              INTEGER NOT NULL,
+  finished_at             INTEGER,
+  -- planning-specific (NULL для direct):
+  source_problem          TEXT,                            -- что owner написал в начале
+  decision_summary        TEXT,                            -- итоговый отчёт Управляющего
+  decision_approved_at    INTEGER,                         -- когда owner апрувнул
+  decision_created_tasks  TEXT                             -- JSON: [{task_id, dept_id}]
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_thread_created
+  ON chat_threads(created_at);
+
+CREATE INDEX IF NOT EXISTS idx_chat_thread_status
+  ON chat_threads(status) WHERE finished_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_chat_threads_updated
+  ON chat_threads(updated_at DESC);
+
 CREATE TABLE IF NOT EXISTS chat_messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   author TEXT NOT NULL,            -- 'пользователь' | 'тимлид' | 'бэкенд' | 'qa' | 'system'
   text TEXT NOT NULL,
   created_at INTEGER NOT NULL,
-  department_id TEXT REFERENCES departments(id)
+  department_id TEXT REFERENCES departments(id),
+  thread_id TEXT REFERENCES chat_threads(id)    -- B1 миграция: привязка к threads
 );
 
 CREATE INDEX IF NOT EXISTS idx_chat_created ON chat_messages(created_at);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_thread ON chat_messages(thread_id);
 
 CREATE TABLE IF NOT EXISTS claude_sessions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -975,7 +1005,7 @@ def list_chat_messages(
                 "text": r["text"],
                 "created_at": r["created_at"],
                 "department_id": r["department_id"],
-                "thread_id": r.get("thread_id"),
+                "thread_id": r["thread_id"] if "thread_id" in r.keys() else None,
             }
             for r in cur.fetchall()
         ]
@@ -992,15 +1022,15 @@ def create_chat_thread(
     kind: str = "direct",
     participants: Optional[list[str]] = None,
 ) -> dict[str, Any]:
-    """Создать новый thread для планёрки.
+    """Создать новый thread для планёрки (ADR-011 §2.3).
 
     Args:
         title: название потока (строка).
-        kind: тип ('direct' по умолчанию).
+        kind: тип ('direct' или 'planning').
         participants: список участников (опционально, по умолчанию пустой array).
 
     Returns:
-        dict с полями: id, title, kind, participants, status, created_at.
+        dict с полями: id, title, kind, participants, status, created_at, updated_at.
     """
     thread_id = str(uuid.uuid4())
     now = int(time.time())
@@ -1013,10 +1043,10 @@ def create_chat_thread(
             conn.execute("BEGIN IMMEDIATE")
             conn.execute(
                 """
-                INSERT INTO chat_threads (id, title, kind, participants, status, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO chat_threads (id, title, kind, participants, status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (thread_id, title, kind, json.dumps(participants), "active", now),
+                (thread_id, title, kind, json.dumps(participants), "active", now, now),
             )
             conn.commit()
 
@@ -1031,6 +1061,7 @@ def create_chat_thread(
                 "participants": json.loads(row["participants"]),
                 "status": row["status"],
                 "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
             }
         finally:
             conn.close()
@@ -1079,6 +1110,7 @@ def list_chat_threads(
                 "participants": json.loads(participants_str or "[]"),
                 "status": row["status"],
                 "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
                 "finished_at": finished_at,
             })
         return result
@@ -1106,6 +1138,7 @@ def get_chat_thread(db_path: Path, thread_id: str) -> Optional[dict[str, Any]]:
             "participants": json.loads(participants_str or "[]"),
             "status": row["status"],
             "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
             "finished_at": finished_at,
         }
     finally:

@@ -5,7 +5,7 @@ description = "Flask-дашборд малой команды devboard. Канб
 requires-python = ">=3.11"
 dependencies = [
     "flask>=3.0",
-    "pride-tasks",
+    "devboard-tasks",
 ]
 
 [project.optional-dependencies]
@@ -14,7 +14,7 @@ dev = [
 ]
 
 [tool.uv.sources]
-pride-tasks = { path = "../mcp_сервер", editable = true }
+devboard-tasks = { path = "../mcp_server", editable = true }
 
 [build-system]
 requires = ["hatchling"]

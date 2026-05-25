@@ -1864,9 +1864,10 @@
     e.preventDefault();
     const form = e.target;
     const modelHintVal = form.model_hint ? form.model_hint.value : "auto";
-    // ADR-003 §2.4.2 + ADR-009: задача создаётся в текущем активном отделе
-    // (из localStorage). Backend также проверит X-Department header / cookie.
-    const currentDept = localStorage.getItem("devboard:current_department") || "dev";
+    // ADR-003 §2.4.2 + ADR-009: задача создаётся в текущем активном отделе.
+    // Используем существующую функцию currentDepartment() (читает ключ
+    // 'devboard-current-department', не как в ADR-003 с двоеточием).
+    const currentDept = currentDepartment();
     const body = {
       title: form.title.value.trim(),
       description: form.description.value,

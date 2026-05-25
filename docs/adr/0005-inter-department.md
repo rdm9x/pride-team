@@ -139,7 +139,7 @@ Pipeline на backend:
         [marketing → design] #<id> "<title>" (<priority>) — created
 ```
 
-Никакой Lead не может **создать задачу мимо своего отдела** иначе как через этот endpoint. Прямой `mcp__pride-tasks__create_task(department_id=<чужой>)` — закрыт на уровне MCP-сервера (см. Tasks для бэкенда §8).
+Никакой Lead не может **создать задачу мимо своего отдела** иначе как через этот endpoint. Прямой `mcp__devboard-tasks__create_task(department_id=<чужой>)` — закрыт на уровне MCP-сервера (см. Tasks для бэкенда §8).
 
 ### 2.3. UI: Inbox target Lead'а
 
@@ -505,7 +505,7 @@ Skill-mismatch (то, что обычно мотивирует «дайте decl
 
 Реализация: middleware читает session → role → name. Соответствие с frontmatter (ADR-002 §2.2) гарантировано загрузчиком ролей. Любая другая роль (rank-and-file) получает 403.
 
-Дополнительно: rank-and-file роли по умолчанию **не имеют MCP-tool'а `mcp__pride-tasks__create_task` с `department_id != своего`** — это закрывается на стороне MCP-сервера через проверку `task.department_id == role.department_id OR role.name == 'owner'` (см. tasks §8). Это второй слой защиты — даже если кто-то обойдёт REST, MCP не пропустит.
+Дополнительно: rank-and-file роли по умолчанию **не имеют MCP-tool'а `mcp__devboard-tasks__create_task` с `department_id != своего`** — это закрывается на стороне MCP-сервера через проверку `task.department_id == role.department_id OR role.name == 'owner'` (см. tasks §8). Это второй слой защиты — даже если кто-то обойдёт REST, MCP не пропустит.
 
 ### 6.3. Audit log immutable
 

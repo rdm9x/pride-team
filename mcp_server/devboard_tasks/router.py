@@ -5,7 +5,7 @@
 токенов), прозрачный — пользователь видит причину выбора.
 
 Используется:
-  - devboard-work.sh: вызывает `python -m pride_tasks.router pick`,
+  - devboard-work.sh: вызывает `python -m devboard_tasks.router pick`,
     получает имя модели, передаёт в `claude --model`.
   - Дашборд: показывает текущую рекомендацию в плашке шапки
     (через REST endpoint /api/router/pick).
@@ -148,7 +148,7 @@ def pick_from_db(db_path: Path | None = None) -> dict[str, Any]:
     модели (типично approval-gate задачи с destructive label, ждущие закрытия
     рабочих подзадач).
     """
-    from pride_tasks import db
+    from devboard_tasks import db
 
     path = db_path or db.default_db_path()
     open_tasks = []

@@ -23,7 +23,7 @@ for _p in (_MCP_DIR, _DASHBOARD_DIR):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-from pride_tasks import db as _db  # noqa: E402
+from devboard_tasks import db as _db  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

@@ -21,13 +21,13 @@ from pathlib import Path
 
 import pytest
 
-# mcp_server/ в sys.path для импорта pride_tasks.
+# mcp_server/ в sys.path для импорта devboard_tasks.
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _MCP_DIR = _REPO_ROOT / "mcp_server"
 if str(_MCP_DIR) not in sys.path:
     sys.path.insert(0, str(_MCP_DIR))
 
-from pride_tasks.template_loader import load_role_with_inherits  # noqa: E402
+from devboard_tasks.template_loader import load_role_with_inherits  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

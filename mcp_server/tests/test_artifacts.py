@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from pride_tasks import db
+from devboard_tasks import db
 
 
 def test_insert_artifact_minimal(db_path: Path) -> None:

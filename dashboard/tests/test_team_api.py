@@ -168,7 +168,7 @@ def test_api_team_silence_no_sessions(client, reset_state) -> None:
 
 def test_api_team_silence_recent_session(client, reset_state) -> None:
     """Сессия завершилась только что — silent=False."""
-    from pride_tasks import db as _db
+    from devboard_tasks import db as _db
     import time as _t
     db_path = Path(client.application.config["DB_PATH"])
     now = int(_t.time())
@@ -184,7 +184,7 @@ def test_api_team_silence_recent_session(client, reset_state) -> None:
 
 def test_api_team_silence_stale_session(client, reset_state) -> None:
     """Сессия 10 мин назад без chat-сообщения тимлида — silent=True."""
-    from pride_tasks import db as _db
+    from devboard_tasks import db as _db
     db_path = Path(client.application.config["DB_PATH"])
     long_ago = 1_700_000_000  # давно
     _db.record_claude_session(
@@ -200,7 +200,7 @@ def test_api_team_silence_stale_session(client, reset_state) -> None:
 
 def test_api_team_silence_lead_replied(client, reset_state) -> None:
     """Тимлид отписался в чат после сессии — silent=False."""
-    from pride_tasks import db as _db
+    from devboard_tasks import db as _db
     db_path = Path(client.application.config["DB_PATH"])
     long_ago = 1_700_000_000
     _db.record_claude_session(

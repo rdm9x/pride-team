@@ -14,7 +14,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from pride_tasks import tools
+from devboard_tasks import tools
 
 
 _MD = "managing-director"

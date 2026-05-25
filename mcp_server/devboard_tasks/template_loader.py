@@ -27,7 +27,7 @@ def _get_company_context_path() -> Path:
     """Вернуть путь к data/company-context.md.
 
     По умолчанию: <repo_root>/data/company-context.md.
-    Repo root = родитель родителя этого файла (mcp_server/pride_tasks/).
+    Repo root = родитель родителя этого файла (mcp_server/devboard_tasks/).
     """
     if _DEFAULT_COMPANY_CONTEXT_PATH is not None:
         return _DEFAULT_COMPANY_CONTEXT_PATH

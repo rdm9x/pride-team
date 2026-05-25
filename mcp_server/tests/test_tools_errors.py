@@ -1,4 +1,4 @@
-"""Error-ветки и валидация в pride_tasks.tools.
+"""Error-ветки и валидация в devboard_tasks.tools.
 
 Дополняет test_tools.py — там в основном happy-path. Здесь:
   - валидация пустых аргументов
@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pride_tasks import alerts, tools
+from devboard_tasks import alerts, tools
 
 
 # === add_dependency ===
@@ -55,7 +55,7 @@ def test_get_dependencies_empty_task_id(db_path: Path) -> None:
 
 
 def test_get_dependencies_for_existing_task(db_path: Path) -> None:
-    from pride_tasks import db
+    from devboard_tasks import db
     t = db.insert_task(db_path, title="a")
     res = tools.get_dependencies(t["id"], db_path=db_path)
     assert res["статус"] == "ok"

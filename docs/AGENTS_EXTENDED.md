@@ -107,7 +107,7 @@ mcp_server/
 └── tests/                  ~118 тестов
 ```
 
-### 14 MCP-tools (имена в Claude после префикса `mcp__pride-tasks__`)
+### 14 MCP-tools (имена в Claude после префикса `mcp__devboard-tasks__`)
 - `list_tasks`, `get_task`, `create_task`, `update_task`, `claim_task`
 - `add_comment`, `submit_result`
 - `list_roles`

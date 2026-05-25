@@ -405,7 +405,7 @@ def test_migration_on_live_db_copy_preserves_data(tmp_path: Path) -> None:
 def test_init_db_creates_phase1_objects(tmp_path: Path) -> None:
     """ensure_schema() из db.py для свежей установки сразу даёт нужные объекты."""
     # init_db через прямой импорт — без subprocess.
-    from pride_tasks import db as pkg_db
+    from devboard_tasks import db as pkg_db
 
     db_path = tmp_path / "tasks.db"
     pkg_db.init_db(db_path)

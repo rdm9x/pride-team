@@ -43,7 +43,7 @@ def test_stats_hourly_activity_has_24_items(client) -> None:
 
 def test_stats_with_sessions(client) -> None:
     """Endpoint корректно считает sessions/turns/cost из записанных сессий."""
-    from pride_tasks import db as _db  # type: ignore
+    from devboard_tasks import db as _db  # type: ignore
 
     db_path = client.application.config["DB_PATH"]
     now = int(time.time())
@@ -114,7 +114,7 @@ def test_stats_lifetime_counters_present(client) -> None:
 
 def test_stats_lifetime_tasks_total_done_counts_done_tasks(client) -> None:
     """S5.2: tasks_total_done > 0 при наличии задач со status='done' (включая архивные)."""
-    from pride_tasks import db as _db, tools as _tools  # type: ignore
+    from devboard_tasks import db as _db, tools as _tools  # type: ignore
 
     db_path = client.application.config["DB_PATH"]
 
@@ -153,7 +153,7 @@ def test_stats_all_models_shown_including_haiku(client) -> None:
     Проверяет что claude-haiku-4-5-20251001 отображается на Statistics tab
     несмотря на очень малые затраты ($0.001) по сравнению с другими моделями.
     """
-    from pride_tasks import db as _db  # type: ignore
+    from devboard_tasks import db as _db  # type: ignore
 
     db_path = client.application.config["DB_PATH"]
     now = int(time.time())
@@ -221,7 +221,7 @@ def test_stats_all_models_shown_including_haiku(client) -> None:
 
 def test_stats_lifetime_counters(client) -> None:
     """S5.2: endpoint возвращает lifetime task counters (НЕ зависят от range)."""
-    from pride_tasks import db as _db  # type: ignore
+    from devboard_tasks import db as _db  # type: ignore
 
     db_path = client.application.config["DB_PATH"]
 

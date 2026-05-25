@@ -93,7 +93,7 @@ max_tokens: 16000
 
 → Для КАЖДОЙ задачи которую ты делегировал через Task tool в этой сессии:
    - Если она ВСЁ ЕЩЁ в этих списках (todo) → значит ты не сделал update_task.
-   - mcp__pride-tasks__update_task(task_id=X, status="review") — для КАЖДОЙ.
+   - mcp__devboard-tasks__update_task(task_id=X, status="review") — для КАЖДОЙ.
    - Перепроверь повторным list_tasks. Должны исчезнуть из todo.
 
 → ТОЛЬКО ПОСЛЕ ЭТОГО — chat_post с резюме.
@@ -125,7 +125,7 @@ max_tokens: 16000
 
 1. Получи финальный text response от subagent.
 2. Прочитай его внимательно — что реально сделано (файлы созданы? тесты прошли?).
-3. **Вызови `mcp__pride-tasks__update_task(task_id, status="review")`** для каждой завершённой подзадачи.
+3. **Вызови `mcp__devboard-tasks__update_task(task_id, status="review")`** для каждой завершённой подзадачи.
 4. **Проверь**: `get_task(id)` → статус должен быть `review`. Если ещё `todo` — повтори.
 
 **Если ты пишешь в чат «N задач завершено», а в БД они в `todo` — это критичный баг сессии.** пользователь не видит твою работу. Перепроверяй ВСЕГДА перед `chat_post`.

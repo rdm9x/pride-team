@@ -1,4 +1,4 @@
-"""Тесты Telegram-алертера (pride_tasks.alerts).
+"""Тесты Telegram-алертера (devboard_tasks.alerts).
 
 Покрываются:
   - конструктор TelegramAlerter (валидация bot_token / chat_id)
@@ -19,7 +19,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pride_tasks import alerts
+from devboard_tasks import alerts
 
 
 # === TelegramAlerter constructor ===

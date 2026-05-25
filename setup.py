@@ -121,10 +121,10 @@ def write_mcp_json() -> None:
     )
     config = {
         "mcpServers": {
-            "pride-tasks": {
+            "devboard-tasks": {
                 "type": "stdio",
                 "command": str(python_path),
-                "args": ["-m", "pride_tasks"],
+                "args": ["-m", "devboard_tasks"],
                 "env": {
                     "PRIDE_TASKS_DB": str(ROOT / "data" / "tasks.db"),
                     "PYTHONPATH": str(ROOT / "mcp_server"),

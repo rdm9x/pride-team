@@ -1,11 +1,11 @@
 {
   "mcpServers": {
-    "pride-tasks": {
+    "devboard-tasks": {
       "type": "stdio",
       "command": "/Users/dm_pc/Desktop/pride-team-v1.0/mcp_server/.venv/bin/python",
-      "args": ["-m", "pride_tasks"],
+      "args": ["-m", "devboard_tasks"],
       "env": {
-        "PRIDE_TASKS_DB": "/Users/dm_pc/Desktop/pride-team-v1.0/data/tasks.db",
+        "DEVBOARD_TASKS_DB": "/Users/dm_pc/Desktop/pride-team-v1.0/data/tasks.db",
         "PYTHONPATH": "/Users/dm_pc/Desktop/pride-team-v1.0/mcp_server"
       }
     }

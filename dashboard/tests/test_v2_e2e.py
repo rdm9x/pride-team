@@ -206,7 +206,7 @@ def test_v2_full_workflow(client, fake_popen, roles_tmp, tmp_path):
     # REST POST /api/tasks игнорирует department_id; для создания задачи в
     # конкретном отделе мы вызываем tools.create_task напрямую (это валидный
     # путь — MCP-tools используются ролями).
-    from pride_tasks import tools
+    from devboard_tasks import tools
 
     # Получаем db_path из конфига Flask-приложения.
     # client.application — это сам Flask app; db_path хранится в app.config.

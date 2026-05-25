@@ -31,7 +31,7 @@ if str(_MCP_DIR) not in sys.path:
 if str(_DASHBOARD_DIR) not in sys.path:
     sys.path.insert(0, str(_DASHBOARD_DIR))
 
-from pride_tasks import db as db_mod  # noqa: E402
+from devboard_tasks import db as db_mod  # noqa: E402
 
 import app as app_module  # noqa: E402
 

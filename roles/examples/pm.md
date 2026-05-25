@@ -7,13 +7,13 @@ description: Product Manager — writes user stories, acceptance criteria, prior
 llm: claude
 model: claude-sonnet-4-6
 tools:
-  - mcp__pride-tasks__list_tasks
-  - mcp__pride-tasks__get_task
-  - mcp__pride-tasks__create_task
-  - mcp__pride-tasks__update_task
-  - mcp__pride-tasks__add_comment
-  - mcp__pride-tasks__submit_result
-  - mcp__pride-tasks__claim_task
+  - mcp__devboard-tasks__list_tasks
+  - mcp__devboard-tasks__get_task
+  - mcp__devboard-tasks__create_task
+  - mcp__devboard-tasks__update_task
+  - mcp__devboard-tasks__add_comment
+  - mcp__devboard-tasks__submit_result
+  - mcp__devboard-tasks__claim_task
   - Read
   - Write
 temperature: 0.4

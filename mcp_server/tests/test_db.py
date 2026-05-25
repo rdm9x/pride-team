@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from pride_tasks import db
+from devboard_tasks import db
 
 
 def test_init_db_creates_schema(tmp_path: Path) -> None:

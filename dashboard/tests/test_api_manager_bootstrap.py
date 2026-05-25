@@ -38,8 +38,8 @@ def _db_path(client):
 
 
 def _db_module():
-    """Ленивый импорт pride_tasks.db — conftest.py + app.py добавляют его в sys.path."""
-    from pride_tasks import db as _db  # noqa: PLC0415
+    """Ленивый импорт devboard_tasks.db — conftest.py + app.py добавляют его в sys.path."""
+    from devboard_tasks import db as _db  # noqa: PLC0415
 
     return _db
 

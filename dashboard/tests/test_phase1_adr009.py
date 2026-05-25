@@ -35,7 +35,7 @@ from pathlib import Path
 
 import pytest
 
-# Гарантируем что mcp_server/ в sys.path для импорта pride_tasks.
+# Гарантируем что mcp_server/ в sys.path для импорта devboard_tasks.
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _MCP_DIR = _REPO_ROOT / "mcp_server"
 if str(_MCP_DIR) not in sys.path:
@@ -55,7 +55,7 @@ def _db_path(client) -> Path:
 
 def _create_dept(db_path: Path, slug: str, name: str) -> str:
     """Создаёт отдел напрямую через db (минуя HR-pipeline)."""
-    from pride_tasks import db as _db  # type: ignore
+    from devboard_tasks import db as _db  # type: ignore
 
     d = _db.create_department(db_path, dept_id=slug, name=name)
     return d["id"]
@@ -71,7 +71,7 @@ def test_default_flow_managing_director_direct_cross_task(client) -> None:
     с reporter='managing-director' (как делает finalize_planning_session,
     но без планёрки). НЕТ planning_sessions row — это и есть default flow.
     """
-    from pride_tasks import db as _db, tools  # type: ignore
+    from devboard_tasks import db as _db, tools  # type: ignore
 
     db_path = _db_path(client)
 
@@ -129,7 +129,7 @@ def test_planning_flow_full_progression(client) -> None:
     Phase 3 (consolidation) — Claude-уровневое решение Управляющего,
     отдельного MCP-tool под неё нет (см. ADR-009 §2.6 — только 4 tools).
     """
-    from pride_tasks import db as _db, tools  # type: ignore
+    from devboard_tasks import db as _db, tools  # type: ignore
 
     db_path = _db_path(client)
 
@@ -208,7 +208,7 @@ def test_planning_flow_full_progression(client) -> None:
 
 def test_memory_add_search_recent(client) -> None:
     """manager_memory_add → search находит → recent сортирует по updated_at DESC."""
-    from pride_tasks import tools  # type: ignore
+    from devboard_tasks import tools  # type: ignore
 
     db_path = _db_path(client)
 
@@ -261,7 +261,7 @@ def test_memory_add_search_recent(client) -> None:
 
 def test_role_gate_blocks_non_managing_director(client) -> None:
     """Memory + planning tools отбивают не-managing-director ролей с forbidden."""
-    from pride_tasks import tools  # type: ignore
+    from devboard_tasks import tools  # type: ignore
 
     db_path = _db_path(client)
 
@@ -305,7 +305,7 @@ def test_role_gate_blocks_non_managing_director(client) -> None:
 
 def test_role_gate_does_not_leak_data(client) -> None:
     """Чужая роль не должна получать содержимое чанка через forbidden-ответ."""
-    from pride_tasks import tools  # type: ignore
+    from devboard_tasks import tools  # type: ignore
 
     db_path = _db_path(client)
     secret = "секретный_текст_только_для_управляющего_xyz123"
@@ -336,7 +336,7 @@ def test_migration_legacy_тимлид_still_works(client) -> None:
     выводятся, и тимлид может их claim-нуть. Это критично потому что в БД
     есть 41 task'а с assignee='тимлид' (см. result задачи #943b5dd1ec14).
     """
-    from pride_tasks import tools  # type: ignore
+    from devboard_tasks import tools  # type: ignore
 
     db_path = _db_path(client)
 
@@ -378,7 +378,7 @@ def test_list_roles_uses_dev_lead_name(client) -> None:
     но после полной миграции (scripts/migrate_тимлид_to_dev_lead.py) — `тимлид`
     исчезает из БД, остаётся только `dev-lead`.
     """
-    from pride_tasks import tools  # type: ignore
+    from devboard_tasks import tools  # type: ignore
 
     db_path = _db_path(client)
     roles_res = tools.list_roles(db_path=db_path)
@@ -432,7 +432,7 @@ def test_full_e2e_owner_planning_to_review(client) -> None:
     """End-to-end один тест: owner → planning → consolidation → distribution →
     legacy-тимлид подхватывает → review. Проверяем прогресс фаз planning_sessions.
     """
-    from pride_tasks import db as _db, tools  # type: ignore
+    from devboard_tasks import db as _db, tools  # type: ignore
 
     db_path = _db_path(client)
 

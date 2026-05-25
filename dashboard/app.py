@@ -21,7 +21,7 @@ from queue import Empty, Queue
 from threading import Lock, Thread
 from typing import Any, Optional
 
-# Кириллица в пути ломает editable .pth — импортируем pride_tasks по абсолютному
+# Кириллица в пути ломает editable .pth — импортируем devboard_tasks по абсолютному
 # пути (паттерн из pride_mcp/server.py).
 _MCP_DIR = Path(__file__).resolve().parent.parent / "mcp_server"
 if str(_MCP_DIR) not in sys.path:
@@ -34,14 +34,14 @@ if str(_REPO_ROOT_EARLY) not in sys.path:
 
 from flask import Flask, Response, jsonify, render_template, request  # noqa: E402
 
-from pride_tasks import db, tools  # noqa: E402
+from devboard_tasks import db, tools  # noqa: E402
 
 # S10.3 (ADR-004): HR pipeline runner и валидатор плана.
 import hr as hr_runner  # noqa: E402
 from roles.validator import validate_hr_plan  # noqa: E402
 
 logging.basicConfig(
-    level=os.environ.get("PRIDE_DASHBOARD_LOG_LEVEL", "INFO"),
+    level=os.environ.get("DEVBOARD_DASHBOARD_LOG_LEVEL", "INFO"),
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 log = logging.getLogger("pride_dashboard")
@@ -142,14 +142,14 @@ def _format_stream_event(raw: str) -> Optional[str]:
 def _humanize_tool(name: str, inp: dict) -> Optional[str]:
     inp = inp or {}
 
-    # === MCP pride-tasks: интересные действия ===
+    # === MCP devboard-tasks: интересные действия ===
 
-    if name == "mcp__pride-tasks__create_task":
+    if name == "mcp__devboard-tasks__create_task":
         title = _trim(inp.get("title", ""), 70)
         assignee = inp.get("assignee") or "не назначено"
         return f"📝  Создаёт задачу для {assignee}: «{title}»"
 
-    if name == "mcp__pride-tasks__update_task":
+    if name == "mcp__devboard-tasks__update_task":
         new_status = inp.get("status")
         tid = (inp.get("task_id") or "")[:6]
         if new_status == "done":
@@ -162,29 +162,29 @@ def _humanize_tool(name: str, inp: dict) -> Optional[str]:
             return f"🛑  Блокирует #{tid}"
         return None  # переименование / другие правки — шум
 
-    if name == "mcp__pride-tasks__claim_task":
+    if name == "mcp__devboard-tasks__claim_task":
         tid = (inp.get("task_id") or "")[:6]
         return f"🤝  Берёт задачу #{tid}"
 
-    if name == "mcp__pride-tasks__add_comment":
+    if name == "mcp__devboard-tasks__add_comment":
         tid = (inp.get("task_id") or "")[:6]
         text = _trim(inp.get("text", ""), 80)
         return f"💬  Комментирует #{tid}: «{text}»"
 
-    if name == "mcp__pride-tasks__submit_result":
+    if name == "mcp__devboard-tasks__submit_result":
         tid = (inp.get("task_id") or "")[:6]
         return f"📦  Сдаёт результат по #{tid}"
 
-    if name == "mcp__pride-tasks__add_dependency":
+    if name == "mcp__devboard-tasks__add_dependency":
         a = (inp.get("task_id") or "")[:6]
         b = (inp.get("depends_on") or "")[:6]
         return f"🔗  Связь: #{a} ждёт #{b}"
 
-    if name == "mcp__pride-tasks__chat_post":
+    if name == "mcp__devboard-tasks__chat_post":
         # В чат — уже видно в правой панели, дублировать не надо
         return None
 
-    if name == "mcp__pride-tasks__notify_user":
+    if name == "mcp__devboard-tasks__notify_user":
         text = _trim(inp.get("text", ""), 80)
         return f"🔔  Telegram пользователю: «{text}»"
 
@@ -204,11 +204,11 @@ def _humanize_tool(name: str, inp: dict) -> Optional[str]:
     # === Чтение / навигация — НЕ показываем ===
 
     if name in (
-        "mcp__pride-tasks__list_tasks",
-        "mcp__pride-tasks__get_task",
-        "mcp__pride-tasks__chat_recent",
-        "mcp__pride-tasks__get_dependencies",
-        "mcp__pride-tasks__list_roles",
+        "mcp__devboard-tasks__list_tasks",
+        "mcp__devboard-tasks__get_task",
+        "mcp__devboard-tasks__chat_recent",
+        "mcp__devboard-tasks__get_dependencies",
+        "mcp__devboard-tasks__list_roles",
         "Read", "Glob", "Grep",
     ):
         return None
@@ -380,7 +380,7 @@ def _auto_restore_delegated_tasks(delegated_ids: set[str]) -> None:
             return
 
         # Переводим в review + коммент через MCP-tools (надёжнее чем прямой SQL)
-        from pride_tasks import tools as pt_tools
+        from devboard_tasks import tools as pt_tools
         for r in restored:
             pt_tools.update_task(r["id"], status="review", db_path=DB_PATH)
             pt_tools.add_comment(
@@ -547,7 +547,7 @@ def _smart_default_role(db_path: "Path | None" = None) -> str:
     Returns:
         slug роли для запуска.
     """
-    from pride_tasks import db as _db_mod
+    from devboard_tasks import db as _db_mod
     path = db_path or DB_PATH
     try:
         all_todo = _db_mod.list_tasks(path, status="todo", limit=500)
@@ -588,7 +588,7 @@ def pick_model_for_role(role: str, db_path: "Path | None" = None) -> str:
     Returns:
         alias модели: 'haiku' | 'sonnet' | 'opus'
     """
-    from pride_tasks import db as _db_mod, router as _router_mod  # local import — не тяжело
+    from devboard_tasks import db as _db_mod, router as _router_mod  # local import — не тяжело
 
     path = db_path or DB_PATH
     # Берём только todo-задачи этой роли — именно они определяют следующую сессию
@@ -650,7 +650,7 @@ def build_claude_command(
     # встроенный роутер — claude получает --model с нужным значением.
     model_alias = pick_model_for_role(role, db_path=db_path)
     extra_env: dict[str, str] = {
-        "PRIDE_TASKS_DB": str(db_path or DB_PATH),
+        "DEVBOARD_TASKS_DB": str(db_path or DB_PATH),
         "PYTHONIOENCODING": "utf-8",
         "PYTHONUTF8": "1",
         "DEVBOARD_TEAM_MODEL": model_alias,
@@ -1196,7 +1196,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         """
         # Локальный импорт чтобы не тащить yaml/template_loader в hot-path остальных endpoint'ов.
         import yaml  # type: ignore[import-untyped]
-        from pride_tasks.template_loader import load_role_with_inherits  # noqa: E402
+        from devboard_tasks.template_loader import load_role_with_inherits  # noqa: E402
 
         yaml_path = _TEMPLATES_DIR / f"{template_id}.yaml"
         if not yaml_path.is_file():
@@ -1576,7 +1576,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         new_priority = data.get("priority")
         if new_priority is not None:
             new_priority = str(new_priority).upper()
-            from pride_tasks.models import PRIORITIES
+            from devboard_tasks.models import PRIORITIES
             if new_priority not in PRIORITIES:
                 return jsonify({
                     "статус": "error", "status": "error",
@@ -2906,7 +2906,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         Используется UI чтобы показать «🤖 роутер: sonnet» в шапке до того
         как пользователь нажмёт «▶ Запустить команду».
         """
-        from pride_tasks import router
+        from devboard_tasks import router
         return jsonify(router.pick_from_db(_db()))
 
     @app.get("/api/chat")
@@ -3471,8 +3471,8 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
 
 def main() -> None:
     app = create_app()
-    port = int(os.environ.get("PRIDE_DASHBOARD_PORT", "4999"))
-    host = os.environ.get("PRIDE_DASHBOARD_HOST", "127.0.0.1")
+    port = int(os.environ.get("DEVBOARD_DASHBOARD_PORT", "4999"))
+    host = os.environ.get("DEVBOARD_DASHBOARD_HOST", "127.0.0.1")
     log.info("Flask дашборд: http://%s:%d", host, port)
     app.run(host=host, port=port, debug=False, threaded=True)
 

@@ -186,7 +186,7 @@ def test_team_status_treats_finished_proc_as_stopped(reset_team_state) -> None:
 
 
 def test_has_pending_work_empty(tmp_path, monkeypatch) -> None:
-    from pride_tasks import db as _db
+    from devboard_tasks import db as _db
     db_path = tmp_path / "x.db"
     _db.init_db(db_path)
     monkeypatch.setattr(app_module, "DB_PATH", db_path)
@@ -194,7 +194,7 @@ def test_has_pending_work_empty(tmp_path, monkeypatch) -> None:
 
 
 def test_has_pending_work_todo_for_team_lead(tmp_path, monkeypatch) -> None:
-    from pride_tasks import db as _db
+    from devboard_tasks import db as _db
     db_path = tmp_path / "x.db"
     _db.init_db(db_path)
     _db.insert_task(db_path, title="todo for lead", assignee="тимлид")
@@ -203,7 +203,7 @@ def test_has_pending_work_todo_for_team_lead(tmp_path, monkeypatch) -> None:
 
 
 def test_has_pending_work_ignores_other_assignees(tmp_path, monkeypatch) -> None:
-    from pride_tasks import db as _db
+    from devboard_tasks import db as _db
     db_path = tmp_path / "x.db"
     _db.init_db(db_path)
     _db.insert_task(db_path, title="for qa", assignee="qa")
@@ -249,7 +249,7 @@ def test_auto_can_start_rate_limit_per_hour(reset_team_state) -> None:
 
 
 def test_auto_can_start_no_work(reset_team_state, tmp_path, monkeypatch) -> None:
-    from pride_tasks import db as _db
+    from devboard_tasks import db as _db
     db_path = tmp_path / "x.db"
     _db.init_db(db_path)
     monkeypatch.setattr(app_module, "DB_PATH", db_path)
@@ -261,7 +261,7 @@ def test_auto_can_start_no_work(reset_team_state, tmp_path, monkeypatch) -> None
 
 
 def test_auto_can_start_ok(reset_team_state, tmp_path, monkeypatch) -> None:
-    from pride_tasks import db as _db
+    from devboard_tasks import db as _db
     db_path = tmp_path / "x.db"
     _db.init_db(db_path)
     _db.insert_task(db_path, title="for lead", assignee="тимлид")
@@ -275,7 +275,7 @@ def test_auto_can_start_ok(reset_team_state, tmp_path, monkeypatch) -> None:
 
 def test_auto_can_start_cleans_old_history(reset_team_state, tmp_path, monkeypatch) -> None:
     """Старые (>1 час) метки в starts_history должны вычищаться при проверке."""
-    from pride_tasks import db as _db
+    from devboard_tasks import db as _db
     db_path = tmp_path / "x.db"
     _db.init_db(db_path)
     _db.insert_task(db_path, title="for lead", assignee="тимлид")
@@ -300,7 +300,7 @@ def test_auto_can_start_blocked_while_reader_alive(reset_team_state, tmp_path, m
     Это предотвращает гонку: _auto_restore_delegated_tasks удерживает SQLite
     write-lock пока авто-монитор уже стартует новый MCP-сервер.
     """
-    from pride_tasks import db as _db
+    from devboard_tasks import db as _db
     import threading
 
     db_path = tmp_path / "x.db"
@@ -331,7 +331,7 @@ def test_auto_can_start_blocked_while_reader_alive(reset_team_state, tmp_path, m
 
 def test_auto_can_start_ok_when_reader_finished(reset_team_state, tmp_path, monkeypatch) -> None:
     """Если reader_thread завершён — авто-старт разрешён несмотря на наличие ссылки."""
-    from pride_tasks import db as _db
+    from devboard_tasks import db as _db
 
     db_path = tmp_path / "x.db"
     _db.init_db(db_path)
@@ -390,7 +390,7 @@ def test_auto_mode_restart_does_not_start_while_reader_cleanup(
     3. _auto_can_start должен вернуть False
     4. Новая сессия НЕ стартует
     """
-    from pride_tasks import db as _db
+    from devboard_tasks import db as _db
 
     db_path = tmp_path / "x.db"
     _db.init_db(db_path)
@@ -450,7 +450,7 @@ def test_format_stream_event_assistant_text() -> None:
 def test_format_stream_event_assistant_tool_use() -> None:
     raw = (
         '{"type": "assistant", "message": {"content": ['
-        '{"type": "tool_use", "name": "mcp__pride-tasks__create_task", '
+        '{"type": "tool_use", "name": "mcp__devboard-tasks__create_task", '
         '"input": {"title": "новая", "assignee": "qa"}}'
         ']}}'
     )
@@ -485,16 +485,16 @@ def test_format_stream_event_unknown_type_returns_none() -> None:
 
 
 @pytest.mark.parametrize("name,inp,expected_marker", [
-    ("mcp__pride-tasks__create_task", {"title": "T", "assignee": "qa"}, "Создаёт"),
-    ("mcp__pride-tasks__update_task", {"task_id": "abc123def", "status": "done"}, "Закрывает"),
-    ("mcp__pride-tasks__update_task", {"task_id": "abc123def", "status": "review"}, "приёмку"),
-    ("mcp__pride-tasks__update_task", {"task_id": "abc123def", "status": "wip"}, "работу"),
-    ("mcp__pride-tasks__update_task", {"task_id": "abc123def", "status": "blocked"}, "Блокирует"),
-    ("mcp__pride-tasks__claim_task", {"task_id": "abcdef"}, "Берёт"),
-    ("mcp__pride-tasks__add_comment", {"task_id": "abc", "text": "ok"}, "Комментирует"),
-    ("mcp__pride-tasks__submit_result", {"task_id": "abc"}, "Сдаёт"),
-    ("mcp__pride-tasks__add_dependency", {"task_id": "a", "depends_on": "b"}, "ждёт"),
-    ("mcp__pride-tasks__notify_user", {"text": "hello"}, "Telegram"),
+    ("mcp__devboard-tasks__create_task", {"title": "T", "assignee": "qa"}, "Создаёт"),
+    ("mcp__devboard-tasks__update_task", {"task_id": "abc123def", "status": "done"}, "Закрывает"),
+    ("mcp__devboard-tasks__update_task", {"task_id": "abc123def", "status": "review"}, "приёмку"),
+    ("mcp__devboard-tasks__update_task", {"task_id": "abc123def", "status": "wip"}, "работу"),
+    ("mcp__devboard-tasks__update_task", {"task_id": "abc123def", "status": "blocked"}, "Блокирует"),
+    ("mcp__devboard-tasks__claim_task", {"task_id": "abcdef"}, "Берёт"),
+    ("mcp__devboard-tasks__add_comment", {"task_id": "abc", "text": "ok"}, "Комментирует"),
+    ("mcp__devboard-tasks__submit_result", {"task_id": "abc"}, "Сдаёт"),
+    ("mcp__devboard-tasks__add_dependency", {"task_id": "a", "depends_on": "b"}, "ждёт"),
+    ("mcp__devboard-tasks__notify_user", {"text": "hello"}, "Telegram"),
     ("Task", {"description": "сделай", "prompt": "ты qa"}, "qa"),
     ("Write", {"file_path": "/x"}, "Создаёт файл"),
     ("Edit", {"file_path": "/x"}, "Правит файл"),
@@ -507,12 +507,12 @@ def test_humanize_tool_known_tools(name: str, inp: dict, expected_marker: str) -
 
 
 @pytest.mark.parametrize("name", [
-    "mcp__pride-tasks__list_tasks",
-    "mcp__pride-tasks__get_task",
-    "mcp__pride-tasks__chat_recent",
-    "mcp__pride-tasks__get_dependencies",
-    "mcp__pride-tasks__list_roles",
-    "mcp__pride-tasks__chat_post",
+    "mcp__devboard-tasks__list_tasks",
+    "mcp__devboard-tasks__get_task",
+    "mcp__devboard-tasks__chat_recent",
+    "mcp__devboard-tasks__get_dependencies",
+    "mcp__devboard-tasks__list_roles",
+    "mcp__devboard-tasks__chat_post",
     "Read",
     "Glob",
     "Grep",
@@ -526,7 +526,7 @@ def test_humanize_tool_silent_tools(name: str) -> None:
 def test_humanize_tool_update_task_rename_returns_none() -> None:
     # Переименование (status=None) — шум, не показываем
     assert app_module._humanize_tool(
-        "mcp__pride-tasks__update_task",
+        "mcp__devboard-tasks__update_task",
         {"task_id": "abc", "title": "новое название"},
     ) is None
 
@@ -542,7 +542,7 @@ def test_humanize_tool_task_role_detection_default() -> None:
 
 
 def test_record_session_sums_input_tokens(tmp_path, monkeypatch) -> None:
-    from pride_tasks import db as _db
+    from devboard_tasks import db as _db
     db_path = tmp_path / "x.db"
     _db.init_db(db_path)
     monkeypatch.setattr(app_module, "DB_PATH", db_path)
@@ -567,7 +567,7 @@ def test_record_session_sums_input_tokens(tmp_path, monkeypatch) -> None:
 
 
 def test_record_session_picks_primary_model_from_modelusage(tmp_path, monkeypatch) -> None:
-    from pride_tasks import db as _db
+    from devboard_tasks import db as _db
     db_path = tmp_path / "x.db"
     _db.init_db(db_path)
     monkeypatch.setattr(app_module, "DB_PATH", db_path)
@@ -586,7 +586,7 @@ def test_record_session_picks_primary_model_from_modelusage(tmp_path, monkeypatc
 
 
 def test_record_session_handles_missing_usage(tmp_path, monkeypatch) -> None:
-    from pride_tasks import db as _db
+    from devboard_tasks import db as _db
     db_path = tmp_path / "x.db"
     _db.init_db(db_path)
     monkeypatch.setattr(app_module, "DB_PATH", db_path)

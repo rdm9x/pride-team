@@ -1,4 +1,4 @@
-"""Общие фикстуры тестов pride-tasks."""
+"""Общие фикстуры тестов devboard-tasks."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from pride_tasks import db
+from devboard_tasks import db
 
 
 @pytest.fixture()

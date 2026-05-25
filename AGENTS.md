@@ -18,7 +18,7 @@
 | Папка | Что |
 |---|---|
 | `dashboard/` | Flask UI + REST API (port 4999). `app.py` ~1750 строк. |
-| `mcp_server/` | MCP-сервер `pride-tasks`. `tools.py` — 14 MCP-функций, `db.py` — SQLite. |
+| `mcp_server/` | MCP-сервер `devboard-tasks`. `tools.py` — 14 MCP-функций, `db.py` — SQLite. |
 | `roles/` | System-prompts ролей (markdown с frontmatter). НЕ менять без задачи. |
 | `commands/` | bash/ps1 скрипты: `devboard-start.sh`, `-stop`, `-work`, `-test` |
 | `data/` | SQLite БД, бекапы, .env.local, team.log — **gitignored** |
@@ -35,14 +35,14 @@
 | Новый REST endpoint | `dashboard/app.py` |
 | Новая SPA view | `dashboard/templates/kanban.html` + `dashboard/static/app.js` |
 | Новый i18n-ключ | `dashboard/static/i18n/ru.json` + `en.json` (синхронно!) |
-| Новый MCP-tool | `mcp_server/pride_tasks/tools.py` + регистрация в `server.py` |
-| Роутер моделей | `mcp_server/pride_tasks/router.py` + `mcp_server/tests/test_router.py` |
-| Схема БД | `mcp_server/pride_tasks/db.py` (SCHEMA_SQL + `ensure_dev_department`) + миграция в `scripts/` |
+| Новый MCP-tool | `mcp_server/devboard_tasks/tools.py` + регистрация в `server.py` |
+| Роутер моделей | `mcp_server/devboard_tasks/router.py` + `mcp_server/tests/test_router.py` |
+| Схема БД | `mcp_server/devboard_tasks/db.py` (SCHEMA_SQL + `ensure_dev_department`) + миграция в `scripts/` |
 | Стили дашборда | `dashboard/static/style.css` |
 
 ---
 
-## 14 MCP-tools (`mcp__pride-tasks__*`)
+## 14 MCP-tools (`mcp__devboard-tasks__*`)
 
 `list_tasks` · `get_task` · `create_task` · `update_task` · `claim_task`
 `add_comment` · `submit_result` · `list_roles`

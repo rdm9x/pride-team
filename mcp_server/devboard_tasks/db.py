@@ -1,4 +1,4 @@
-"""SQLite-слой канбана pride-tasks.
+"""SQLite-слой канбана devboard-tasks.
 
 Один файл БД (по умолчанию devboard/data/tasks.db).
 Соединения создаются на каждый вызов — для thread-safety. Write-операции

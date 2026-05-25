@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from pride_tasks import tools
+from devboard_tasks import tools
 
 
 def test_list_tasks_empty(db_path: Path) -> None:
@@ -209,7 +209,7 @@ def test_safety_net_update_task_done_blocked(db_path: Path) -> None:
 
 def test_safety_net_update_task_done_system_comment(db_path: Path) -> None:
     """update_task(status='done') → в истории задачи появляется system-комментарий."""
-    from pride_tasks import db as _db
+    from devboard_tasks import db as _db
 
     t = tools.create_task(title="Needs comment check", db_path=db_path)
     tid = t["задача"]["id"]
@@ -224,7 +224,7 @@ def test_safety_net_update_task_done_system_comment(db_path: Path) -> None:
 
 def test_safety_net_update_task_done_chat_alert(db_path: Path) -> None:
     """update_task(status='done') → алерт появляется в чате от system."""
-    from pride_tasks import db as _db
+    from devboard_tasks import db as _db
 
     t = tools.create_task(title="Chat alert task", db_path=db_path)
     tid = t["задача"]["id"]
@@ -252,7 +252,7 @@ def test_safety_net_submit_result_done_blocked(db_path: Path) -> None:
 
 def test_safety_net_submit_result_done_system_comment(db_path: Path) -> None:
     """submit_result(new_status='done') → system-комментарий в задаче."""
-    from pride_tasks import db as _db
+    from devboard_tasks import db as _db
 
     t = tools.create_task(title="Submit with comment", db_path=db_path)
     tid = t["задача"]["id"]
@@ -266,7 +266,7 @@ def test_safety_net_submit_result_done_system_comment(db_path: Path) -> None:
 
 def test_safety_net_already_done_not_affected(db_path: Path) -> None:
     """Задача уже в done → safety-net не срабатывает повторно (edge case)."""
-    from pride_tasks import db as _db
+    from devboard_tasks import db as _db
 
     t = tools.create_task(title="Already done task", db_path=db_path)
     tid = t["задача"]["id"]

@@ -147,7 +147,7 @@ def _valid_plan(dept_name: str = "TestMarketing") -> dict:
 def test_init_db_idempotent(tmp_path):
     """init_db вызывается дважды без ошибок — миграция hr_sessions idempotent."""
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "mcp_server"))
-    from pride_tasks import db
+    from devboard_tasks import db
 
     dbp = tmp_path / "tasks.db"
     db.init_db(dbp)
@@ -168,7 +168,7 @@ def test_init_db_idempotent(tmp_path):
 def test_hr_sessions_crud(tmp_path):
     """create/get/update_hr_session работают."""
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "mcp_server"))
-    from pride_tasks import db
+    from devboard_tasks import db
 
     dbp = tmp_path / "tasks.db"
     db.init_db(dbp)
@@ -283,7 +283,7 @@ def test_hr_answer_requires_message(client, fake_popen):
 def test_respawn_hr_for_revise_spawns_new_process(tmp_path, fake_popen):
     """respawn_hr_for_revise создаёт новый subprocess и обновляет state → hr_planning."""
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "mcp_server"))
-    from pride_tasks import db
+    from devboard_tasks import db
 
     dbp = tmp_path / "tasks.db"
     db.init_db(dbp)
@@ -315,7 +315,7 @@ def test_respawn_hr_for_revise_no_db_path_returns_none():
 def test_respawn_hr_for_revise_missing_session_returns_none(tmp_path):
     """respawn_hr_for_revise с несуществующей сессией → None."""
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "mcp_server"))
-    from pride_tasks import db
+    from devboard_tasks import db
 
     dbp = tmp_path / "tasks.db"
     db.init_db(dbp)
@@ -327,7 +327,7 @@ def test_respawn_hr_for_revise_missing_session_returns_none(tmp_path):
 def test_respawn_hr_for_revise_initial_message_contains_prev_plan(tmp_path):
     """respawn_hr_for_revise передаёт предыдущий план в initial_message."""
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "mcp_server"))
-    from pride_tasks import db
+    from devboard_tasks import db
 
     dbp = tmp_path / "tasks.db"
     db.init_db(dbp)
@@ -670,7 +670,7 @@ def test_build_claude_cmd_override(monkeypatch):
 def test_hr_stream_reader_detects_chat_post(tmp_path):
     """_hr_stream_reader обновляет state при обнаружении chat_post с JSON-планом."""
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "mcp_server"))
-    from pride_tasks import db
+    from devboard_tasks import db
 
     dbp = tmp_path / "tasks.db"
     db.init_db(dbp)
@@ -684,7 +684,7 @@ def test_hr_stream_reader_detects_chat_post(tmp_path):
         "message": {
             "content": [{
                 "type": "tool_use",
-                "name": "mcp__pride-tasks__chat_post",
+                "name": "mcp__devboard-tasks__chat_post",
                 "input": {"text": text_with_plan},
             }]
         },
@@ -706,7 +706,7 @@ def test_hr_stream_reader_detects_chat_post(tmp_path):
 def test_hr_stream_reader_failed_without_plan(tmp_path):
     """_hr_stream_reader помечает state='failed' если subprocess завершился без плана."""
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "mcp_server"))
-    from pride_tasks import db
+    from devboard_tasks import db
 
     dbp = tmp_path / "tasks.db"
     db.init_db(dbp)

@@ -1,4 +1,4 @@
-"""Тесты автороутера моделей (pride_tasks.router).
+"""Тесты автороутера моделей (devboard_tasks.router).
 
 Покрываются:
   - `pick()` — все ветки выбора (пустая очередь, архитектура, destructive,
@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from pride_tasks import db, router
+from devboard_tasks import db, router
 
 
 def _t(title: str = "", desc: str = "", labels: list[str] | None = None) -> dict:

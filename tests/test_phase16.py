@@ -54,7 +54,7 @@ def client(tmp_path: Path):
 def test_no_pride_branding_in_roles() -> None:
     """B1: grep -ri 'ПРАЙД|PRIDE' roles/ не должен находить корпоративный брендинг.
 
-    Легитимные упоминания вида 'pride-tasks', 'mcp__pride', 'pride_tasks',
+    Легитимные упоминания вида 'devboard-tasks', 'mcp__pride', 'devboard_tasks',
     'pride_dev' — инструменты, не брендинг — исключены из проверки.
     """
     result = subprocess.run(
@@ -73,10 +73,10 @@ def test_no_pride_branding_in_roles() -> None:
         and not any(
             allowed in line
             for allowed in [
-                "pride-tasks",
+                "devboard-tasks",
                 "mcp__pride",
                 "mcp_pride",
-                "pride_tasks",
+                "devboard_tasks",
                 "pride_dev",
             ]
         )
@@ -164,7 +164,7 @@ def test_company_context_create_and_retrieve(tmp_path: Path, monkeypatch) -> Non
 
 def test_system_prompt_includes_company_context(tmp_path: Path) -> None:
     """B2: load_role_with_inherits prepends company-context в начало system_prompt."""
-    from pride_tasks.template_loader import load_role_with_inherits  # noqa: E402
+    from devboard_tasks.template_loader import load_role_with_inherits  # noqa: E402
 
     roles_root = tmp_path / "roles"
     vendored_root = tmp_path / "vendored"
@@ -250,7 +250,7 @@ def test_i18n_no_legacy_teamlead_phrases() -> None:
 
 def test_model_hint_haiku_wins(tmp_path: Path) -> None:
     """B5: Задача с model_hint='haiku' для dev-lead → pick_model_for_role() = 'haiku'."""
-    from pride_tasks import db as db_mod  # noqa: E402
+    from devboard_tasks import db as db_mod  # noqa: E402
     import app as app_module  # type: ignore[import]  # noqa: E402
 
     db_path = tmp_path / "tasks.db"

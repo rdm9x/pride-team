@@ -50,10 +50,10 @@ description: Python backend dev — writes code, tests, configs.
 llm: claude
 model: claude-sonnet-4-5
 tools:
-  - mcp__pride-tasks__get_task
-  - mcp__pride-tasks__add_comment
-  - mcp__pride-tasks__submit_result
-  - mcp__pride-tasks__claim_task
+  - mcp__devboard-tasks__get_task
+  - mcp__devboard-tasks__add_comment
+  - mcp__devboard-tasks__submit_result
+  - mcp__devboard-tasks__claim_task
   - Read
   - Write
   - Edit

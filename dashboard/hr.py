@@ -32,12 +32,12 @@ from pathlib import Path
 from threading import Lock
 from typing import Any, Optional
 
-# Гарантируем что mcp_server/ в sys.path для `from pride_tasks import db`.
+# Гарантируем что mcp_server/ в sys.path для `from devboard_tasks import db`.
 _MCP_DIR = Path(__file__).resolve().parent.parent / "mcp_server"
 if str(_MCP_DIR) not in sys.path:
     sys.path.insert(0, str(_MCP_DIR))
 
-from pride_tasks import db  # noqa: E402
+from devboard_tasks import db  # noqa: E402
 
 log = logging.getLogger("pride_dashboard.hr")
 
@@ -84,10 +84,10 @@ def _hr_system_prompt_text() -> str:
 def _build_claude_cmd(prompt_text: str, mcp_config: str, initial_message: str) -> list[str]:
     """Команда запуска claude CLI с HR system-prompt и полным набором флагов.
 
-    Используем PRIDE_HR_CLAUDE_CMD env override для тестов / нестандартных путей.
+    Используем DEVBOARD_HR_CLAUDE_CMD env override для тестов / нестандартных путей.
     По умолчанию — `claude` в PATH.
     """
-    override = os.environ.get("PRIDE_HR_CLAUDE_CMD")
+    override = os.environ.get("DEVBOARD_HR_CLAUDE_CMD")
     if override:
         # Разрешаем "python -u fake.py" и т.п.
         return shlex.split(override) + [
@@ -141,7 +141,7 @@ def _hr_stream_reader(session_id: str, proc: subprocess.Popen, db_path: Path) ->
             for block in event.get("message", {}).get("content", []):
                 if (
                     block.get("type") == "tool_use"
-                    and block.get("name") == "mcp__pride-tasks__chat_post"
+                    and block.get("name") == "mcp__devboard-tasks__chat_post"
                 ):
                     text = block.get("input", {}).get("text", "")
                     plan = _extract_plan_json(text)
@@ -178,9 +178,9 @@ def spawn_hr_subprocess(
     Возвращает Popen или None если spawn упал (логируем, не raise).
     """
     prompt_text = _hr_system_prompt_text()
-    # Путь к .mcp.json: PRIDE_MCP_CONFIG env или корень репо.
+    # Путь к .mcp.json: DEVBOARD_MCP_CONFIG env или корень репо.
     mcp_config = os.environ.get(
-        "PRIDE_MCP_CONFIG", str(_REPO_ROOT / ".mcp.json")
+        "DEVBOARD_MCP_CONFIG", str(_REPO_ROOT / ".mcp.json")
     )
     cmd = _build_claude_cmd(prompt_text, mcp_config, initial_message)
     env = dict(os.environ)
@@ -260,7 +260,7 @@ def respawn_hr_for_revise(
     close_hr_subprocess(session_id)
 
     prompt_text = _hr_system_prompt_text()
-    mcp_config = os.environ.get("PRIDE_MCP_CONFIG", str(_REPO_ROOT / ".mcp.json"))
+    mcp_config = os.environ.get("DEVBOARD_MCP_CONFIG", str(_REPO_ROOT / ".mcp.json"))
     cmd = _build_claude_cmd(prompt_text, mcp_config, initial_message)
     env = dict(os.environ)
     env.setdefault("PYTHONIOENCODING", "utf-8")

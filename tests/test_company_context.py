@@ -27,7 +27,7 @@ for _p in [str(_MCP_DIR), str(_DASHBOARD_DIR)]:
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from pride_tasks.template_loader import load_role_with_inherits, read_company_context  # noqa: E402
+from devboard_tasks.template_loader import load_role_with_inherits, read_company_context  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

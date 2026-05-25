@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Сборщик anonymized snapshot БД pride-tasks схемы v1.x (до ADR-003).
+"""Сборщик anonymized snapshot БД devboard-tasks схемы v1.x (до ADR-003).
 
 Используется one-time или при изменении v1.x схемы:
     python tests/fixtures/build_v1_6_snapshot.py
@@ -25,7 +25,7 @@ import json
 import sqlite3
 from pathlib import Path
 
-# v1.x SQLA schema — точная копия из git show f79e743^:mcp_server/pride_tasks/db.py
+# v1.x SQLA schema — точная копия из git show f79e743^:mcp_server/devboard_tasks/db.py
 SCHEMA_V1_SQL = """
 CREATE TABLE IF NOT EXISTS tasks (
   id TEXT PRIMARY KEY,

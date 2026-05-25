@@ -173,7 +173,7 @@ max_tokens: 16000
 
 - `Task tool` (Claude subagent) — он не работает в роли «специалиста», для него subagent'ы не нужны.
 - `Read/Write/Edit/Bash` — не пишет код и не правит файлы.
-- Прямой `mcp__pride-tasks__create_task` с чужим department — это идёт через REST (см. ADR-005).
+- Прямой `mcp__devboard-tasks__create_task` с чужим department — это идёт через REST (см. ADR-005).
 
 ### 2.3. Лиды отделов — `roles/<dept>/lead.md` (11 файлов)
 

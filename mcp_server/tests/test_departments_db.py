@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from pride_tasks import db
-from pride_tasks.models import DEFAULT_DEPARTMENT_ID
+from devboard_tasks import db
+from devboard_tasks.models import DEFAULT_DEPARTMENT_ID
 
 
 # ---------------------------------------------------------------------------

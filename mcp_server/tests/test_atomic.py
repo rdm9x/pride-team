@@ -11,7 +11,7 @@ import sqlite3
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-from pride_tasks import db, tools
+from devboard_tasks import db, tools
 
 
 def test_parallel_inserts_8_writers_8_keys(db_path: Path) -> None:

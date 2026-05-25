@@ -14,12 +14,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# Добавляем mcp_server в путь для импорта pride_tasks
+# Добавляем mcp_server в путь для импорта devboard_tasks
 _MCP_DIR = Path(__file__).resolve().parent.parent / "mcp_server"
 if str(_MCP_DIR) not in sys.path:
     sys.path.insert(0, str(_MCP_DIR))
 
-from pride_tasks import router
+from devboard_tasks import router
 
 
 def _task(title: str = "задача", model_hint: str | None = None, labels: list[str] | None = None) -> dict:

@@ -16,7 +16,7 @@ This document is for contributors who want to fix a bug, add a role, or plug in 
 |---|---|---|
 | Dashboard | Flask 3 + vanilla JS + Server-Sent Events | Zero build step, one process, opens in any browser |
 | Persistence | SQLite (WAL) + `fcntl` file-lock + `BEGIN IMMEDIATE` | Atomic writes, readable with `sqlite3` CLI |
-| Tool layer | MCP server `pride-tasks` (stdio) via `FastMCP` | Same 14 tools usable from agents and from Flask via direct import |
+| Tool layer | MCP server `devboard-tasks` (stdio) via `FastMCP` | Same 14 tools usable from agents and from Flask via direct import |
 | Agent runtime | `claude` CLI in `--print --output-format stream-json` mode | Headless, MCP-ready, stream parsable by SSE |
 | Model selection | Algorithmic router (`pride_tasks.router`) — no LLM, no tokens | Cheaper model when the queue is trivial, Opus when it's architectural |
 | Future providers | OpenAI / Ollama via `LLMProvider` abstraction (E6, see [ADR-001](docs/adr/0001-llm-provider.md)) | Drop-in alternatives, no claude-CLI dependency |

@@ -7,9 +7,9 @@ description: UI/UX Designer — ASCII wireframes, accessibility audits, UX copy 
 llm: claude
 model: claude-sonnet-4-6
 tools:
-  - mcp__pride-tasks__get_task
-  - mcp__pride-tasks__add_comment
-  - mcp__pride-tasks__submit_result
+  - mcp__devboard-tasks__get_task
+  - mcp__devboard-tasks__add_comment
+  - mcp__devboard-tasks__submit_result
   - Read
   - Write
   - Bash

@@ -41,7 +41,7 @@ _MCP_DIR = _REPO_ROOT / "mcp_server"
 if str(_MCP_DIR) not in sys.path:
     sys.path.insert(0, str(_MCP_DIR))
 
-from pride_tasks import db as _db  # noqa: E402
+from devboard_tasks import db as _db  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

@@ -322,7 +322,7 @@ def test_usage_endpoint_with_records(client, tmp_path) -> None:
     # Запишем пару сессий напрямую через db.record_claude_session
     import sys
     sys.path.insert(0, str(tmp_path.parent.parent.parent / "mcp_сервер"))
-    from pride_tasks import db as _db  # type: ignore
+    from devboard_tasks import db as _db  # type: ignore
 
     # client использует БД из tmp_path/tasks.db через фикстуру
     import app as dashboard_app  # type: ignore

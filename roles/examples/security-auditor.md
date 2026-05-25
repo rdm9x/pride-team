@@ -7,10 +7,10 @@ description: Security Auditor — OWASP code review, secrets detection, dependen
 llm: claude
 model: claude-sonnet-4-6
 tools:
-  - mcp__pride-tasks__get_task
-  - mcp__pride-tasks__add_comment
-  - mcp__pride-tasks__submit_result
-  - mcp__pride-tasks__create_task
+  - mcp__devboard-tasks__get_task
+  - mcp__devboard-tasks__add_comment
+  - mcp__devboard-tasks__submit_result
+  - mcp__devboard-tasks__create_task
   - Read
   - Bash
 temperature: 0.1

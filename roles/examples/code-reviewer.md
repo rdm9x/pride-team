@@ -7,9 +7,9 @@ description: Code Reviewer — reviews PRs for correctness, quality, and style c
 llm: claude
 model: claude-sonnet-4-6
 tools:
-  - mcp__pride-tasks__get_task
-  - mcp__pride-tasks__add_comment
-  - mcp__pride-tasks__submit_result
+  - mcp__devboard-tasks__get_task
+  - mcp__devboard-tasks__add_comment
+  - mcp__devboard-tasks__submit_result
   - Read
   - Bash
 temperature: 0.2

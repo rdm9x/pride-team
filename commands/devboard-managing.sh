@@ -9,7 +9,7 @@
 #
 # Используется `claude --print` (non-interactive) с:
 #  - системным промтом Управляющего (roles/управляющий.md);
-#  - MCP pride-tasks через .mcp.json в корне devboard;
+#  - MCP devboard-tasks через .mcp.json в корне devboard;
 #  - permission-mode=bypassPermissions (нужно для авто-выполнения tool-ов
 #    в headless-режиме без человека-оператора). Approval-gate'ы реализованы
 #    НА УРОВНЕ ROLE PROMPTS: Управляющий обязан создавать needs_approval-
@@ -31,9 +31,9 @@ MANAGING_PROMPT="$(cat "$REPO_ROOT/roles/управляющий.md")"
 
 TASK_PROMPT='Старт сессии Управляющего.
 
-1) ЧАТ с пользователем — mcp__pride-tasks__chat_recent(limit=20). Если есть
+1) ЧАТ с пользователем — mcp__devboard-tasks__chat_recent(limit=20). Если есть
    сообщения от него без твоего ответа — ответь через
-   mcp__pride-tasks__chat_post(author="управляющий", text="...") ДО задач.
+   mcp__devboard-tasks__chat_post(author="управляющий", text="...") ДО задач.
 
 2) Долгосрочная память — manager_memory_recent(limit=10). Сверься с контекстом
    предыдущих сессий.
@@ -77,12 +77,12 @@ else
     MODEL_ALIAS=$(
       PYTHONPATH="$REPO_ROOT/mcp_server" \
       "$REPO_ROOT/mcp_server/.venv/bin/python" \
-      -m pride_tasks.router model-only
+      -m devboard_tasks.router model-only
     )
     DECISION=$(
       PYTHONPATH="$REPO_ROOT/mcp_server" \
       "$REPO_ROOT/mcp_server/.venv/bin/python" \
-      -m pride_tasks.router pick
+      -m devboard_tasks.router pick
     )
     echo "🤖 роутер: $MODEL_ALIAS"
     echo "$DECISION"

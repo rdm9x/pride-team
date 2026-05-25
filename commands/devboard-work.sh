@@ -6,7 +6,7 @@
 #
 # Используется `claude --print` (non-interactive) с:
 #  - системным промтом тимлида (roles/dev/lead.md);
-#  - MCP pride-tasks через .mcp.json в корне devboard;
+#  - MCP devboard-tasks через .mcp.json в корне devboard;
 #  - permission-mode=bypassPermissions (нужно для авто-выполнения tool-ов
 #    в headless-режиме без человека-оператора). Approval-gate'ы реализованы
 #    НА УРОВНЕ ROLE PROMPTS: тимлид/бэкенд обязаны создавать needs_approval-
@@ -77,9 +77,9 @@ TEAMLEAD_PROMPT="$(cat "$ROLE_FILE")"
 
 TASK_PROMPT="Старт сессии тимлида.
 
-1) ЧАТ с пользователем — mcp__pride-tasks__chat_recent(limit=20). Если есть
+1) ЧАТ с пользователем — mcp__devboard-tasks__chat_recent(limit=20). Если есть
    сообщения от него без твоего ответа — ответь через
-   mcp__pride-tasks__chat_post(author=\"${ROLE_SLUG}\", text=\"...\") ДО задач.
+   mcp__devboard-tasks__chat_post(author=\"${ROLE_SLUG}\", text=\"...\") ДО задач.
 
 2) Канбан: list_tasks(status=\"todo\", assignee=\"${ROLE_SLUG}\"), потом wip, потом
    list_tasks(status=\"needs_approval\").
@@ -129,12 +129,12 @@ else
     MODEL_ALIAS=$(
       PYTHONPATH="$REPO_ROOT/mcp_server" \
       "$REPO_ROOT/mcp_server/.venv/bin/python" \
-      -m pride_tasks.router model-only
+      -m devboard_tasks.router model-only
     )
     DECISION=$(
       PYTHONPATH="$REPO_ROOT/mcp_server" \
       "$REPO_ROOT/mcp_server/.venv/bin/python" \
-      -m pride_tasks.router pick
+      -m devboard_tasks.router pick
     )
     echo "🤖 роутер: $MODEL_ALIAS"
     echo "$DECISION"

@@ -16,7 +16,7 @@ _MCP_DIR = Path(__file__).resolve().parent.parent / "mcp_server"
 if str(_MCP_DIR) not in sys.path:
     sys.path.insert(0, str(_MCP_DIR))
 
-from pride_tasks.parser import parse_task_description, ParsedTask
+from devboard_tasks.parser import parse_task_description, ParsedTask
 
 
 class TestExtractTldr:

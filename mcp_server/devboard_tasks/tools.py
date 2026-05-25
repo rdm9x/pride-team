@@ -13,8 +13,8 @@ import unicodedata
 from pathlib import Path
 from typing import Any, Optional
 
-from pride_tasks import db, parser
-from pride_tasks.models import DEFAULT_DEPARTMENT_ID, PRIORITIES, ROLES, STATUSES
+from devboard_tasks import db, parser
+from devboard_tasks.models import DEFAULT_DEPARTMENT_ID, PRIORITIES, ROLES, STATUSES
 
 logger = logging.getLogger(__name__)
 
@@ -429,7 +429,7 @@ def notify_user(
         text: тело сообщения (plain text, без markdown).
         level: info / warn / error / ok — управляет emoji-префиксом.
     """
-    from pride_tasks import alerts
+    from devboard_tasks import alerts
 
     alerter = alerts.from_env()
     if alerter is None:
@@ -1167,3 +1167,92 @@ def parse_task_description(task_id: str, *, db_path: Optional[Path] = None) -> d
         "статус": "ok",
         "parsed": parsed.to_dict(),
     }
+
+
+# === 14. register_task_artifact ===
+
+
+def register_task_artifact(
+    task_id: str,
+    file_path: str,
+    kind: str = "artifact",
+    *,
+    db_path: Optional[Path] = None,
+) -> dict[str, Any]:
+    """Зарегистрировать артефакт (файл) связанный с задачей.
+
+    Args:
+        task_id: id задачи (uuid-hex 12 символов)
+        file_path: относительный путь к файлу в workspace/ (например workspace/result.pdf)
+        kind: тип артефакта (по умолчанию 'artifact', другие значения: 'log', 'report', 'screenshot')
+
+    Returns:
+        {status, artifact_id, task_id, file_path, kind, created_at}
+    """
+    if not task_id:
+        return {"статус": "error", "status": "error", "причина": "task_id пустой", "reason": "task_id пустой"}
+
+    if not file_path:
+        return {"статус": "error", "status": "error", "причина": "file_path пустой", "reason": "file_path пустой"}
+
+    # Валидировать что path не выходит за workspace/
+    # Проверяем что path начинается с workspace/ или является относительным
+    path_obj = Path(file_path)
+
+    # Если абсолютный путь, это ошибка
+    if path_obj.is_absolute():
+        return {
+            "статус": "error",
+            "status": "error",
+            "причина": "file_path должен быть относительным",
+            "reason": "file_path должен быть относительным (относительно workspace/)"
+        }
+
+    # Проверяем что путь не выходит за пределы workspace/ через попытку разрешить с base
+    # Используем простую проверку: .. в пути недопустимо
+    if ".." in path_obj.parts:
+        return {
+            "статус": "error",
+            "status": "error",
+            "причина": "file_path не должен содержать ..",
+            "reason": "file_path не должен содержать .. (выход за пределы workspace/)"
+        }
+
+    db_path_resolved = _resolve_db_path(db_path)
+
+    # Проверяем что задача существует
+    task = db.get_task(db_path_resolved, task_id)
+    if task is None:
+        return {
+            "статус": "not_found",
+            "status": "not_found",
+            "task_id": task_id,
+            "причина": f"Задача {task_id} не найдена",
+            "reason": f"Task {task_id} not found"
+        }
+
+    # Вставляем артефакт
+    try:
+        artifact = db.insert_artifact(
+            db_path_resolved,
+            task_id=task_id,
+            file_path=file_path,
+            kind=kind
+        )
+        return {
+            "статус": "ok",
+            "status": "ok",
+            "artifact_id": artifact["id"],
+            "task_id": artifact["task_id"],
+            "file_path": artifact["file_path"],
+            "kind": artifact["kind"],
+            "created_at": artifact["created_at"],
+        }
+    except Exception as exc:
+        logger.error("register_task_artifact failed for task %s: %s", task_id, exc)
+        return {
+            "статус": "error",
+            "status": "error",
+            "причина": f"Ошибка при регистрации артефакта: {exc}",
+            "reason": f"Failed to register artifact: {exc}"
+        }

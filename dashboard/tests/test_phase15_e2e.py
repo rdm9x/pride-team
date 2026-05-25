@@ -41,7 +41,7 @@ for _p in (_MCP_DIR, _DASHBOARD_DIR):
         sys.path.insert(0, str(_p))
 
 import app as app_module  # noqa: E402
-from pride_tasks import db as _db  # noqa: E402
+from devboard_tasks import db as _db  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -314,7 +314,7 @@ def test_model_hint_sonnet_overrides_opus_labels(client) -> None:
     Даже если в очереди есть задача с label 'design' (Opus-триггер),
     явный model_hint='sonnet' должен победить.
     """
-    from pride_tasks.router import pick  # type: ignore
+    from devboard_tasks.router import pick  # type: ignore
 
     # Очередь: одна задача с model_hint=sonnet + одна архитектурная (без hint).
     tasks = [

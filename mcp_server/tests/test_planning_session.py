@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from pride_tasks import db, tools
+from devboard_tasks import db, tools
 
 
 _MD_ROLE = "managing-director"

@@ -1,4 +1,4 @@
-"""E8.5: Стресс-тест канбана pride-tasks на 1000 задач + SLA latency.
+"""E8.5: Стресс-тест канбана devboard-tasks на 1000 задач + SLA latency.
 
 Создаёт ВРЕМЕННУЮ БД (через tempfile.mkdtemp + PRIDE_TASKS_DB), наполняет её
 200 родительскими задачами + по 4 подзадачи каждой = 1000 задач, плюс 5000
@@ -99,7 +99,7 @@ def seed(db_path: Path) -> tuple[list[str], list[str]]:
 
     Возвращает (parent_ids, all_task_ids).
     """
-    from pride_tasks import db  # импорт после sys.path-патча
+    from devboard_tasks import db  # импорт после sys.path-патча
 
     db.init_db(db_path)
 
@@ -215,7 +215,7 @@ def detect_env() -> dict:
 
 def main() -> int:
     env = detect_env()
-    banner("E8.5 stress test — pride-tasks (1000 задач, 5000 chat-сообщений)")
+    banner("E8.5 stress test — devboard-tasks (1000 задач, 5000 chat-сообщений)")
     print(f"Python:       {env['python']}")
     print(f"SQLite:       {env['sqlite_lib']} (модуль {env['sqlite_module']})")
     print(f"OS:           {env['os']}")
@@ -231,7 +231,7 @@ def main() -> int:
     print(f"Temp DB:      {db_path}")
 
     try:
-        from pride_tasks import tools  # тулзы канбана
+        from devboard_tasks import tools  # тулзы канбана
 
         parent_ids, all_ids = seed(db_path)
         # WAL-checkpoint, чтобы первые читатели не получали страницы из WAL.

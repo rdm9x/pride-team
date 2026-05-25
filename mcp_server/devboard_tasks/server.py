@@ -1,7 +1,7 @@
-"""MCP-сервер pride-tasks — точка входа (stdio).
+"""MCP-сервер devboard-tasks — точка входа (stdio).
 
 Запуск:
-    python -m pride_tasks.server          # stdio для Claude Code
+    python -m devboard_tasks.server          # stdio для Claude Code
     или через .mcp.json в корне devboard
 
 Переменные окружения:
@@ -22,24 +22,24 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 from mcp.server.fastmcp import FastMCP  # noqa: E402
 
-from pride_tasks import alerts, db, tools  # noqa: E402
+from devboard_tasks import alerts, db, tools  # noqa: E402
 
 logging.basicConfig(
     level=os.environ.get("PRIDE_TASKS_LOG_LEVEL", "INFO"),
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
-log = logging.getLogger("pride_tasks.server")
+log = logging.getLogger("devboard_tasks.server")
 
 DB_PATH = db.default_db_path()
 db.init_db(DB_PATH)
-log.info("pride-tasks БД: %s", DB_PATH)
+log.info("devboard-tasks БД: %s", DB_PATH)
 
 # Подхватываем .env.local рядом с БД (TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID)
 _loaded = alerts.load_env_file(DB_PATH.parent / ".env.local")
 if _loaded:
     log.info("загружено %d env-переменных из data/.env.local", _loaded)
 
-mcp = FastMCP("pride-tasks")
+mcp = FastMCP("devboard-tasks")
 
 
 @mcp.tool()
@@ -250,6 +250,25 @@ def parse_task_description(task_id: str) -> dict[str, Any]:
 
 
 @mcp.tool()
+def register_task_artifact(
+    task_id: str,
+    file_path: str,
+    kind: str = "artifact",
+) -> dict[str, Any]:
+    """Зарегистрировать артефакт (файл) связанный с задачей.
+
+    Args:
+        task_id: id задачи (uuid-hex 12 символов).
+        file_path: относительный путь к файлу в workspace/ (например workspace/result.pdf).
+        kind: тип артефакта (по умолчанию 'artifact', другие значения: 'log', 'report', 'screenshot').
+
+    Returns:
+        {status, artifact_id, task_id, file_path, kind, created_at}
+    """
+    return tools.register_task_artifact(task_id=task_id, file_path=file_path, kind=kind)
+
+
+@mcp.tool()
 def list_departments() -> dict[str, Any]:
     """Список активных отделов с количеством открытых и общих задач."""
     return tools.list_departments()
@@ -453,7 +472,7 @@ def finalize_planning_session(
 
 
 def main() -> None:
-    log.info("pride-tasks MCP-сервер стартует (stdio)")
+    log.info("devboard-tasks MCP-сервер стартует (stdio)")
     mcp.run()
 
 

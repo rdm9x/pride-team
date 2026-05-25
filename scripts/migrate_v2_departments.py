@@ -25,7 +25,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT / "mcp_server"))
 
 try:
-    from pride_tasks.db import default_db_path
+    from devboard_tasks.db import default_db_path
 except ImportError:
     def default_db_path() -> Path:  # type: ignore[misc]
         return _REPO_ROOT / "data" / "tasks.db"

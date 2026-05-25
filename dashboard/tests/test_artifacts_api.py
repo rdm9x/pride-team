@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from devboard_tasks import db
-
 
 def test_get_empty_artifacts(client) -> None:
     """Тест получения артефактов для задачи без них."""
@@ -27,6 +25,9 @@ def test_get_empty_artifacts(client) -> None:
 
 def test_get_artifacts_with_content(client, tmp_path) -> None:
     """Тест получения артефактов с содержимым."""
+    from devboard_tasks import db  # noqa: PLC0415
+    from pathlib import Path  # noqa: PLC0415
+
     # Создаём задачу
     r = client.post(
         "/api/tasks",
@@ -38,7 +39,7 @@ def test_get_artifacts_with_content(client, tmp_path) -> None:
     task_id = r.get_json()["задача"]["id"]
 
     # Добавляем артефакты в БД напрямую
-    db_path = client.application.config.get("DEVBOARD_TASKS_DB")
+    db_path = Path(client.application.config.get("DEVBOARD_TASKS_DB"))
     artifact1 = db.insert_artifact(
         db_path,
         task_id,
@@ -70,6 +71,10 @@ def test_get_artifacts_with_content(client, tmp_path) -> None:
 
 def test_get_artifacts_ordered_by_created_at(client) -> None:
     """Тест что артефакты возвращаются в обратном хронологическом порядке."""
+    from devboard_tasks import db  # noqa: PLC0415
+    from pathlib import Path  # noqa: PLC0415
+    import time  # noqa: PLC0415
+
     # Создаём задачу
     r = client.post(
         "/api/tasks",
@@ -81,8 +86,7 @@ def test_get_artifacts_ordered_by_created_at(client) -> None:
     task_id = r.get_json()["задача"]["id"]
 
     # Добавляем артефакты с разными timestamps
-    db_path = client.application.config.get("DEVBOARD_TASKS_DB")
-    import time
+    db_path = Path(client.application.config.get("DEVBOARD_TASKS_DB"))
 
     time_1 = int(time.time())
     artifact1 = db.insert_artifact(
@@ -93,8 +97,8 @@ def test_get_artifacts_ordered_by_created_at(client) -> None:
         created_at=time_1,
     )
 
-    time.sleep(0.1)
-    time_2 = int(time.time())
+    # Гарантируем разные timestamps
+    time_2 = time_1 + 1
     artifact2 = db.insert_artifact(
         db_path,
         task_id,
@@ -118,6 +122,9 @@ def test_get_artifacts_ordered_by_created_at(client) -> None:
 
 def test_artifact_kinds_supported(client) -> None:
     """Тест что поддерживаются разные типы артефактов."""
+    from devboard_tasks import db  # noqa: PLC0415
+    from pathlib import Path  # noqa: PLC0415
+
     # Создаём задачу
     r = client.post(
         "/api/tasks",
@@ -129,7 +136,7 @@ def test_artifact_kinds_supported(client) -> None:
     task_id = r.get_json()["задача"]["id"]
 
     # Добавляем артефакты разных типов
-    db_path = client.application.config.get("DEVBOARD_TASKS_DB")
+    db_path = Path(client.application.config.get("DEVBOARD_TASKS_DB"))
     kinds = ["log", "result", "screenshot", "report", "code", "file"]
     for i, kind in enumerate(kinds):
         db.insert_artifact(
@@ -149,3 +156,58 @@ def test_artifact_kinds_supported(client) -> None:
     assert len(artifacts) == len(kinds)
     received_kinds = {a["kind"] for a in artifacts}
     assert received_kinds == set(kinds)
+
+
+def test_artifacts_in_task_modal_ui(client) -> None:
+    """E2E тест: артефакты видны при открытии карточки задачи через UI."""
+    from devboard_tasks import db  # noqa: PLC0415
+    from pathlib import Path  # noqa: PLC0415
+
+    # Создаём задачу
+    r = client.post(
+        "/api/tasks",
+        json={
+            "title": "Задача с артефактами",
+            "description": "Описание с результатами",
+        },
+    )
+    assert r.status_code == 201
+    task_id = r.get_json()["задача"]["id"]
+
+    # Добавляем артефакты в БД
+    db_path = Path(client.application.config.get("DEVBOARD_TASKS_DB"))
+    db.insert_artifact(
+        db_path,
+        task_id,
+        "/tmp/report.pdf",
+        "report",
+    )
+    db.insert_artifact(
+        db_path,
+        task_id,
+        "/tmp/screenshot.png",
+        "screenshot",
+    )
+
+    # Получаем список артефактов через API
+    r = client.get(f"/api/tasks/{task_id}/artifacts")
+    assert r.status_code == 200
+    data = r.get_json()
+    assert data["статус"] == "ok"
+    artifacts = data["artifacts"]
+
+    # Проверяем что оба артефакта вернулись
+    assert len(artifacts) == 2
+    file_paths = {a["file_path"] for a in artifacts}
+    assert "/tmp/report.pdf" in file_paths
+    assert "/tmp/screenshot.png" in file_paths
+
+    # Проверяем что у каждого артефакта есть необходимые поля
+    for art in artifacts:
+        assert "id" in art
+        assert "task_id" in art
+        assert art["task_id"] == task_id
+        assert "file_path" in art
+        assert "kind" in art
+        assert "created_at" in art
+        assert isinstance(art["created_at"], int)

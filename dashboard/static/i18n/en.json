@@ -221,6 +221,7 @@
     "auto_label": "🤖 Auto",
     "auto_title": "Auto mode: the team-lead starts the next session on their own when there's work",
     "btn_start": "▶ Start team",
+    "btn_start_role_aria": "Select role to start",
     "btn_stop": "⏹ Stop",
     "locale_aria": "Interface language",
     "locale": {
@@ -246,7 +247,8 @@
       "title": "Model the router will pick",
       "tooltip": "Auto model router.\nPick: {alias}\n{reason}\nTasks: {total} (arch {arch}, trivial {triv}, epics {epics})"
     },
-    "start_failed": "Could not start: "
+    "start_failed": "Could not start: ",
+    "started_as": "Running as: {role}"
   },
   "kanban": {
     "title": "Board",

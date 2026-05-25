@@ -297,6 +297,12 @@
     }
     const activeId = currentDepartment();
 
+    // F1 (1.6): после обновления кеша отделов — перерисуем popup ролей если он открыт.
+    try {
+      const popup = document.getElementById("start-role-popup");
+      if (popup && !popup.hidden) renderStartRolePopup();
+    } catch (_) {}
+
     wrap.innerHTML = "";
     depts.forEach((d) => {
       const btn = document.createElement("button");
@@ -2178,21 +2184,36 @@
     }
 
     // Статус команды
+    const startGroup = document.getElementById("start-btn-group");
+    const startedAs  = document.getElementById("team-started-as");
     if (s.status === "running") {
       badge.textContent = i18n("team.status.running");
       badge.className = "status running";
-      $("#btn-start").hidden = true;
+      if (startGroup) startGroup.hidden = true;
       $("#btn-stop").hidden = false;
+      // F1 (1.6): показываем роль активной сессии
+      if (startedAs) {
+        const roleSlug = s.role || "managing-director";
+        const roleName = roleSlug === "managing-director"
+          ? (i18n("managingDirector.label") || "Управляющий")
+          : displayRole(roleSlug);
+        const label = i18n("team.started_as").replace("{role}", roleName)
+          || ("Запущен: " + roleName);
+        startedAs.textContent = label;
+        startedAs.hidden = false;
+      }
     } else if (s.auto_mode && s.auto_pause_reason) {
       badge.textContent = i18n("team.status.auto_paused");
       badge.className = "status auto-paused";
-      $("#btn-start").hidden = false;
+      if (startGroup) startGroup.hidden = false;
       $("#btn-stop").hidden = true;
+      if (startedAs) startedAs.hidden = true;
     } else {
       badge.textContent = i18n("team.status.stopped");
       badge.className = "status stopped";
-      $("#btn-start").hidden = false;
+      if (startGroup) startGroup.hidden = false;
       $("#btn-stop").hidden = true;
+      if (startedAs) startedAs.hidden = true;
     }
   }
 
@@ -2222,19 +2243,105 @@
     });
     refreshTeamStatus();
   });
-  $("#btn-start").addEventListener("click", async () => {
+  // ===================== F1 (1.6): team start with role dropdown =====================
+  // Запуск команды с нужной ролью (role = slug отдела или "managing-director" для default)
+  async function _teamStart(roleSlug) {
     const expertise = localStorage.getItem("user_expertise") || "non-tech";
+    const body = { user_expertise: expertise };
+    // managing-director → default (без role), любой другой slug → пробрасываем
+    if (roleSlug && roleSlug !== "managing-director") {
+      body.role = roleSlug;
+    }
     const r = await fetch("/api/team/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_expertise: expertise }),
+      body: JSON.stringify(body),
     });
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
-      alert(i18n("team.start_failed") + (err.reason || r.status));
+      alert(i18n("team.start_failed") + (err.reason || err.причина || r.status));
     }
     refreshTeamStatus();
+  }
+
+  // Рендер popup-меню ролей на основе _departmentsCache + Управляющий
+  function renderStartRolePopup() {
+    const popup = document.getElementById("start-role-popup");
+    if (!popup) return;
+    popup.innerHTML = "";
+
+    // 1) Управляющий (default, всегда первый)
+    const mdBtn = document.createElement("button");
+    mdBtn.type = "button";
+    mdBtn.className = "start-role-item default-role";
+    mdBtn.setAttribute("role", "menuitem");
+    mdBtn.innerHTML = `<span class="role-ico">🏛</span><span class="role-lbl">${escapeHtml(i18n("managingDirector.label") || "Управляющий")}</span>`;
+    mdBtn.addEventListener("click", () => { closeStartRolePopup(); _teamStart("managing-director"); });
+    popup.appendChild(mdBtn);
+
+    // 2) Активные отделы из _departmentsCache
+    const depts = _departmentsCache || [];
+    depts.forEach((d) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "start-role-item";
+      btn.setAttribute("role", "menuitem");
+      const ico = d.icon || "🗂";
+      const name = deptDisplayName(d);
+      btn.innerHTML = `<span class="role-ico">${escapeHtml(ico)}</span><span class="role-lbl">${escapeHtml(name)}</span>`;
+      btn.addEventListener("click", () => { closeStartRolePopup(); _teamStart(d.id); });
+      popup.appendChild(btn);
+    });
+  }
+
+  function openStartRolePopup() {
+    const popup = document.getElementById("start-role-popup");
+    const chevron = document.getElementById("btn-start-dropdown");
+    if (!popup || !chevron) return;
+    renderStartRolePopup();
+    popup.hidden = false;
+    chevron.setAttribute("aria-expanded", "true");
+  }
+
+  function closeStartRolePopup() {
+    const popup = document.getElementById("start-role-popup");
+    const chevron = document.getElementById("btn-start-dropdown");
+    if (popup) popup.hidden = true;
+    if (chevron) chevron.setAttribute("aria-expanded", "false");
+  }
+
+  // Main start button → всегда managing-director (default)
+  $("#btn-start").addEventListener("click", () => _teamStart("managing-director"));
+
+  // Chevron → открываем popup
+  const _startDropdownBtn = document.getElementById("btn-start-dropdown");
+  if (_startDropdownBtn) {
+    _startDropdownBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const popup = document.getElementById("start-role-popup");
+      if (popup && !popup.hidden) {
+        closeStartRolePopup();
+      } else {
+        openStartRolePopup();
+      }
+    });
+  }
+
+  // Закрываем popup при клике вне
+  document.addEventListener("click", (e) => {
+    const group = document.getElementById("start-btn-group");
+    if (group && !group.contains(e.target)) {
+      closeStartRolePopup();
+    }
   });
+
+  // Закрываем popup по Escape
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeStartRolePopup();
+    }
+  });
+
   $("#btn-stop").addEventListener("click", async () => {
     await fetch("/api/team/stop", { method: "POST" });
     refreshTeamStatus();

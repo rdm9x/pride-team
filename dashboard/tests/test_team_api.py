@@ -88,9 +88,12 @@ def test_api_team_start_missing_script(client, reset_state, monkeypatch, tmp_pat
 
 
 def test_api_team_start_happy(client, reset_state, monkeypatch, tmp_path) -> None:
-    script_name = "devboard-work.ps1" if sys.platform == "win32" else "devboard-work.sh"
-    work_script = tmp_path / script_name
-    work_script.write_text("#!/bin/bash\n")
+    # B1 (ADR-009 Phase 1.5): default role = 'managing-director' → devboard-managing.sh.
+    # Создаём оба скрипта в tmp_path, чтобы тест работал и для дефолта, и для
+    # явной роли dev-lead (которая идёт через devboard-work.sh).
+    suffix = ".ps1" if sys.platform == "win32" else ".sh"
+    (tmp_path / f"devboard-managing{suffix}").write_text("#!/bin/bash\n")
+    (tmp_path / f"devboard-work{suffix}").write_text("#!/bin/bash\n")
     monkeypatch.setattr(app_module, "_COMMANDS_DIR", tmp_path)
     monkeypatch.setattr(app_module, "_PID_FILE", tmp_path / "team.pid")
     monkeypatch.setattr(app_module, "_LIVE_LOG", tmp_path / "team.log")

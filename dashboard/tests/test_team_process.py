@@ -71,8 +71,8 @@ def test_start_team_process_missing_script(reset_team_state, monkeypatch, tmp_pa
 
 
 def test_start_team_process_happy(reset_team_state, monkeypatch, tmp_path) -> None:
-    # Скрипт существует
-    script_name = "devboard-work.ps1" if sys.platform == "win32" else "devboard-work.sh"
+    # Скрипт существует; default role=managing-director → нужен devboard-managing.sh
+    script_name = "devboard-managing.ps1" if sys.platform == "win32" else "devboard-managing.sh"
     work_script = tmp_path / script_name
     work_script.write_text("#!/bin/bash\necho hi\n")
     monkeypatch.setattr(app_module, "_COMMANDS_DIR", tmp_path)
@@ -355,7 +355,8 @@ def test_start_team_process_sets_reader_thread(reset_team_state, monkeypatch, tm
     """_start_team_process должен записывать reader_thread в _team_state."""
     import threading
 
-    script_name = "devboard-work.ps1" if sys.platform == "win32" else "devboard-work.sh"
+    # default role=managing-director → нужен devboard-managing.sh
+    script_name = "devboard-managing.ps1" if sys.platform == "win32" else "devboard-managing.sh"
     work_script = tmp_path / script_name
     work_script.write_text("#!/bin/bash\necho hi\n")
     monkeypatch.setattr(app_module, "_COMMANDS_DIR", tmp_path)

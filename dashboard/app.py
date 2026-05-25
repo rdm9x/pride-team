@@ -463,15 +463,20 @@ def _stream_reader(proc: subprocess.Popen, queue: Queue, log_file: Path) -> None
     _auto_restore_delegated_tasks(delegated_ids)
 
 
-def _has_pending_work() -> bool:
-    """Есть ли задачи в очереди тимлида? (todo + wip + needs_approval кроме destructive)."""
+def _has_pending_work(dept_id: str = "dev") -> bool:
+    """Есть ли задачи в очереди лида отдела? (todo + wip + needs_approval кроме destructive).
+
+    dept_id — идентификатор отдела; assignee определяется через _find_lead_for_department.
+    Fallback: dept_id='dev' → assignee='тимлид' (обратная совместимость).
+    """
+    assignee = _find_lead_for_department(DB_PATH, dept_id) or "тимлид"
     try:
         for status in ("todo", "wip"):
-            tasks = db.list_tasks(DB_PATH, status=status, assignee="тимлид", limit=20)
+            tasks = db.list_tasks(DB_PATH, status=status, assignee=assignee, limit=20)
             if tasks:
                 return True
-        # needs_approval с assignee=тимлид (approved task ждут разморозки)
-        approval_tasks = db.list_tasks(DB_PATH, status="needs_approval", assignee="тимлид", limit=20)
+        # needs_approval с assignee=лид (approved task ждут разморозки)
+        approval_tasks = db.list_tasks(DB_PATH, status="needs_approval", assignee=assignee, limit=20)
         if approval_tasks:
             return True
     except Exception as exc:  # noqa: BLE001
@@ -529,11 +534,15 @@ def _auto_monitor_loop() -> None:
             log.warning("auto-monitor: исключение: %s", exc)
 
 
-def _start_team_process(triggered_by: str = "user") -> dict[str, Any]:
+def _start_team_process(triggered_by: str = "user", role: str = "managing-director") -> dict[str, Any]:
     """Запустить subprocess тимлида.
 
-    Выбор скрипта по платформе: на Windows — devboard-work.ps1 через
-    powershell, на macOS/Linux — devboard-work.sh через bash.
+    Выбор скрипта зависит от роли (role):
+      - 'managing-director' → devboard-managing.sh (или .ps1 на Windows)
+      - остальные роли → devboard-work.sh --role <role> (или .ps1 --role <role>)
+
+    Выбор платформы: на Windows — .ps1 через powershell,
+    на macOS/Linux — .sh через bash.
     """
 
     with _team_state["lock"]:
@@ -541,19 +550,38 @@ def _start_team_process(triggered_by: str = "user") -> dict[str, Any]:
         if proc is not None and proc.poll() is None:
             return {"ok": False, "reason": "already_running", "pid": proc.pid}
 
-        if sys.platform == "win32":
-            work_script = _COMMANDS_DIR / "devboard-work.ps1"
-            cmd = [
-                "powershell",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-NoProfile",
-                "-File",
-                str(work_script),
-            ]
+        if role == "managing-director":
+            # Управляющий — отдельный скрипт
+            if sys.platform == "win32":
+                work_script = _COMMANDS_DIR / "devboard-managing.ps1"
+                cmd = [
+                    "powershell",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-NoProfile",
+                    "-File",
+                    str(work_script),
+                ]
+            else:
+                work_script = _COMMANDS_DIR / "devboard-managing.sh"
+                cmd = ["/bin/bash", str(work_script)]
         else:
-            work_script = _COMMANDS_DIR / "devboard-work.sh"
-            cmd = ["/bin/bash", str(work_script)]
+            # Любая другая роль — devboard-work.sh --role <slug>
+            if sys.platform == "win32":
+                work_script = _COMMANDS_DIR / "devboard-work.ps1"
+                cmd = [
+                    "powershell",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-NoProfile",
+                    "-File",
+                    str(work_script),
+                    "--role",
+                    role,
+                ]
+            else:
+                work_script = _COMMANDS_DIR / "devboard-work.sh"
+                cmd = ["/bin/bash", str(work_script), "--role", role]
 
         if not work_script.exists():
             return {"ok": False, "reason": "missing_script", "path": str(work_script)}
@@ -2353,7 +2381,10 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         expertise_file.parent.mkdir(exist_ok=True)
         expertise_file.write_text(user_expertise)
 
-        res = _start_team_process()
+        # Роль для запуска: managing-director (default) или slug другой роли
+        role = body.get("role", "managing-director") or "managing-director"
+
+        res = _start_team_process(role=role)
         if not res["ok"]:
             return jsonify({"статус": "error", **res}), 409
         return jsonify({"статус": "ok", **res})
@@ -3069,11 +3100,19 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
 
         created_ids: list[str] = []
 
+        # Определяем assignee через текущий отдел (X-Department > cookie > fallback 'dev')
+        _demo_dept = (
+            request.headers.get("X-Department")
+            or request.cookies.get("current_department")
+            or "dev"
+        )
+        _demo_lead = _find_lead_for_department(_db(), _demo_dept) or "тимлид"
+
         # Epic: Build a landing page
         epic_res = tools.create_task(
             title="Build a landing page",
             description="Верстаем лендинг для продукта. Эпик-задача.",
-            assignee="тимлид",
+            assignee=_demo_lead,
             reporter="пользователь",
             priority="P1",
             status="wip",

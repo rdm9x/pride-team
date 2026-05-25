@@ -160,11 +160,11 @@ class TestThreadsCreateEndpoint:
         resp = client.post("/api/threads", json={
             "title": "Collab Thread",
             "kind": "planning",
-            "participants": ["owner", "managing-director", "dev-lead"]
+            "participants": ["пользователь", "managing-director", "dev-lead"]
         })
         assert resp.status_code == 201
         data = resp.get_json()
-        assert data["thread"]["participants"] == ["owner", "managing-director", "dev-lead"]
+        assert data["thread"]["participants"] == ["пользователь", "managing-director", "dev-lead"]
 
     def test_create_thread_missing_title(self, client):
         """Missing title → 400."""

@@ -3077,13 +3077,6 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         except Exception as exc:  # noqa: BLE001
             return jsonify({"статус": "error", "status": "error", "причина": str(exc)}), 400
 
-    @app.post("/api/threads/<thread_id>/stop")
-    def api_stop_thread(thread_id: str) -> Any:
-        """POST /api/threads/<id>/stop — остановить планёрку (Phase 3b later).
-        Заглушка для будущих этапов.
-        """
-        return jsonify({"статус": "not_implemented", "status": "not_implemented", "причина": "Phase 3b"}), 501
-
     # === Planning sessions (ADR-009 §2.4 / §2.7.3) ===
     # Read-only HTTP-проекция planning_sessions для UI-индикатора в общем чате.
     # MCP-tools (start/collect/finalize) живут в mcp_server — UI их не дёргает.

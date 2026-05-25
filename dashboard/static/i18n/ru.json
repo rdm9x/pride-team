@@ -502,6 +502,9 @@
       "title": "Архив"
     },
     "title": "Чат с командой",
+    "input_placeholder": "Напиши сообщение… (Cmd/Ctrl+Enter для отправки)",
+    "send_button": "Отправить",
+    "start_session_button": "Запустить сессию",
     "title_managing_director": "Чат с Управляющим",
     "collapse_title": "Свернуть чат",
     "expand_title": "Развернуть чат",
@@ -801,10 +804,5 @@
       "empty": "Нет задач",
       "add_btn": "+ Добавить задачу"
     }
-  },
-  "chat": {
-    "input_placeholder": "Напиши сообщение… (Cmd/Ctrl+Enter для отправки)",
-    "send_button": "Отправить",
-    "start_session_button": "Запустить сессию"
   }
 }

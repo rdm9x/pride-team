@@ -502,6 +502,9 @@
       "title": "Archive"
     },
     "title": "Chat with team",
+    "input_placeholder": "Type message… (Cmd/Ctrl+Enter to send)",
+    "send_button": "Send",
+    "start_session_button": "Start Session",
     "title_managing_director": "Chat with Managing Director",
     "collapse_title": "Collapse chat",
     "expand_title": "Expand chat",
@@ -796,10 +799,5 @@
       "empty": "No tasks",
       "add_btn": "+ Add task"
     }
-  },
-  "chat": {
-    "input_placeholder": "Type message… (Cmd/Ctrl+Enter to send)",
-    "send_button": "Send",
-    "start_session_button": "Start Session"
   }
 }

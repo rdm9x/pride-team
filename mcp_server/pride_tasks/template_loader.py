@@ -4,6 +4,9 @@
 для роли v2-шаблона: base body из roles/<dept>/<slug>.md + содержимое всех
 SKILL.md из inherits_skills (из vendored/knowledge-work-plugins/<dept>/skills/<skill>/SKILL.md).
 
+Также инжектирует company-context из data/company-context.md в начало system_prompt
+(B2 1.6 onboarding: если файл есть — препендируется «## Контекст компании»).
+
 Используется dashboard endpoint POST /api/departments (см. app.py) когда
 template_id оканчивается на '-v2' — это fast-path, минуя HR-pipeline (ADR-004).
 
@@ -14,6 +17,29 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+
+# Путь к data/company-context.md относительно repo root.
+# Может быть переопределён в тестах через monkeypatch.
+_DEFAULT_COMPANY_CONTEXT_PATH: Path | None = None
+
+
+def _get_company_context_path() -> Path:
+    """Вернуть путь к data/company-context.md.
+
+    По умолчанию: <repo_root>/data/company-context.md.
+    Repo root = родитель родителя этого файла (mcp_server/pride_tasks/).
+    """
+    if _DEFAULT_COMPANY_CONTEXT_PATH is not None:
+        return _DEFAULT_COMPANY_CONTEXT_PATH
+    return Path(__file__).resolve().parents[2] / "data" / "company-context.md"
+
+
+def read_company_context(company_context_path: Path | None = None) -> str | None:
+    """Прочитать data/company-context.md. Возвращает None если файл отсутствует."""
+    path = company_context_path if company_context_path is not None else _get_company_context_path()
+    if not path.is_file():
+        return None
+    return path.read_text(encoding="utf-8")
 
 
 def _read_skill_md(vendored_root: Path, dept_slug: str, skill_slug: str) -> str | None:
@@ -42,6 +68,7 @@ def load_role_with_inherits(
     vendored_root: Path,
     *,
     roles_root: Path,
+    company_context_path: Path | None = None,
 ) -> str:
     """Собрать финальный system_prompt для роли из v2-шаблона.
 
@@ -50,9 +77,11 @@ def load_role_with_inherits(
         dept_slug: slug отдела (e.g. 'marketing').
         vendored_root: путь к vendored/knowledge-work-plugins/.
         roles_root: путь к roles/ (репо-уровень).
+        company_context_path: переопределить путь к data/company-context.md (для тестов).
 
     Returns:
-        Строка: base content из roles/<dept>/<slug>.md (если есть) +
+        Строка: (опц.) «## Контекст компании» из company-context.md +
+        base content из roles/<dept>/<slug>.md (если есть) +
         '\\n\\n## Inherited skills\\n\\n' + конкатенация всех SKILL.md
         (каждая под '### Skill: <slug>'). Если inherits_skills пустой —
         возвращается только base без секции Inherited skills.
@@ -75,32 +104,41 @@ def load_role_with_inherits(
 
     base = _read_role_base(roles_root, dept_slug, role_slug)
 
-    # Если нет наследуемых скиллов — возвращаем только base (или пустую строку).
+    # Собираем основной prompt (base + inherited skills).
     if not inherits:
-        return base
+        core = base
+    else:
+        # Загружаем скиллы, собираем missing.
+        skill_chunks: list[str] = []
+        missing: list[str] = []
+        for skill in inherits:
+            content = _read_skill_md(vendored_root, dept_slug, skill)
+            if content is None:
+                missing.append(skill)
+                continue
+            skill_chunks.append(f"### Skill: {skill}\n\n{content.strip()}\n")
 
-    # Загружаем скиллы, собираем missing.
-    skill_chunks: list[str] = []
-    missing: list[str] = []
-    for skill in inherits:
-        content = _read_skill_md(vendored_root, dept_slug, skill)
-        if content is None:
-            missing.append(skill)
-            continue
-        skill_chunks.append(f"### Skill: {skill}\n\n{content.strip()}\n")
+        if missing:
+            raise ValueError(
+                f"role {role_slug}: missing SKILL.md files in "
+                f"{vendored_root}/{dept_slug}/skills/: {missing}"
+            )
 
-    if missing:
-        raise ValueError(
-            f"role {role_slug}: missing SKILL.md files in "
-            f"{vendored_root}/{dept_slug}/skills/: {missing}"
-        )
+        parts: list[str] = []
+        if base.strip():
+            parts.append(base.rstrip())
+        parts.append("## Inherited skills")
+        parts.extend(skill_chunks)
+        core = ("\n\n".join(parts).rstrip() + "\n")
 
-    parts: list[str] = []
-    if base.strip():
-        parts.append(base.rstrip())
-    parts.append("## Inherited skills")
-    parts.extend(skill_chunks)
-    return "\n\n".join(parts).rstrip() + "\n"
+    # Инжектируем company-context в начало system_prompt (B2 1.6).
+    company_ctx = read_company_context(company_context_path)
+    if company_ctx:
+        header = "## Контекст компании\n\n" + company_ctx.strip()
+        if core.strip():
+            return header + "\n\n" + core
+        return header + "\n"
+    return core
 
 
-__all__ = ["load_role_with_inherits"]
+__all__ = ["load_role_with_inherits", "read_company_context"]

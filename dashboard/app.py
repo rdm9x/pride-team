@@ -3094,6 +3094,82 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             "last_backup": last_backup,
         })
 
+    # === Onboarding: company context (B2 1.6) ===
+
+    _COMPANY_CONTEXT_PATH = _DATA_DIR / "company-context.md"
+
+    @app.get("/api/onboarding/company-context")
+    def api_get_company_context() -> Any:
+        """Вернуть содержимое data/company-context.md.
+
+        Returns:
+            {"exists": True, "content": "<markdown>"} — если файл есть.
+            {"exists": False, "content": null} — если файла нет.
+        """
+        if _COMPANY_CONTEXT_PATH.is_file():
+            content = _COMPANY_CONTEXT_PATH.read_text(encoding="utf-8")
+            return jsonify({"exists": True, "content": content})
+        return jsonify({"exists": False, "content": None})
+
+    @app.post("/api/onboarding/company-context")
+    def api_post_company_context() -> Any:
+        """Сохранить контекст компании в data/company-context.md.
+
+        Body (JSON): {
+            "name": "...",
+            "description": "...",
+            "brand_voice": "...",   # опционально
+            "values": "...",        # опционально
+            "audience": "..."       # опционально
+        }
+
+        Returns:
+            {"status": "ok", "path": "data/company-context.md"}
+        """
+        data = request.get_json(silent=True) or {}
+        name = (data.get("name") or "").strip()
+        description = (data.get("description") or "").strip()
+        brand_voice = (data.get("brand_voice") or "").strip()
+        values = (data.get("values") or "").strip()
+        audience = (data.get("audience") or "").strip()
+
+        if not name:
+            return jsonify({
+                "status": "error",
+                "статус": "error",
+                "reason": "поле 'name' обязательно",
+                "причина": "поле 'name' обязательно",
+            }), 400
+
+        md_lines = [
+            "---",
+            f"name: {name}",
+            f"description: {description}",
+            f"brand_voice: {brand_voice}",
+            f"values: {values}",
+            f"audience: {audience}",
+            "---",
+            "",
+            "## Контекст компании",
+            "",
+            f"**Название:** {name}",
+            "",
+            f"**Чем занимается:** {description}",
+            "",
+            f"**Brand voice:** {brand_voice}",
+            "",
+            f"**Ценности:** {values}",
+            "",
+            f"**Целевая аудитория:** {audience}",
+            "",
+        ]
+        md_content = "\n".join(md_lines)
+
+        _DATA_DIR.mkdir(parents=True, exist_ok=True)
+        _COMPANY_CONTEXT_PATH.write_text(md_content, encoding="utf-8")
+
+        return jsonify({"status": "ok", "path": "data/company-context.md"}), 200
+
     @app.post("/api/open-folder")
     def api_open_folder() -> Any:
         """Открыть папку в системном файловом менеджере (macOS: Finder, Linux: xdg-open).

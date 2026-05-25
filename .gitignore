@@ -110,6 +110,7 @@ data/*.log
 data/backups/
 data/.env.local
 data/.output_locale
+data/company-context.md
 
 # -----------------------------------------------------------------------------
 # Claude Code / MCP — локальные настройки агентов

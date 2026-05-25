@@ -12,10 +12,49 @@ $env:PYTHONUTF8           = "1"
 try { chcp 65001 > $null } catch {}
 
 $REPO_ROOT = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$ROLE_FILE = Join-Path $REPO_ROOT "roles\dev\lead.md"
+
+# === Парсинг --role <slug> ===
+# Backward compat: если --role не передан, default = dev-lead (тимлид dev-отдела).
+$RoleSlug = "dev-lead"
+for ($i = 0; $i -lt $args.Count; $i++) {
+    if ($args[$i] -eq "--role" -and ($i + 1) -lt $args.Count) {
+        $RoleSlug = $args[$i + 1]
+        $i++
+    }
+}
+
+# === Поиск файла роли ===
+# Если слаг содержит '/' — прямой путь: roles\<slug>.md
+# Иначе ищем по порядку:
+#   1. roles\<slug>.md
+#   2. roles\dev\<slug>.md
+#   3. roles\marketing\<slug>.md
+#   4. Паттерн <dept>-<role>: roles\<dept>\<role>.md (например dev-lead → roles\dev\lead.md)
+$RoleSlugPath = $RoleSlug.Replace("/", "\")
+if ($RoleSlug -match "/") {
+    $ROLE_FILE = Join-Path $REPO_ROOT "roles\$RoleSlugPath.md"
+} elseif (Test-Path (Join-Path $REPO_ROOT "roles\$RoleSlug.md")) {
+    $ROLE_FILE = Join-Path $REPO_ROOT "roles\$RoleSlug.md"
+} elseif (Test-Path (Join-Path $REPO_ROOT "roles\dev\$RoleSlug.md")) {
+    $ROLE_FILE = Join-Path $REPO_ROOT "roles\dev\$RoleSlug.md"
+} elseif (Test-Path (Join-Path $REPO_ROOT "roles\marketing\$RoleSlug.md")) {
+    $ROLE_FILE = Join-Path $REPO_ROOT "roles\marketing\$RoleSlug.md"
+} elseif ($RoleSlug -match "^([^-]+)-(.+)$") {
+    # Паттерн <dept>-<role> → roles\<dept>\<role>.md
+    $DeptPart = $Matches[1]
+    $RolePart = $Matches[2]
+    $CandidateFile = Join-Path $REPO_ROOT "roles\$DeptPart\$RolePart.md"
+    if (Test-Path $CandidateFile) {
+        $ROLE_FILE = $CandidateFile
+    } else {
+        $ROLE_FILE = Join-Path $REPO_ROOT "roles\$RoleSlug.md"
+    }
+} else {
+    $ROLE_FILE = Join-Path $REPO_ROOT "roles\$RoleSlug.md"
+}
 
 if (-not (Test-Path $ROLE_FILE)) {
-    Write-Error "Не найден файл роли: $ROLE_FILE"
+    Write-Error "Не найден файл роли: $ROLE_FILE (slug='$RoleSlug')"
     exit 1
 }
 
@@ -26,9 +65,9 @@ $TaskPrompt = @"
 
 1) ЧАТ с пользователем — mcp__pride-tasks__chat_recent(limit=20). Если есть
    сообщения от него без твоего ответа — ответь через
-   mcp__pride-tasks__chat_post(author="тимлид", text="...") ДО задач.
+   mcp__pride-tasks__chat_post(author="$RoleSlug", text="...") ДО задач.
 
-2) Канбан: list_tasks(status="todo", assignee="тимлид"), потом wip, потом
+2) Канбан: list_tasks(status="todo", assignee="$RoleSlug"), потом wip, потом
    list_tasks(status="needs_approval").
 
 3) Для каждой новой: декомпозируй на 2-6 атомарных подзадач (create_task
@@ -36,7 +75,7 @@ $TaskPrompt = @"
 
 4) Собери результаты, ревьюй, обнови статусы.
 
-5) Финал: chat_post(author="тимлид", text="итоги: ...") — короткое резюме
+5) Финал: chat_post(author="$RoleSlug", text="итоги: ...") — короткое резюме
    для пользователя. Какие задачи в review, какие нуждаются в одобрении.
 "@
 

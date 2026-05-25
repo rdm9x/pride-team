@@ -23,31 +23,76 @@ export ANTHROPIC_PROMPT_CACHING_ENABLED=1
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-if [[ ! -f "$REPO_ROOT/roles/dev/lead.md" ]]; then
-    echo "Не найден roles/dev/lead.md в $REPO_ROOT" >&2
+# === Парсинг --role <slug> ===
+# Backward compat: если --role не передан, default = dev-lead (тимлид dev-отдела).
+ROLE_SLUG="dev-lead"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --role)
+            ROLE_SLUG="${2:-}"
+            shift 2
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
+# === Поиск файла роли ===
+# Если слаг содержит '/' — прямой путь: roles/<slug>.md
+# Иначе ищем по порядку:
+#   1. roles/<slug>.md
+#   2. roles/dev/<slug>.md
+#   3. roles/marketing/<slug>.md
+#   4. Паттерн <dept>-<role>: roles/<dept>/<role>.md (например dev-lead → roles/dev/lead.md)
+if [[ "$ROLE_SLUG" == *"/"* ]]; then
+    ROLE_FILE="$REPO_ROOT/roles/${ROLE_SLUG}.md"
+else
+    if [[ -f "$REPO_ROOT/roles/${ROLE_SLUG}.md" ]]; then
+        ROLE_FILE="$REPO_ROOT/roles/${ROLE_SLUG}.md"
+    elif [[ -f "$REPO_ROOT/roles/dev/${ROLE_SLUG}.md" ]]; then
+        ROLE_FILE="$REPO_ROOT/roles/dev/${ROLE_SLUG}.md"
+    elif [[ -f "$REPO_ROOT/roles/marketing/${ROLE_SLUG}.md" ]]; then
+        ROLE_FILE="$REPO_ROOT/roles/marketing/${ROLE_SLUG}.md"
+    elif [[ "$ROLE_SLUG" == *"-"* ]]; then
+        # Паттерн <dept>-<role> → roles/<dept>/<role>.md
+        _DEPT="${ROLE_SLUG%%-*}"
+        _ROLE="${ROLE_SLUG#*-}"
+        if [[ -f "$REPO_ROOT/roles/${_DEPT}/${_ROLE}.md" ]]; then
+            ROLE_FILE="$REPO_ROOT/roles/${_DEPT}/${_ROLE}.md"
+        else
+            ROLE_FILE="$REPO_ROOT/roles/${ROLE_SLUG}.md"
+        fi
+    else
+        ROLE_FILE="$REPO_ROOT/roles/${ROLE_SLUG}.md"
+    fi
+fi
+
+if [[ ! -f "$ROLE_FILE" ]]; then
+    echo "Не найден файл роли: $ROLE_FILE (slug='$ROLE_SLUG')" >&2
     exit 1
 fi
 
-TEAMLEAD_PROMPT="$(cat "$REPO_ROOT/roles/dev/lead.md")"
+TEAMLEAD_PROMPT="$(cat "$ROLE_FILE")"
 
-TASK_PROMPT='Старт сессии тимлида.
+TASK_PROMPT="Старт сессии тимлида.
 
 1) ЧАТ с пользователем — mcp__pride-tasks__chat_recent(limit=20). Если есть
    сообщения от него без твоего ответа — ответь через
-   mcp__pride-tasks__chat_post(author="тимлид", text="...") ДО задач.
+   mcp__pride-tasks__chat_post(author=\"${ROLE_SLUG}\", text=\"...\") ДО задач.
 
-2) Канбан: list_tasks(status="todo", assignee="тимлид"), потом wip, потом
-   list_tasks(status="needs_approval").
+2) Канбан: list_tasks(status=\"todo\", assignee=\"${ROLE_SLUG}\"), потом wip, потом
+   list_tasks(status=\"needs_approval\").
 
 3) Для каждой новой: декомпозируй на 2-6 атомарных подзадач (create_task
-   с parent_id, assignee=бэкенд|qa). Subagent'\''ы — параллельно через Task tool
+   с parent_id, assignee=бэкенд|qa). Subagent'ы — параллельно через Task tool
    (subagent_type=general-purpose, prompt = roles/бэкенд.md или roles/qa.md
    + описание подзадачи + id).
 
 4) Собери результаты, ревьюй, обнови статусы родительских задач.
 
-5) Финал: chat_post(author="тимлид", text="итоги: ...") — короткое резюме
-   для пользователя. Какие задачи в review, какие нуждаются в одобрении.'
+5) Финал: chat_post(author=\"${ROLE_SLUG}\", text=\"итоги: ...\") — короткое резюме
+   для пользователя. Какие задачи в review, какие нуждаются в одобрении."
 
 cd "$REPO_ROOT"
 

@@ -184,10 +184,12 @@ def test_pick_model_hint_does_not_override_destructive() -> None:
     assert "destructive" in decision["reason"]
 
 
-def test_pick_model_hint_does_not_override_architectural() -> None:
-    # Архитектурный label приоритетнее hint haiku.
+def test_pick_model_hint_overrides_architectural() -> None:
+    # B5 fix: явный model_hint пользователя переопределяет авто-детекцию архитектурных labels.
+    # Если пользователь явно выбрал haiku — уважаем его выбор даже для задач с label=design.
     decision = router.pick([_th(title="arch", model_hint="haiku", labels=["design"])])
-    assert decision["model_alias"] == "opus"
+    assert decision["model_alias"] == "haiku"
+    assert "model_hint" in decision["reason"]
 
 
 def test_pick_model_hint_none_ignored() -> None:

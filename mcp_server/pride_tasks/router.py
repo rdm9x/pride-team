@@ -95,16 +95,19 @@ def pick(open_tasks: list[dict[str, Any]]) -> dict[str, Any]:
     elif has_destructive:
         choice = "opus"
         reason = "есть destructive operations — Opus для аккуратности и проверки"
-    elif n_archi > 0:
-        choice = "opus"
-        reason = f"архитектурных задач (по label): {n_archi} — Opus для design/decomposition"
     elif hint_max_alias is not None:
-        # Явный model_hint пользователя — уважаем его выбор (ADR-006 §2.3)
+        # Явный model_hint пользователя — переопределяет авто-детекцию по labels (ADR-006 §2.3).
+        # B5 fix: hint проверяется ДО архитектурных labels, чтобы явный выбор пользователя
+        # (model_hint=sonnet) не игнорировался из-за architectural-задач других issues в очереди.
+        # Исключение — только destructive (выше), т.к. это вопрос безопасности.
         choice = hint_max_alias
         reason = (
             f"model_hint от пользователя: {hint_max_alias}"
             f" (opus×{n_hint_opus} sonnet×{n_hint_sonnet} haiku×{n_hint_haiku})"
         )
+    elif n_archi > 0:
+        choice = "opus"
+        reason = f"архитектурных задач (по label): {n_archi} — Opus для design/decomposition"
     elif n_trivial > 0 and n_trivial == n_total:
         choice = "haiku"
         reason = f"только тривиальные задачи: {n_trivial} — Haiku хватит"

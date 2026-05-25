@@ -1127,7 +1127,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
 
     @app.get("/")
     def index() -> str:
-        return render_template("kanban.html")
+        return render_template("owner-dashboard.html")
 
     @app.get("/chat")
     def chat() -> str:

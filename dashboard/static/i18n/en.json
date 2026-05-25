@@ -1,5 +1,6 @@
 {
   "onboarding": {
+    "chat_moved": "This is the new place to chat with the Managing Director. The right panel has been moved here.",
     "tour": {
       "skip": "Skip",
       "prev": "Back",
@@ -494,6 +495,12 @@
     }
   },
   "chat": {
+    "page": {
+      "title": "Chat · devboard"
+    },
+    "archive": {
+      "title": "Archive"
+    },
     "title": "Chat with team",
     "title_managing_director": "Chat with Managing Director",
     "collapse_title": "Collapse chat",
@@ -749,6 +756,18 @@
     "btn_open_learn": "Open tutorial",
     "btn_skip": "Skip"
   },
+  "planning": {
+    "create": {
+      "title": "Gather Planning Session",
+      "departments_label": "Departments",
+      "rounds_label": "Rounds",
+      "topic_label": "Topic",
+      "topic_placeholder": "Enter planning topic…",
+      "button": "Create planning session",
+      "button_disabled_hint": "Available in Phase 3b"
+    },
+    "loading": "Loading…"
+  },
   "demo": {
     "btn_load": "Load demo",
     "btn_clear": "Clear demo",
@@ -760,5 +779,27 @@
     "cleared": "Demo data cleared",
     "already_exists": "Demo data is already loaded.",
     "alreadyLoaded": "Demo already loaded. Click «Clear demo» to reset."
+  },
+  "f4": {
+    "planning": {
+      "title": "Gather Planning Session",
+      "departments": "Departments",
+      "rounds": "Rounds",
+      "title_input": "Topic",
+      "title_placeholder": "Planning session description…",
+      "create_btn": "Create planning session",
+      "phase3b": "Available in Phase 3b"
+    },
+    "tasks": {
+      "title": "Managing Director Tasks",
+      "aria_label": "Managing Director tasks",
+      "empty": "No tasks",
+      "add_btn": "+ Add task"
+    }
+  },
+  "chat": {
+    "input_placeholder": "Type message… (Cmd/Ctrl+Enter to send)",
+    "send_button": "Send",
+    "start_session_button": "Start Session"
   }
 }

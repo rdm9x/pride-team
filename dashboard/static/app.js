@@ -5264,7 +5264,7 @@
     const tooltip = document.createElement("div");
     tooltip.className = "chat-onboarding-tooltip";
     tooltip.role = "tooltip";
-    tooltip.textContent = "Это новое место для общения с Управляющим. Правая панель переехала сюда.";
+    tooltip.textContent = i18n("onboarding.chat_moved");
 
     // Style the tooltip
     const style = document.createElement("style");
@@ -5305,6 +5305,126 @@
       }, 220);
     }, 4000);
   }
+
+  // ===================== F4: Right panel (Planning + Managing Director Tasks) =====================
+
+  // Load planning departments checkboxes
+  async function loadPlanningDepartments() {
+    try {
+      const r = await fetch("/api/departments");
+      if (!r.ok) return;
+      const data = await r.json();
+      renderPlanningDepartments(data.departments || []);
+    } catch (e) {
+      console.error("loadPlanningDepartments failed", e);
+    }
+  }
+
+  function renderPlanningDepartments(departments) {
+    const wrap = document.getElementById("planning-departments-list");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    departments.forEach((d) => {
+      const label = document.createElement("label");
+      label.className = "dept-checkbox";
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.value = d.id;
+      checkbox.id = "planning-dept-" + d.id;
+      const labelText = document.createElement("label");
+      labelText.htmlFor = checkbox.id;
+      labelText.textContent = d.name;
+      label.appendChild(checkbox);
+      label.appendChild(labelText);
+      wrap.appendChild(label);
+    });
+  }
+
+  // Load Managing Director tasks (status: todo, wip)
+  async function loadManagingDirectorTasks() {
+    try {
+      const [r1, r2] = await Promise.all([
+        fetch("/api/tasks?assignee=managing-director&status=todo"),
+        fetch("/api/tasks?assignee=managing-director&status=wip")
+      ]);
+      if (!r1.ok || !r2.ok) return;
+      const data1 = await r1.json();
+      const data2 = await r2.json();
+      const tasks = [
+        ...(data1.задачи || data1.tasks || []),
+        ...(data2.задачи || data2.tasks || [])
+      ];
+      renderManagingDirectorTasks(tasks);
+    } catch (e) {
+      console.error("loadManagingDirectorTasks failed", e);
+    }
+  }
+
+  function renderManagingDirectorTasks(tasks) {
+    const wrap = document.getElementById("managing-director-tasks-list");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    if (!tasks || tasks.length === 0) {
+      wrap.innerHTML = `<div class="tasks-empty">
+        <div class="ico">📭</div>
+        <div>${i18n ? i18n("f4.tasks.empty") : "Нет задач"}</div>
+      </div>`;
+      return;
+    }
+    tasks.forEach((t) => {
+      const item = document.createElement("div");
+      item.className = "task-item";
+      item.role = "button";
+      item.tabIndex = 0;
+      item.addEventListener("click", () => openTaskModal(t.id));
+      item.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openTaskModal(t.id);
+        }
+      });
+      const title = document.createElement("div");
+      title.className = "task-item-title";
+      title.textContent = t.title;
+      const meta = document.createElement("div");
+      meta.className = "task-item-meta";
+      const statusLabel = t.status === "wip" ? "В работе" : "К работе";
+      const statusBadge = document.createElement("span");
+      statusBadge.className = "task-item-badge";
+      statusBadge.textContent = statusLabel;
+      meta.appendChild(statusBadge);
+      item.appendChild(title);
+      item.appendChild(meta);
+      wrap.appendChild(item);
+    });
+  }
+
+  // Button handlers for F4
+  const btnCreatePlanning = document.getElementById("btn-create-planning");
+  const btnAddManagingTask = document.getElementById("btn-add-managing-task");
+
+  if (btnCreatePlanning) {
+    btnCreatePlanning.addEventListener("click", (e) => {
+      e.preventDefault();
+      // Disabled button, so nothing happens. Tooltip shows "Phase 3b"
+    });
+  }
+
+  if (btnAddManagingTask) {
+    btnAddManagingTask.addEventListener("click", () => {
+      // Open task creation modal
+      const modalNew = document.getElementById("modal-new");
+      if (modalNew) {
+        modalNew.hidden = false;
+        document.getElementById("form-new-task").reset();
+        document.getElementById("form-new-task").title.focus();
+      }
+    });
+  }
+
+  // Initial load
+  loadPlanningDepartments();
+  loadManagingDirectorTasks();
 
   refresh();
   setInterval(refresh, REFRESH_MS);

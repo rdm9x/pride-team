@@ -1,5 +1,6 @@
 {
   "onboarding": {
+    "chat_moved": "Это новое место для общения с Управляющим. Правая панель переехала сюда.",
     "tour": {
       "skip": "Пропустить",
       "prev": "Назад",
@@ -494,6 +495,12 @@
     }
   },
   "chat": {
+    "page": {
+      "title": "Чат · devboard"
+    },
+    "archive": {
+      "title": "Архив"
+    },
     "title": "Чат с командой",
     "title_managing_director": "Чат с Управляющим",
     "collapse_title": "Свернуть чат",
@@ -760,5 +767,44 @@
     "cleared": "Демо-данные удалены",
     "already_exists": "Демо-данные уже загружены.",
     "alreadyLoaded": "Демо уже загружено. Нажми «Очистить демо» для сброса."
+  },
+  "planning": {
+    "create": {
+      "title": "Собрать планёрку",
+      "departments_label": "Отделы",
+      "rounds_label": "Раундов",
+      "topic_label": "Тема",
+      "topic_placeholder": "Введи тему планёрки…",
+      "button": "Создать планёрку",
+      "button_disabled_hint": "Доступно в Фазе 3b"
+    },
+    "loading": "Загрузка…"
+  },
+  "managing_director_tasks": {
+    "title": "Задачи Управляющего",
+    "loading": "Загрузка…",
+    "add_button": "+ Добавить задачу"
+  },
+  "f4": {
+    "planning": {
+      "title": "Собрать планёрку",
+      "departments": "Отделы",
+      "rounds": "Раундов",
+      "title_input": "Тема",
+      "title_placeholder": "Описание планёрки…",
+      "create_btn": "Создать планёрку",
+      "phase3b": "Доступно в Фазе 3b"
+    },
+    "tasks": {
+      "title": "Задачи Управляющего",
+      "aria_label": "Задачи Управляющего",
+      "empty": "Нет задач",
+      "add_btn": "+ Добавить задачу"
+    }
+  },
+  "chat": {
+    "input_placeholder": "Напиши сообщение… (Cmd/Ctrl+Enter для отправки)",
+    "send_button": "Отправить",
+    "start_session_button": "Запустить сессию"
   }
 }

@@ -251,6 +251,43 @@ def test_pick_from_db_filters_epics(db_path: Path) -> None:
     assert decision["counters"]["epics_filtered"] == 1
 
 
+def test_pick_from_db_excludes_disabled_tasks(db_path: Path) -> None:
+    # F2.3: pick_from_db должен исключать задачи с enabled=False
+    # Создаём архитектурную задачу и отключаем её
+    t = db.insert_task(db_path, title="disabled arch", description="", labels=["architecture"])
+    db.update_task(db_path, t["id"], enabled=False)
+
+    # Очередь пустая (единственная задача отключена)
+    decision = router.pick_from_db(db_path)
+    # Ожидаем haiku (очередь пустая), а не opus (как было бы с ошибкой)
+    assert decision["model_alias"] == "haiku"
+    assert decision["counters"]["total_workable"] == 0
+    assert "очередь пустая" in decision["reason"]
+
+
+def test_pick_from_db_includes_enabled_tasks(db_path: Path) -> None:
+    # Создаём архитектурную задачу (enabled=True по умолчанию)
+    db.insert_task(db_path, title="enabled arch", description="", labels=["architecture"])
+
+    decision = router.pick_from_db(db_path)
+    # Архитектурная → opus
+    assert decision["model_alias"] == "opus"
+    assert decision["counters"]["architectural"] == 1
+
+
+def test_pick_from_db_mixed_enabled_disabled(db_path: Path) -> None:
+    # Создаём две архитектурные задачи: одну включённую, одну отключённую
+    t1 = db.insert_task(db_path, title="enabled arch", description="", labels=["architecture"])
+    t2 = db.insert_task(db_path, title="disabled arch", description="", labels=["architecture"])
+    db.update_task(db_path, t2["id"], enabled=False)
+
+    decision = router.pick_from_db(db_path)
+    # Должна учтёться только включённая
+    assert decision["model_alias"] == "opus"
+    assert decision["counters"]["architectural"] == 1
+    assert decision["counters"]["total_workable"] == 1
+
+
 # === CLI main() ===
 
 

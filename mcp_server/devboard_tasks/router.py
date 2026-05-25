@@ -164,6 +164,9 @@ def pick_from_db(db_path: Path | None = None) -> dict[str, Any]:
         seen.add(t["id"])
         unique.append(t)
 
+    # F2.3: исключаем отключённые задачи (enabled=0) из выборки
+    unique = [t for t in unique if t.get("enabled", True)]
+
     # Отфильтровать задачи с незакрытыми зависимостями
     import sqlite3
     conn = sqlite3.connect(path)

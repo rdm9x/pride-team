@@ -530,9 +530,14 @@ def _auto_monitor_loop() -> None:
             now = int(time.time())
             ok, reason = _auto_can_start(now)
             if ok:
-                log.info("auto-monitor: запускаю следующую сессию")
+                # Auto-mode тоже использует smart-default: ищет lead-роль с
+                # самой свежей todo задачей (см. _smart_default_role).
+                # Раньше hardcoded на managing-director → бесконечный loop
+                # коротких сессий «у меня нет работы» каждые 30 сек.
+                smart_role = _smart_default_role(DB_PATH)
+                log.info("auto-monitor: запускаю следующую сессию (role=%s)", smart_role)
                 _team_state["auto_pause_reason"] = None
-                res = _start_team_process(triggered_by="auto")
+                res = _start_team_process(triggered_by="auto", role=smart_role)
                 if not res.get("ok"):
                     _team_state["auto_pause_reason"] = res.get("reason", "не запустился")
             else:

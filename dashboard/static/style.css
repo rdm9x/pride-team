@@ -2457,6 +2457,58 @@ input[type="checkbox"] {
   display: none;
 }
 
+/* ============================================================ F2(1.6): Roles — unified table */
+
+.roles-table--unified {
+  table-layout: fixed;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.roles-thead-sticky th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+/* dept-group разделитель: строка с иконкой + именем отдела */
+.roles-table--unified .dept-group td {
+  background: var(--surface-2);
+  border-top: 2px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-2);
+  white-space: nowrap;
+  user-select: none;
+}
+.roles-table--unified .dept-group:first-of-type td {
+  border-top: none;
+}
+.roles-table--unified .dept-group--active td {
+  border-left: 3px solid var(--accent, #007aff);
+  color: var(--accent, #007aff);
+}
+
+.dept-group-ico {
+  margin-right: 6px;
+  font-size: 14px;
+}
+
+.dept-group-count {
+  float: right;
+  font-weight: 400;
+  font-size: 11px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1px 7px;
+}
+
 /* ============================================================ Role modal */
 
 .modal-role-content {

@@ -562,7 +562,8 @@
     "section": {
       "global": "Global",
       "dev": "Development",
-      "marketing": "Marketing"
+      "marketing": "Marketing",
+      "count_suffix": "roles"
     },
     "names": {
       "teamlead": "Team Lead",

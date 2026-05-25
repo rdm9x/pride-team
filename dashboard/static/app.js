@@ -4171,66 +4171,51 @@
     const _collapseKey = (deptId) => "roles-section-collapsed:" + (deptId || "global");
     const _isCollapsed = (deptId) => sessionStorage.getItem(_collapseKey(deptId)) === "1";
 
-    const tableHead = `
-      <thead>
-        <tr>
-          <th>${i18n("roles.col.name")}</th>
-          <th>${i18n("roles.col.description")}</th>
-          <th>${i18n("roles.col.llm")}</th>
-          <th>${i18n("roles.col.model")}</th>
-          <th>${i18n("roles.col.actions")}</th>
-        </tr>
-      </thead>`;
+    // F2(1.6): одна общая таблица с colgroup (фикс. ширина колонок) + dept-group строки
+    const colCount = 5;
+    let html = `
+      <table class="roles-table roles-table--unified" aria-label="${escapeHtml(i18n("roles.title") || "Роли")}">
+        <colgroup>
+          <col style="width:20%">
+          <col style="width:35%">
+          <col style="width:10%">
+          <col style="width:20%">
+          <col style="width:15%">
+        </colgroup>
+        <thead class="roles-thead-sticky">
+          <tr>
+            <th scope="col">${i18n("roles.col.name")}</th>
+            <th scope="col">${i18n("roles.col.description")}</th>
+            <th scope="col">${i18n("roles.col.llm")}</th>
+            <th scope="col">${i18n("roles.col.model")}</th>
+            <th scope="col">${i18n("roles.col.actions")}</th>
+          </tr>
+        </thead>
+        <tbody>`;
 
-    let html = "";
     _sortedKeys.forEach((deptId) => {
       const sectionRoles = _groups.get(deptId);
-      const sectionId = "roles-section-" + (deptId || "global");
-      const collapsed = _isCollapsed(deptId);
       const icon = _sectionIcon(deptId);
       const label = _resolveSectionLabel(deptId);
       const count = sectionRoles.length;
       const isActive = deptId && deptId === activeDept;
 
-      html += `
-        <div class="roles-section${collapsed ? " roles-section--collapsed" : ""}${isActive ? " roles-section--active" : ""}"
-             data-section-dept="${escapeAttr(deptId || "global")}">
-          <div class="roles-section-header"
-               role="button" tabindex="0"
-               aria-expanded="${collapsed ? "false" : "true"}"
-               aria-controls="${sectionId}">
-            <span class="roles-section-icon">${icon}</span>
-            <span class="roles-section-title">${escapeHtml(label)}</span>
-            <span class="roles-section-count">${count}</span>
-            <span class="roles-section-chevron" aria-hidden="true">▾</span>
-          </div>
-          <div class="roles-section-body" id="${sectionId}">
-            <table class="roles-table">
-              ${tableHead}
-              <tbody>${sectionRoles.map(_renderRow).join("")}</tbody>
-            </table>
-          </div>
-        </div>`;
+      // Строка-разделитель отдела (dept-group)
+      html += `<tr class="dept-group${isActive ? " dept-group--active" : ""}"
+                   data-section-dept="${escapeAttr(deptId || "global")}">
+        <td colspan="${colCount}">
+          <span class="dept-group-ico" aria-hidden="true">${icon}</span>
+          <span class="dept-group-label">${escapeHtml(label)}</span>
+          <span class="dept-group-count">${count} ${escapeHtml(i18n("roles.section.count_suffix") || "")}</span>
+        </td>
+      </tr>`;
+
+      // Строки ролей этого отдела
+      sectionRoles.forEach((r) => { html += _renderRow(r); });
     });
 
+    html += `</tbody></table>`;
     body.innerHTML = html;
-
-    // F2(1.5): bind collapsible toggle
-    body.querySelectorAll(".roles-section-header").forEach((hdr) => {
-      const section = hdr.closest(".roles-section");
-      const deptId = section.dataset.sectionDept === "global" ? null : section.dataset.sectionDept;
-
-      const _toggle = () => {
-        const nowCollapsed = section.classList.toggle("roles-section--collapsed");
-        hdr.setAttribute("aria-expanded", nowCollapsed ? "false" : "true");
-        sessionStorage.setItem(_collapseKey(deptId), nowCollapsed ? "1" : "0");
-      };
-
-      hdr.addEventListener("click", _toggle);
-      hdr.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); _toggle(); }
-      });
-    });
 
     // Bind edit / delete buttons
     body.querySelectorAll("[data-role-edit]").forEach((btn) => {

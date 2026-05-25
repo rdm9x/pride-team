@@ -6,6 +6,7 @@ requires-python = ">=3.11"
 dependencies = [
     "flask>=3.0",
     "devboard-tasks",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]

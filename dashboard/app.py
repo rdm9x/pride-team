@@ -464,20 +464,27 @@ def _stream_reader(proc: subprocess.Popen, queue: Queue, log_file: Path) -> None
 
 
 def _has_pending_work(dept_id: str = "dev") -> bool:
-    """Есть ли задачи в очереди лида отдела? (todo + wip + needs_approval кроме destructive).
+    """Есть ли в отделе задачи требующие лида? (todo + wip + needs_approval)
 
-    dept_id — идентификатор отдела; assignee определяется через _find_lead_for_department.
-    Fallback: dept_id='dev' → assignee='тимлид' (обратная совместимость).
+    Phase 1.7 fix: раньше проверяли только `assignee=<dept>-lead`. Но лид —
+    координатор: child задачи назначены на специалистов (бэкенд/qa/frontend/...),
+    а сам лид имеет только parent-эпики. Когда parent в wip и тимлид работает —
+    todo для самого лида = 0. Auto-monitor решал «очередь пуста» → пауза.
+
+    Теперь проверяем ВЕСЬ department: если есть todo для любого члена отдела
+    (включая parent для лида) — есть pending work, лид должен координировать.
     """
-    assignee = _find_lead_for_department(DB_PATH, dept_id) or "тимлид"
     try:
-        for status in ("todo", "wip"):
-            tasks = db.list_tasks(DB_PATH, status=status, assignee=assignee, limit=20)
+        # 1. Что-то для самого лида (parent эпики, approval-задачи)
+        assignee = _find_lead_for_department(DB_PATH, dept_id) or "тимлид"
+        for status in ("todo", "wip", "needs_approval"):
+            tasks = db.list_tasks(DB_PATH, status=status, assignee=assignee, limit=5)
             if tasks:
                 return True
-        # needs_approval с assignee=лид (approved task ждут разморозки)
-        approval_tasks = db.list_tasks(DB_PATH, status="needs_approval", assignee=assignee, limit=20)
-        if approval_tasks:
+        # 2. Любая todo задача в отделе — лид должен координировать
+        dept_todo = db.list_tasks(DB_PATH, status="todo", department_id=dept_id,
+                                  _filter_department=True, limit=5)
+        if dept_todo:
             return True
     except Exception as exc:  # noqa: BLE001
         log.warning("auto: ошибка при проверке очереди: %s", exc)

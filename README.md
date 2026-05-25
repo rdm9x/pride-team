@@ -159,8 +159,8 @@ For lower-level setup, set these in `.env` or your shell before launching.
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
 | `ANTHROPIC_API_KEY` | yes | — | Auth for the Team Lead and subagents. Subscription tokens via `claude` CLI also work. |
-| `PRIDE_DASHBOARD_PORT` | no | `4999` | Flask dashboard port. |
-| `PRIDE_DB_PATH` | no | `data/tasks.db` | SQLite kanban location. |
+| `DEVBOARD_DASHBOARD_PORT` | no | `4999` | Flask dashboard port. |
+| `DEVBOARD_DB_PATH` | no | `data/tasks.db` | SQLite kanban location. |
 | `OPENAI_API_KEY` | no | — | Optional fallback model for cost-sensitive subtasks. |
 | `OLLAMA_URL` | no | — | Optional local model endpoint, e.g. `http://localhost:11434`. |
 | `CLAUDE_MODEL` | no | `opus` | Model for the Team Lead. |
@@ -191,7 +191,7 @@ You ── kanban form ──► Flask dashboard ── SQLite (tasks.db) ◄─
 - **E5** — `docker-compose` packaging
 - **E6** — CI / GitHub Actions
 - **E7** — Multi-model fallback (OpenAI, Ollama)
-- **E8** — Bitrix24 bridge → `pride-dev-department`
+- **E8** — Bitrix24 bridge → `devboard-dev-department`
 - **E9** — Video demo + landing page
 
 ## Contributing

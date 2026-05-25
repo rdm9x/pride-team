@@ -55,7 +55,7 @@
 ## Критичные правила (нарушение = баг)
 
 1. **safety-net**: тимлид не может поставить `done` через MCP. `update_task`/`submit_result` с `status=done` → форсируется `review`. Обход только `_bypass_safety_net=True` (Flask UI). Label `night-auto` — explicit grant.
-2. **Импорт `pride_tasks`** — через `sys.path.insert` в `dashboard/app.py:26-28`. Не трогать без понимания почему.
+2. **Импорт `devboard_tasks`** — через `sys.path.insert` в `dashboard/app.py:26-28`. Не трогать без понимания почему.
 3. **БД в `.gitignore`** — `data/tasks.db` не коммитить. Новый пользователь получает чистую БД через `setup.py`.
 4. **Порт 4999** — macOS AirPlay занимает 5000.
 5. **i18n**: новый ключ — в оба файла (`ru.json` + `en.json`) синхронно.

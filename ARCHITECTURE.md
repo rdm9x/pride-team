@@ -18,7 +18,7 @@ This document is for contributors who want to fix a bug, add a role, or plug in 
 | Persistence | SQLite (WAL) + `fcntl` file-lock + `BEGIN IMMEDIATE` | Atomic writes, readable with `sqlite3` CLI |
 | Tool layer | MCP server `devboard-tasks` (stdio) via `FastMCP` | Same 14 tools usable from agents and from Flask via direct import |
 | Agent runtime | `claude` CLI in `--print --output-format stream-json` mode | Headless, MCP-ready, stream parsable by SSE |
-| Model selection | Algorithmic router (`pride_tasks.router`) — no LLM, no tokens | Cheaper model when the queue is trivial, Opus when it's architectural |
+| Model selection | Algorithmic router (`devboard_tasks.router`) — no LLM, no tokens | Cheaper model when the queue is trivial, Opus when it's architectural |
 | Future providers | OpenAI / Ollama via `LLMProvider` abstraction (E6, see [ADR-001](docs/adr/0001-llm-provider.md)) | Drop-in alternatives, no claude-CLI dependency |
 
 ### Process layout
@@ -284,7 +284,7 @@ sequenceDiagram
     U->>UI: Click "Run team"
     UI->>F: POST /api/team/start
     F->>Sh: subprocess.Popen bash work.sh
-    Sh->>R: python -m pride_tasks.router pick
+    Sh->>R: python -m devboard_tasks.router pick
     R->>DB: list_tasks(todo/wip/review/needs_approval)
     R-->>Sh: { model_alias: "sonnet", reason: "..." }
     Sh->>C: exec claude --append-system-prompt roles/dev/lead.md<br/>--model sonnet --mcp-config .mcp.json
@@ -314,7 +314,7 @@ sequenceDiagram
 **Steps in detail:**
 
 1. **`POST /api/team/start`** calls `_start_team_process`. It guards against double-start with a lock and returns `409` if a session is already running.
-2. **`devboard-work.sh` runs the router first.** `pride_tasks.router.pick_from_db` reads open tasks, classifies them by keywords (architectural / trivial / techwrite / devops / other), and picks `haiku`, `sonnet`, or `opus`. The decision is logged to stdout so the user sees the *why*.
+2. **`devboard-work.sh` runs the router first.** `devboard_tasks.router.pick_from_db` reads open tasks, classifies them by keywords (architectural / trivial / techwrite / devops / other), and picks `haiku`, `sonnet`, or `opus`. The decision is logged to stdout so the user sees the *why*.
 3. **`claude` CLI launches in `--print` mode** with `--append-system-prompt = roles/dev/lead.md`, `--mcp-config .mcp.json`, `--permission-mode bypassPermissions`, and `--output-format stream-json`.
 4. **The Team Lead starts every session with the chat.** `chat_recent` → reply via `chat_post` if there are unread messages from user. *Then* it reads the kanban.
 5. **Decomposition.** For each new top-level task the Team Lead calls `create_task(parent_id=..., assignee=...)` 2–6 times.
@@ -394,7 +394,7 @@ A role is **a markdown file in [`роли/`](роли/)**. That's it. No code ch
 1. Copy an existing prompt as a starting point (`роли/бэкенд.md` is a good template for code-writing roles, `роли/qa.md` for testing roles, `роли/техписатель.md` for docs).
 2. Edit the frontmatter: required fields are `тип`, `роль`, `проект`, `name`, `name_en` (English display name, added in Sprint 2), `description_короткое`, `schema_version`. See [ADR-002](docs/adr/0002-role-format.md) for the full spec.
 3. Write the system prompt. Sections that matter: *Specialization*, *Tools you have*, *What NOT to touch*, *Communication discipline*, *Algorithm*, *Completion*.
-4. Add the new role name to `ROLES` in [`mcp_сервер/pride_tasks/models.py`](mcp_сервер/pride_tasks/models.py) so it passes validation.
+4. Add the new role name to `ROLES` in [`mcp_сервер/devboard_tasks/models.py`](mcp_сервер/devboard_tasks/models.py) so it passes validation.
 5. (Optional) Insert a row into the `roles` table so it shows up on the *Roles* page in the UI.
 
 The Team Lead picks up the new role automatically — `Task` invocations look up the role by name in the prompt text.
@@ -421,9 +421,9 @@ For tool-calling on providers without native tool support (Ollama), the bridge c
 
 The MCP server is small and explicit. To add a tool:
 
-1. Implement the logic in [`mcp_сервер/pride_tasks/tools.py`](mcp_сервер/pride_tasks/tools.py) as a `dict`-in / `dict`-out function (always return `{"статус": "ok" | "error" | ...}`).
-2. Add the DB layer in [`mcp_сервер/pride_tasks/db.py`](mcp_сервер/pride_tasks/db.py) — wrap mutations in `_atomic_modify`.
-3. Register the tool in [`mcp_сервер/pride_tasks/server.py`](mcp_сервер/pride_tasks/server.py) with `@mcp.tool()`. The docstring becomes the tool's description visible to the agent.
+1. Implement the logic in [`mcp_сервер/devboard_tasks/tools.py`](mcp_сервер/devboard_tasks/tools.py) as a `dict`-in / `dict`-out function (always return `{"статус": "ok" | "error" | ...}`).
+2. Add the DB layer in [`mcp_сервер/devboard_tasks/db.py`](mcp_сервер/devboard_tasks/db.py) — wrap mutations in `_atomic_modify`.
+3. Register the tool in [`mcp_сервер/devboard_tasks/server.py`](mcp_сервер/devboard_tasks/server.py) with `@mcp.tool()`. The docstring becomes the tool's description visible to the agent.
 4. If the dashboard needs a REST endpoint over it, add a route in `дашборд/app.py` that calls the same `tools.<fn>(...)` — never duplicate the logic.
 5. Add a test under `mcp_сервер/tests/`.
 
@@ -534,7 +534,7 @@ The ADR template is short on purpose: Context → Decision → Consequences → 
 ├── roles/                     ← role system prompts (one per role)
 │   ├── dev/lead.md  бэкенд.md  qa.md  архитектор.md
 │   └── frontend.md  devops.md  техписатель.md
-├── mcp_сервер/pride_tasks/    ← MCP server
+├── mcp_сервер/devboard_tasks/    ← MCP server
 │   ├── server.py              ← @mcp.tool() registrations
 │   ├── tools.py               ← 14 tool implementations
 │   ├── db.py                  ← SQLite layer + locking

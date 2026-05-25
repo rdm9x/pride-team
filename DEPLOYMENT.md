@@ -19,9 +19,9 @@ You need:
 
 - A VPS running **Ubuntu 22.04 LTS or newer** (24.04 also works).
 - A non-root user with `sudo` rights. The rest of this guide assumes the user
-  is called `pride`. Adapt if yours is different.
+  is called `devboard`. Adapt if yours is different.
 - A domain name (or sub-domain) whose **A record points to the VPS public IP**.
-  Example: `pride.example.com → 203.0.113.42`. Wait until `dig +short pride.example.com`
+  Example: `devboard.example.com → 203.0.113.42`. Wait until `dig +short devboard.example.com`
   returns the right IP before continuing — Caddy needs working DNS to issue a
   TLS certificate.
 - TCP ports **80** and **443** open in the VPS firewall and any cloud-provider
@@ -107,10 +107,10 @@ Open `.env` with your editor (`nano .env`) and set at minimum:
 | Variable | Required | Description |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | yes (or `OPENAI_API_KEY`) | LLM provider credentials. Used by `llm/factory.py`. Get it from <https://console.anthropic.com/>. |
-| `PRIDE_DASHBOARD_HOST` | recommended | Bind address inside the container. Set to `0.0.0.0` so Docker can publish the port. |
-| `PRIDE_DASHBOARD_PORT` | optional | Defaults to `4999`. Keep it unless you have a reason to change it. |
-| `PRIDE_TASKS_DB` | optional | Defaults to `/app/data/tasks.db` (mounted volume). |
-| `PRIDE_DASHBOARD_LOG_LEVEL` | optional | `INFO` (default) or `DEBUG`. |
+| `DEVBOARD_DASHBOARD_HOST` | recommended | Bind address inside the container. Set to `0.0.0.0` so Docker can publish the port. |
+| `DEVBOARD_DASHBOARD_PORT` | optional | Defaults to `4999`. Keep it unless you have a reason to change it. |
+| `DEVBOARD_TASKS_DB` | optional | Defaults to `/app/data/tasks.db` (mounted volume). |
+| `DEVBOARD_DASHBOARD_LOG_LEVEL` | optional | `INFO` (default) or `DEBUG`. |
 
 Alternative LLM providers (pick one):
 
@@ -195,7 +195,7 @@ sudo nano /etc/caddy/Caddyfile
 ```
 
 Replace the contents with the snippet below. **USER-EDIT:** change
-`pride.example.com` to your real domain and `you@example.com` to your real email
+`devboard.example.com` to your real domain and `you@example.com` to your real email
 (Let's Encrypt uses it for expiry warnings).
 
 ```caddy
@@ -203,7 +203,7 @@ Replace the contents with the snippet below. **USER-EDIT:** change
   email you@example.com
 }
 
-pride.example.com {
+devboard.example.com {
   reverse_proxy localhost:4999
 
   encode zstd gzip
@@ -216,7 +216,7 @@ pride.example.com {
   }
 
   log {
-    output file /var/log/caddy/pride.log {
+    output file /var/log/caddy/devboard.log {
       roll_size 10MiB
       roll_keep 5
     }
@@ -232,7 +232,7 @@ sudo systemctl reload caddy
 ```
 
 Caddy will obtain a certificate on first request. Open
-`https://pride.example.com/` in your browser — you should see the kanban UI
+`https://devboard.example.com/` in your browser — you should see the kanban UI
 served over HTTPS.
 
 To watch Caddy logs while debugging:
@@ -449,7 +449,7 @@ challenge failed ... no such host
 
 Causes and fixes:
 
-- **DNS not propagated.** Run `dig +short pride.example.com`. The result must
+- **DNS not propagated.** Run `dig +short devboard.example.com`. The result must
   match your VPS public IP (`curl -s ifconfig.me`). Wait up to an hour after
   changing DNS, then retry: `sudo systemctl reload caddy`.
 - **Port 80 blocked.** Let's Encrypt's HTTP-01 challenge needs inbound port 80.
@@ -474,7 +474,7 @@ permission issue (`data/` not writable).
 
 ### `data/tasks.db` permission denied
 
-The container runs as a non-root user (`pride`, UID 1000) by design. If you
+The container runs as a non-root user (`devboard`, UID 1000) by design. If you
 created `./data/` as root, it will not be writable. Fix:
 
 ```bash
@@ -491,9 +491,9 @@ The most common causes are:
 
 1. Missing or wrong `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` — `llm/factory.py`
    raises `RuntimeError: No LLM provider available`.
-2. `PRIDE_DASHBOARD_HOST` left at its default `127.0.0.1`. Inside the container
+2. `DEVBOARD_DASHBOARD_HOST` left at its default `127.0.0.1`. Inside the container
    the app then only listens on the loopback interface and Docker's port
-   publish has nothing to forward. Set `PRIDE_DASHBOARD_HOST=0.0.0.0` in `.env`.
+   publish has nothing to forward. Set `DEVBOARD_DASHBOARD_HOST=0.0.0.0` in `.env`.
 3. Corrupted `data/tasks.db` after a hard crash. Restore the latest backup (see
    section 7).
 
@@ -586,7 +586,7 @@ The `docker-compose.yml` applies the following hardening options:
 | `read_only: true` | Mounts the container root filesystem read-only. Writes are only possible via the explicit `./data` bind-mount and the `/tmp` tmpfs. |
 | `tmpfs /tmp` | Provides a small (64 MB) in-memory `/tmp` with `noexec,nosuid` flags. |
 
-The `Dockerfile` additionally runs the process as non-root user `pride`
+The `Dockerfile` additionally runs the process as non-root user `devboard`
 (UID/GID 1000) and uses `tini` as PID 1 for correct signal handling.
 
 ### Periodic security checks

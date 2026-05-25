@@ -89,15 +89,15 @@ First-run wizard — модальный оверлей `#first-run-wizard` (4 ш
 
 ---
 
-## mcp_server/ — MCP-сервер pride-tasks
+## mcp_server/ — MCP-сервер devboard-tasks
 
 ```
 mcp_server/
 ├── pyproject.toml          deps MCP-сервера (mcp, dotenv, httpx)
 ├── .venv/                  ← создаётся через uv в setup.py
-└── pride_tasks/
+└── devboard_tasks/
     ├── __init__.py
-    ├── __main__.py         entry point `python -m pride_tasks`
+    ├── __main__.py         entry point `python -m devboard_tasks`
     ├── server.py           FastMCP setup + регистрация tools
     ├── tools.py            ~700 строк, 11 MCP-функций
     ├── db.py               SQLite + fcntl/msvcrt lock + миграции
@@ -184,7 +184,7 @@ data/
 
 ## Частые подводные камни
 
-1. **Кириллица в путях** — раньше папки назывались `дашборд/`, `роли/`, `команды/`, `mcp_сервер/`. **Переименовано в S1.1** в `dashboard/`, `roles/`, `commands/`, `mcp_server/`. Импорт `pride_tasks` через `sys.path.insert` в `dashboard/app.py:26-28` (там объяснение почему).
+1. **Кириллица в путях** — раньше папки назывались `дашборд/`, `роли/`, `команды/`, `mcp_сервер/`. **Переименовано в S1.1** в `dashboard/`, `roles/`, `commands/`, `mcp_server/`. Импорт `devboard_tasks` через `sys.path.insert` в `dashboard/app.py:26-28` (там объяснение почему).
 2. **Изменения в `app.py`** — нужен **перезапуск дашборда** (Python код кеширован в процессе). `bash commands/devboard-stop.sh && bash commands/devboard-start.sh`.
 3. **Изменения статики** (`static/*.js`, `*.css`, templates) — НЕ требуют перезапуска, Flask отдаёт с `Cache-Control: no-store`.
 4. **Subagent через Task tool не имеет MCP**. После Task tool **тимлид сам** делает `update_task` для всех подзадач.
@@ -195,7 +195,7 @@ data/
 9. **i18n** (v1.2) — строки в `dashboard/static/i18n/{ru,en}.json`. Загружает и применяет `dashboard/static/js/i18n.js` (API: `window.t(key)`, `setLocale(lang)`, `applyI18nToDOM()`). При добавлении нового ключа — синхронно в оба файла.
 10. **Plain-language mode** (v1.3) — управляется через Settings (`user_expertise: non-tech`), сохраняется в `data/.user_expertise`. `devboard-work.sh` передаёт значение тимлид-роли, которая переключается на упрощённые объяснения для нетехнического пользователя.
 11. **Windows: UTF-8 required.** Without explicit encoding setup, Russian text becomes mojibake in the terminal and logs. `commands/devboard-work.ps1` sets three things at the top: `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8`, `$OutputEncoding = [System.Text.Encoding]::UTF8`, and `$env:PYTHONIOENCODING = "utf-8"`. The `subprocess.Popen` call in `app.py` that spawns the teamlead session also injects `PYTHONIOENCODING=utf-8` into the child process env. If you add any new subprocess calls on Windows, follow the same pattern.
-12. **Тимлид не может поставить `done` напрямую.** Safety-net в `mcp_server/pride_tasks/tools.py` (`_safety_net_done`) перехватывает MCP-вызовы `update_task` и `submit_result` с `status=done` и форсирует `status=review` вместо этого, добавляя системный комментарий и чат-сообщение. Обойти можно только через `_bypass_safety_net=True` — это флаг для Flask UI, не для агентов. Поведение введено в S6.4 и является намеренным.
+12. **Тимлид не может поставить `done` напрямую.** Safety-net в `mcp_server/devboard_tasks/tools.py` (`_safety_net_done`) перехватывает MCP-вызовы `update_task` и `submit_result` с `status=done` и форсирует `status=review` вместо этого, добавляя системный комментарий и чат-сообщение. Обойти можно только через `_bypass_safety_net=True` — это флаг для Flask UI, не для агентов. Поведение введено в S6.4 и является намеренным.
 13. **v2.0 (Departments, HR) не реализовано.** ADR 0003-0005 в `docs/adr/` — это design-документы, код под них ещё не написан. Не реализовывать без явного задания.
 
 ---

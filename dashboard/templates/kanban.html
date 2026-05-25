@@ -98,15 +98,10 @@
            data-i18n-attr="title:usage.badge.title">
         <span class="ico">🔢</span> <span id="usage-summary" data-i18n="usage.badge.empty">— сессий</span>
       </div>
-      <div class="team-roles">
-        <div class="muted" data-i18n="sidebar.team">Команда</div>
-        <div>🧭 <span data-i18n="sidebar.role.teamlead">тимлид</span></div>
-        <div>🔧 <span data-i18n="sidebar.role.backend">бэкенд</span></div>
-        <div>✓ <span data-i18n="sidebar.role.qa">qa</span></div>
-        <div>🏗 <span data-i18n="sidebar.role.architect">архитектор</span></div>
-        <div>🎨 <span data-i18n="sidebar.role.frontend">frontend</span></div>
-        <div>🚀 <span data-i18n="sidebar.role.devops">devops</span></div>
-        <div>📝 <span data-i18n="sidebar.role.tech_writer">техписатель</span></div>
+      <!-- Список агентов текущего отдела — рендерится из JS (renderSidebarAgents) -->
+      <div id="sidebar-agents" class="team-roles" role="list"
+           aria-label="Команда" data-i18n-attr="aria-label:sidebar.team">
+        <!-- заполняется loadSidebarAgents() -->
       </div>
     </div>
   </aside>
@@ -667,6 +662,7 @@
   <aside class="chat" id="chat">
     <header>
       <strong><span class="ico">💬</span> <span id="chat-title-label" data-i18n="chat.title">Чат с тимлидом</span></strong>
+      <span id="chat-description" class="chat-description"></span>
       <button id="chat-collapse" class="chat-collapse-btn" title="Collapse chat"
               data-i18n-attr="title:chat.collapse_title">→</button>
     </header>

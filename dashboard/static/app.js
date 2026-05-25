@@ -27,6 +27,13 @@
     // 'тимлид'/'teamlead' оставлены выше для backward-compat сообщений в БД.
     "managing-director": { slug: "managing-director", en: "Managing Director", ru: "Управляющий" },
     "dev-lead":          { slug: "dev-lead",          en: "Dev Lead",          ru: "Лид разработки" },
+    // F1-1.5: маркетинговые роли
+    "hr":                { slug: "hr",                en: "HR",                ru: "HR" },
+    "copywriter":        { slug: "copywriter",        en: "Copywriter",        ru: "Копирайтер" },
+    "brand-manager":     { slug: "brand-manager",     en: "Brand Manager",     ru: "Бренд-менеджер" },
+    "seo-specialist":    { slug: "seo-specialist",    en: "SEO Specialist",    ru: "SEO-специалист" },
+    "marketing-analyst": { slug: "marketing-analyst", en: "Marketing Analyst", ru: "Маркетинг-аналитик" },
+    "marketing-lead":    { slug: "marketing-lead",    en: "Marketing Lead",    ru: "Маркетинг-лид" },
   };
 
   function displayRole(name) {
@@ -200,17 +207,42 @@
 
   function _updateChatHeaderLabel() {
     const lbl = document.getElementById("chat-title-label");
-    if (!lbl) return;
+    const desc = document.getElementById("chat-description");
+    const input = document.getElementById("chat-input");
     const ch = currentChatChannel();
     if (ch === CHAT_CHANNEL_GLOBAL) {
       // «Чат с Управляющим» — основной собеседник owner-а в общем чате.
-      const v = i18n("chat.title_managing_director");
-      lbl.textContent = (v && v !== "chat.title_managing_director")
-        ? v : "Чат с Управляющим";
+      if (lbl) {
+        const v = i18n("chat.title_managing_director");
+        lbl.textContent = (v && v !== "chat.title_managing_director")
+          ? v : "Чат с Управляющим";
+      }
+      if (input) {
+        const ph = i18n("chat.placeholder_managing_director");
+        input.placeholder = (ph && ph !== "chat.placeholder_managing_director")
+          ? ph : "Напиши Управляющему…";
+      }
+      if (desc) {
+        const d = i18n("chat.description_managing_director");
+        desc.textContent = (d && d !== "chat.description_managing_director")
+          ? d : "Управляющий — координирует все отделы";
+      }
     } else {
       // Чат отдела — собеседник lead. Используем существующий ключ chat.title.
-      const v = i18n("chat.title");
-      lbl.textContent = (v && v !== "chat.title") ? v : "Чат с тимлидом";
+      if (lbl) {
+        const v = i18n("chat.title");
+        lbl.textContent = (v && v !== "chat.title") ? v : "Чат с тимлидом";
+      }
+      if (input) {
+        const ph = i18n("chat.placeholder_lead", { leadName: ch + "-lead" });
+        input.placeholder = (ph && ph !== "chat.placeholder_lead")
+          ? ph : ch + "-lead…";
+      }
+      if (desc) {
+        const d = i18n("chat.description_lead", { deptName: ch });
+        desc.textContent = (d && d !== "chat.description_lead")
+          ? d : ch + "-lead — координирует " + ch + "-отдел";
+      }
     }
   }
 
@@ -4354,6 +4386,8 @@
       // ADR-009 §2.7.3: индикатор активных планёрок в шапке общего чата.
       // Не критично если упадёт — refreshPlanningActive ловит сетевые ошибки сам.
       try { await refreshPlanningActive(); } catch (_) {}
+      // F1-1.5: список агентов текущего отдела в sidebar.
+      try { await loadSidebarAgents(); } catch (_) {}
     } catch (e) {
       console.error(e);
     } finally {

@@ -131,7 +131,14 @@
       "architect": "архитектор",
       "frontend": "frontend",
       "devops": "devops",
-      "tech_writer": "техписатель"
+      "tech_writer": "техписатель",
+      "dev_lead": "Лид разработки",
+      "hr": "HR",
+      "copywriter": "Копирайтер",
+      "brand_manager": "Бренд-менеджер",
+      "seo_specialist": "SEO-специалист",
+      "marketing_analyst": "Маркетинг-аналитик",
+      "marketing_lead": "Маркетинг-лид"
     }
   },
   "managingDirector": {

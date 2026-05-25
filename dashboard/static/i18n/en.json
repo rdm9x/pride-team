@@ -131,7 +131,14 @@
       "architect": "Architect",
       "frontend": "Frontend",
       "devops": "DevOps",
-      "tech_writer": "Tech Writer"
+      "tech_writer": "Tech Writer",
+      "dev_lead": "Dev Lead",
+      "hr": "HR",
+      "copywriter": "Copywriter",
+      "brand_manager": "Brand Manager",
+      "seo_specialist": "SEO Specialist",
+      "marketing_analyst": "Marketing Analyst",
+      "marketing_lead": "Marketing Lead"
     }
   },
   "managingDirector": {

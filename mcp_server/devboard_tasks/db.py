@@ -303,6 +303,14 @@ CREATE INDEX IF NOT EXISTS idx_manager_chunks_user_source
 
 CREATE INDEX IF NOT EXISTS idx_manager_chunks_updated
   ON manager_chunks(updated_at DESC) WHERE archived_at IS NULL;
+
+-- S17.5 (Task 99119C362B4A): Состояние приложения дашборда (для персистирования)
+-- Сохраняет config-опции которые не должны теряться при перезагрузке процесса
+CREATE TABLE IF NOT EXISTS app_state (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
 """
 
 # Базовый набор ролей. Загружается при init_db, если ролей в таблице ещё нет.
@@ -2475,3 +2483,50 @@ def delete_artifact(db_path: Path, artifact_id: int) -> bool:
         return cursor.rowcount > 0
     finally:
         conn.close()
+
+
+# === App state (Task 99119C362B4A: persistence для auto_mode) ===
+
+
+def get_app_state(db_path: Path, key: str, default: Optional[str] = None) -> Optional[str]:
+    """Прочитать значение состояния приложения из БД.
+
+    Args:
+        db_path: путь к БД
+        key: ключ состояния (напр. 'auto_mode')
+        default: значение по умолчанию если key не найден
+
+    Returns:
+        значение из app_state, или default если не найдено
+    """
+    conn = _connect(db_path)
+    try:
+        row = conn.execute(
+            "SELECT value FROM app_state WHERE key = ?", (key,)
+        ).fetchone()
+        return row["value"] if row else default
+    finally:
+        conn.close()
+
+
+def set_app_state(db_path: Path, key: str, value: str) -> None:
+    """Сохранить значение состояния приложения в БД.
+
+    Args:
+        db_path: путь к БД
+        key: ключ состояния (напр. 'auto_mode')
+        value: значение (строка)
+    """
+    now = int(time.time())
+    with write_lock(db_path):
+        conn = _connect(db_path)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            # UPSERT: INSERT OR REPLACE
+            conn.execute(
+                "INSERT OR REPLACE INTO app_state (key, value, updated_at) VALUES (?, ?, ?)",
+                (key, value, now),
+            )
+            conn.execute("COMMIT")
+        finally:
+            conn.close()

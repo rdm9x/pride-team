@@ -63,12 +63,17 @@ log.info("дашборд использует БД: %s", DB_PATH)
 
 # === Управление сессией тимлида (subprocess) ===
 
+# S17.5 (Task 99119C362B4A): загружаем auto_mode из БД при старте
+_persisted_auto_mode = db.get_app_state(DB_PATH, "auto_mode", "false")
+_auto_mode_initial = _persisted_auto_mode.lower() in ("true", "1", "yes")
+log.info("загружена persisted auto_mode из БД: %s", _auto_mode_initial)
+
 _team_state: dict[str, Any] = {
     "process": None,            # subprocess.Popen | None
     "queue": Queue(),           # очередь строк stdout/stderr для SSE
     "started_at": None,
     "lock": Lock(),
-    "auto_mode": False,         # авто-запуск следующей сессии после завершения
+    "auto_mode": _auto_mode_initial,  # авто-запуск следующей сессии после завершения (S17.5: persisted)
     "starts_history": [],       # timestamps последних запусков (для rate-limit)
     "auto_pause_reason": None,  # если auto заблокирован — почему
     "reader_thread": None,      # Thread | None — текущий _stream_reader (S17.3 fix)
@@ -2007,6 +2012,12 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
                 "SELECT DISTINCT depends_on FROM task_dependencies"
             ).fetchall():
                 ids_with_deps.add(tid)
+            # Подсчитаем артефакты для каждой задачи
+            artifact_counts = {}
+            for (tid, count) in conn.execute(
+                "SELECT task_id, COUNT(*) FROM task_artifacts GROUP BY task_id"
+            ).fetchall():
+                artifact_counts[tid] = count
         finally:
             conn.close()
 
@@ -2014,6 +2025,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         archived = []
         for t in res["задачи"]:
             t["_has_deps"] = t["id"] in ids_with_deps
+            t["artifact_count"] = artifact_counts.get(t["id"], 0)
             if (
                 t["status"] == "done"
                 and t.get("completed_at")
@@ -2634,6 +2646,12 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         data = request.get_json(silent=True) or {}
         enabled = bool(data.get("enabled"))
         _team_state["auto_mode"] = enabled
+        # S17.5 (Task 99119C362B4A): сохраняем auto_mode в БД для персистирования при перезагрузке
+        try:
+            db.set_app_state(_db(), "auto_mode", "true" if enabled else "false")
+            log.info("сохранена auto_mode в БД: %s", enabled)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("не удалось сохранить auto_mode в БД: %s", exc)
         # При выключении сбрасываем причину паузы
         if not enabled:
             _team_state["auto_pause_reason"] = None

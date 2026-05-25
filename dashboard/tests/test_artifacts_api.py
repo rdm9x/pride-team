@@ -211,3 +211,146 @@ def test_artifacts_in_task_modal_ui(client) -> None:
         assert "kind" in art
         assert "created_at" in art
         assert isinstance(art["created_at"], int)
+
+
+def test_open_file_missing_path(client) -> None:
+    """Тест что POST /api/open-file требует path."""
+    r = client.post("/api/open-file", json={})
+    assert r.status_code == 400
+    data = r.get_json()
+    assert data["status"] == "error"
+    assert "path" in data["reason"].lower()
+
+
+def test_open_file_empty_path(client) -> None:
+    """Тест что пустой path отклоняется."""
+    r = client.post("/api/open-file", json={"path": "   "})
+    assert r.status_code == 400
+    data = r.get_json()
+    assert data["status"] == "error"
+
+
+def test_open_file_path_traversal_attack(client) -> None:
+    """Тест что path traversal атаки блокируются."""
+    # Пытаемся обойти workspace/ ограничение
+    r = client.post("/api/open-file", json={"path": "../../../etc/passwd"})
+    assert r.status_code == 403
+    data = r.get_json()
+    assert data["status"] == "error"
+    assert "workspace" in data["reason"].lower()
+
+
+def test_open_file_outside_workspace(client) -> None:
+    """Тест что доступ вне workspace/ блокируется."""
+    r = client.post("/api/open-file", json={"path": "data/tasks.db"})
+    assert r.status_code == 403
+    data = r.get_json()
+    assert data["status"] == "error"
+    assert "workspace" in data["reason"].lower()
+
+
+def test_open_file_not_found(client) -> None:
+    """Тест что несуществующий файл возвращает 404."""
+    r = client.post("/api/open-file", json={"path": "workspace/nonexistent/file.txt"})
+    assert r.status_code == 404
+    data = r.get_json()
+    assert data["status"] == "error"
+    assert "not found" in data["reason"].lower()
+
+
+def test_open_file_directory_rejected(client, tmp_path) -> None:
+    """Тест что endpoint отклоняет папки (используй /api/open-folder)."""
+    from pathlib import Path  # noqa: PLC0415
+    import os  # noqa: PLC0415
+
+    # Создаём временный workspace с папкой
+    workspace_root = Path(client.application.config.get("REPO_ROOT")) / "workspace"
+    workspace_root.mkdir(parents=True, exist_ok=True)
+
+    test_dir = workspace_root / "test_project"
+    test_dir.mkdir(exist_ok=True)
+
+    try:
+        r = client.post("/api/open-file", json={"path": "workspace/test_project"})
+        assert r.status_code == 400
+        data = r.get_json()
+        assert data["status"] == "error"
+        assert "files only" in data["reason"].lower()
+    finally:
+        # Очищаем
+        if test_dir.exists():
+            os.rmdir(test_dir)
+
+
+def test_open_file_success(client, tmp_path) -> None:
+    """Тест успешного открытия файла."""
+    from pathlib import Path  # noqa: PLC0415
+
+    # Создаём временный файл в workspace
+    workspace_root = Path(client.application.config.get("REPO_ROOT")) / "workspace"
+    workspace_root.mkdir(parents=True, exist_ok=True)
+
+    test_file = workspace_root / "test_file.txt"
+    test_file.write_text("test content")
+
+    try:
+        r = client.post("/api/open-file", json={"path": "workspace/test_file.txt"})
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["status"] == "opened"
+        assert data["file_path"] == "workspace/test_file.txt"
+        assert "absolute_path" in data
+        assert "workspace/test_file.txt" in data["absolute_path"]
+    finally:
+        # Очищаем
+        if test_file.exists():
+            test_file.unlink()
+
+
+def test_open_folder_workspace_allowed(client) -> None:
+    """Тест что POST /api/open-folder разрешает workspace/ пути."""
+    from pathlib import Path  # noqa: PLC0415
+    import os  # noqa: PLC0415
+
+    workspace_root = Path(client.application.config.get("REPO_ROOT")) / "workspace"
+    workspace_root.mkdir(parents=True, exist_ok=True)
+
+    test_dir = workspace_root / "test_project"
+    test_dir.mkdir(exist_ok=True)
+
+    try:
+        r = client.post("/api/open-folder", json={"path": "workspace/test_project"})
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["status"] == "ok"
+        assert "path" in data
+    finally:
+        # Очищаем
+        if test_dir.exists():
+            os.rmdir(test_dir)
+
+
+def test_open_folder_data_still_allowed(client) -> None:
+    """Тест что /api/open-folder всё ещё разрешает data/ пути (backwards compat)."""
+    r = client.post("/api/open-folder", json={"path": "data"})
+    assert r.status_code == 200
+    data = r.get_json()
+    assert data["status"] == "ok"
+
+
+def test_open_folder_path_traversal_blocked(client) -> None:
+    """Тест что path traversal атаки в /api/open-folder блокируются."""
+    r = client.post("/api/open-folder", json={"path": "../../../etc"})
+    assert r.status_code == 403
+    data = r.get_json()
+    assert data["status"] == "error"
+    assert "workspace" in data["reason"].lower() or "data" in data["reason"].lower()
+
+
+def test_open_folder_missing_path(client) -> None:
+    """Тест что /api/open-folder требует path."""
+    r = client.post("/api/open-folder", json={})
+    assert r.status_code == 400
+    data = r.get_json()
+    assert data["status"] == "error"
+    assert "path" in data["reason"].lower()

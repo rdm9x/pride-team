@@ -29,6 +29,7 @@ def client(tmp_path: Path):
 
     # Запускаем миграции для Phase 3a (chat_threads)
     repo_root = Path(__file__).resolve().parents[2]
+    app.config["REPO_ROOT"] = str(repo_root)
     migrate_b1_script = repo_root / "scripts" / "migrate_chat_threads.py"
     migrate_b2_script = repo_root / "scripts" / "migrate_chat_threads_b2.py"
 

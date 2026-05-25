@@ -3430,26 +3430,115 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
 
         return jsonify({"status": "ok", "path": "data/company-context.md"}), 200
 
-    @app.post("/api/open-folder")
-    def api_open_folder() -> Any:
-        """Открыть папку в системном файловом менеджере (macOS: Finder, Linux: xdg-open).
+    @app.post("/api/open-file")
+    def api_open_file() -> Any:
+        """Открыть файл в приложении по умолчанию.
 
-        Принимает {"path": "data/backups"} — относительный путь от repo root.
-        Используется кнопкой «Открыть папку» на странице Settings.
+        Принимает {"path": "workspace/project/task-id/file.txt"} — относительный путь от repo root.
+        Поддерживает только пути в workspace/ или текущем проекте.
+
+        Безопасность: валидирует что path находится внутри workspace/.
         """
         data = request.get_json(silent=True) or {}
         rel_path = (data.get("path") or "").strip()
         if not rel_path:
-            return jsonify({"статус": "error", "status": "error", "причина": "path обязателен", "reason": "path обязателен"}), 400
-        # Безопасность: разрешаем только data/ — не допускаем path traversal
+            return jsonify({
+                "status": "error",
+                "reason": "path is required"
+            }), 400
+
+        # Безопасность: разрешаем только workspace/ — не допускаем path traversal
+        target = (_REPO_ROOT / rel_path).resolve()
+        workspace_resolved = (_REPO_ROOT / "workspace").resolve()
+
+        try:
+            target.relative_to(workspace_resolved)
+        except ValueError:
+            return jsonify({
+                "status": "error",
+                "reason": "access only to workspace/ is allowed"
+            }), 403
+
+        # Проверяем что файл существует
+        if not target.exists():
+            return jsonify({
+                "status": "error",
+                "reason": f"file not found: {rel_path}"
+            }), 404
+
+        # Не пытаемся открывать папки через этот endpoint
+        if target.is_dir():
+            return jsonify({
+                "status": "error",
+                "reason": "this endpoint is for files only, use /api/open-folder for directories"
+            }), 400
+
+        try:
+            if sys.platform == "darwin":
+                subprocess.Popen(["open", str(target)])
+            elif sys.platform == "win32":
+                subprocess.Popen(["start", "", str(target)])
+            else:
+                subprocess.Popen(["xdg-open", str(target)])
+        except Exception as exc:  # noqa: BLE001
+            log.error("Error opening file %s: %s", target, exc)
+            return jsonify({
+                "status": "error",
+                "reason": str(exc)
+            }), 500
+
+        return jsonify({
+            "status": "opened",
+            "file_path": rel_path,
+            "absolute_path": str(target),
+            "message": "Opening in default app..."
+        })
+
+    @app.post("/api/open-folder")
+    def api_open_folder() -> Any:
+        """Открыть папку в системном файловом менеджере (macOS: Finder, Linux: xdg-open).
+
+        Принимает {"path": "data/backups"} или {"path": "workspace/project/"} — относительный путь от repo root.
+        Используется кнопкой «Открыть папку» на странице Settings и артефактами.
+        Поддерживает data/ и workspace/ пути.
+        """
+        data = request.get_json(silent=True) or {}
+        rel_path = (data.get("path") or "").strip()
+        if not rel_path:
+            return jsonify({
+                "status": "error",
+                "reason": "path is required"
+            }), 400
+
+        # Безопасность: разрешаем только data/ или workspace/ — не допускаем path traversal
         target = (_REPO_ROOT / rel_path).resolve()
         data_resolved = (_DATA_DIR).resolve()
+        workspace_resolved = (_REPO_ROOT / "workspace").resolve()
+
+        # Проверяем что path находится либо в data/, либо в workspace/
+        in_data = False
+        in_workspace = False
         try:
             target.relative_to(data_resolved)
+            in_data = True
         except ValueError:
-            return jsonify({"статус": "error", "status": "error", "причина": "доступ только к папке data/", "reason": "доступ только к папке data/"}), 403
+            pass
+
+        try:
+            target.relative_to(workspace_resolved)
+            in_workspace = True
+        except ValueError:
+            pass
+
+        if not (in_data or in_workspace):
+            return jsonify({
+                "status": "error",
+                "reason": "access only to data/ or workspace/ is allowed"
+            }), 403
+
         if not target.exists():
             target.mkdir(parents=True, exist_ok=True)
+
         try:
             if sys.platform == "darwin":
                 subprocess.Popen(["open", str(target)])
@@ -3458,8 +3547,16 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             else:
                 subprocess.Popen(["xdg-open", str(target)])
         except Exception as exc:  # noqa: BLE001
-            return jsonify({"статус": "error", "status": "error", "причина": str(exc), "reason": str(exc)}), 500
-        return jsonify({"статус": "ok", "path": str(target)})
+            log.error("Error opening folder %s: %s", target, exc)
+            return jsonify({
+                "status": "error",
+                "reason": str(exc)
+            }), 500
+
+        return jsonify({
+            "status": "ok",
+            "path": str(target)
+        })
 
     @app.get("/healthz")
     def healthz() -> Any:

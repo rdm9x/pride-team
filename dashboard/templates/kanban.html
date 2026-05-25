@@ -89,7 +89,7 @@
 
     <div class="sidebar-footer">
       <div id="silence-badge" class="silence-badge" hidden
-           data-i18n-attr="title:team.silence.title"><span class="ico">⚠</span> <span data-i18n="team.silence.label">тимлид молчит</span></div>
+           data-i18n-attr="title:team.silence.title"><span class="ico">⚠</span> <span data-i18n="team.silence.label">команда молчит</span></div>
       <div id="router-badge" class="router-badge"
            data-i18n-attr="title:team.router.title">
         <span class="ico">🤖</span> <span id="router-summary">…</span>
@@ -148,7 +148,19 @@
           <input type="checkbox" id="auto-mode-toggle">
           <span data-i18n="topbar.auto_label">🤖 Авто</span>
         </label>
-        <button id="btn-start" data-i18n="topbar.btn_start">▶ Запустить команду</button>
+        <!-- F1 (1.6): split-button «Запустить команду» + dropdown выбора роли -->
+        <div class="start-btn-group" id="start-btn-group">
+          <button id="btn-start" class="start-btn-main" data-i18n="topbar.btn_start">▶ Запустить команду</button>
+          <button id="btn-start-dropdown" class="start-btn-chevron"
+                  aria-haspopup="true" aria-expanded="false"
+                  aria-label="Выбрать роль для запуска"
+                  data-i18n-attr="aria-label:topbar.btn_start_role_aria"
+                  title="Выбрать роль">▼</button>
+          <div id="start-role-popup" class="start-role-popup" hidden role="menu" aria-label="Выбрать роль">
+            <!-- заполняется из JS (renderStartRolePopup) -->
+          </div>
+        </div>
+        <span id="team-started-as" class="team-started-as" hidden></span>
         <button id="btn-stop" hidden data-i18n="topbar.btn_stop">⏹ Остановить</button>
       </div>
     </header>
@@ -643,7 +655,7 @@
       <div class="live-header">
         <button id="live-toggle" class="live-toggle" type="button" aria-expanded="false">
           <span class="live-arrow">▸</span>
-          <strong data-i18n="live.title">Live-вывод тимлида</strong>
+          <strong data-i18n="live.title">Live-вывод сессии</strong>
           <span class="muted" id="live-hint" data-i18n="live.hint">когда команда работает — здесь поток событий</span>
         </button>
         <div class="theme-toggle live-mode-toggle" role="group" aria-label="Live output mode"
@@ -661,7 +673,7 @@
   <!-- ===== Chat (right) ===== -->
   <aside class="chat" id="chat">
     <header>
-      <strong><span class="ico">💬</span> <span id="chat-title-label" data-i18n="chat.title">Чат с тимлидом</span></strong>
+      <strong><span class="ico">💬</span> <span id="chat-title-label" data-i18n="chat.title">Чат с командой</span></strong>
       <span id="chat-description" class="chat-description"></span>
       <button id="chat-collapse" class="chat-collapse-btn" title="Collapse chat"
               data-i18n-attr="title:chat.collapse_title">→</button>
@@ -784,7 +796,7 @@
         </label>
         <label><span data-i18n="modal.new.field.assignee">Назначить</span>
           <select name="assignee">
-            <option value="тимлид" selected data-i18n="modal.assignee.teamlead">тимлид</option>
+            <option value="dev-lead" selected data-i18n="modal.assignee.teamlead">Лид отдела</option>
             <option value="бэкенд" data-i18n="modal.assignee.backend">бэкенд</option>
             <option value="qa">qa</option>
             <option value="архитектор" data-i18n="modal.assignee.architect">архитектор</option>

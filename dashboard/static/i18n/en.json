@@ -240,7 +240,7 @@
     },
     "silence": {
       "title": "Team-lead ended the session but left no summary",
-      "label": "team-lead is silent"
+      "label": "team is silent"
     },
     "router": {
       "title": "Model the router will pick",
@@ -376,7 +376,7 @@
     "team": {
       "title": "Team",
       "auto_label": "Auto mode",
-      "auto_hint": "Team-lead starts sessions automatically when there is work",
+      "auto_hint": "Team starts sessions automatically when there is work",
       "limits_label": "Auto mode limits",
       "limits_value": "max 20 sessions/hour, min 30s between runs",
       "router_label": "Model router",
@@ -481,7 +481,7 @@
     }
   },
   "live": {
-    "title": "Team-lead live output",
+    "title": "Session live output",
     "hint": "while the team is working — events stream here",
     "mode_aria": "Live output mode",
     "mode": {
@@ -490,7 +490,7 @@
     }
   },
   "chat": {
-    "title": "Chat with team-lead",
+    "title": "Chat with team",
     "title_managing_director": "Chat with Managing Director",
     "collapse_title": "Collapse chat",
     "expand_title": "Expand chat",

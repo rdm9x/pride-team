@@ -207,14 +207,15 @@ def test_has_pending_work_todo_for_team_lead(tmp_path, monkeypatch) -> None:
     assert app_module._has_pending_work_for_role("dev-lead") is True
 
 
-def test_has_pending_work_ignores_other_assignees(tmp_path, monkeypatch) -> None:
+def test_has_pending_work_sees_team_member_tasks(tmp_path, monkeypatch) -> None:
     from devboard_tasks import db as _db
     db_path = tmp_path / "x.db"
     _db.init_db(db_path)
     _db.insert_task(db_path, title="for qa", assignee="qa")
     monkeypatch.setattr(app_module, "DB_PATH", db_path)
-    # D38BCDDA9CF9: dev-lead не должна иметь работу если только для qa
-    assert app_module._has_pending_work_for_role("dev-lead") is False
+    # D38BCDDA9CF9: dev-lead ДОЛЖНА иметь работу если есть todo для любого члена отдела
+    # (commit 88f06d8: лид координирует работу даже если не сам выполняет)
+    assert app_module._has_pending_work_for_role("dev-lead") is True
 
 
 def test_auto_can_start_disabled(reset_team_state) -> None:
@@ -261,9 +262,10 @@ def test_auto_can_start_no_work(reset_team_state, tmp_path, monkeypatch) -> None
     monkeypatch.setattr(app_module, "DB_PATH", db_path)
 
     app_module._global_state["auto_mode"] = True
+    # Without pending work, auto_can_start should fail
     ok, reason = app_module._auto_can_start_for_role("managing-director", 1_000_000)
     assert ok is False
-    assert "пустая" in reason
+    assert "пуста" in reason
 
 
 def test_auto_can_start_ok(reset_team_state, tmp_path, monkeypatch) -> None:

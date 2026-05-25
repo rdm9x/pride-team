@@ -23,19 +23,21 @@ from devboard_tasks import db as db_module
 
 @pytest.fixture()
 def reset_state():
-    """Сбрасывает глобальное состояние тимлида."""
+    """Сбрасывает глобальное состояние (D38BCDDA9CF9: _team_states[role] вместо _team_state)."""
     import app as app_module
-    saved = dict(app_module._team_state)
-    app_module._team_state["process"] = None
-    app_module._team_state["queue"] = Queue()
-    app_module._team_state["started_at"] = None
-    app_module._team_state["lock"] = Lock()
-    app_module._team_state["auto_mode"] = False
-    app_module._team_state["starts_history"] = []
-    app_module._team_state["auto_pause_reason"] = None
+    saved_states = dict(app_module._team_states)
+    saved_global = dict(app_module._global_state)
+
+    app_module._team_states.clear()
+    app_module._global_state["auto_mode"] = False
+    app_module._global_state["auto_pause_reason"] = None
+
     yield
-    for k, v in saved.items():
-        app_module._team_state[k] = v
+
+    app_module._team_states.clear()
+    app_module._team_states.update(saved_states)
+    app_module._global_state.clear()
+    app_module._global_state.update(saved_global)
 
 
 def test_auto_mode_saved_to_db(client, reset_state) -> None:
@@ -173,7 +175,7 @@ def test_acceptance_criteria_auto_mode_survives_restart(client, reset_state, tmp
     r = client.post("/api/team/auto", json={"enabled": True})
     assert r.status_code == 200
     assert r.get_json()["auto_mode"] is True
-    assert app_module._team_state["auto_mode"] is True
+    assert app_module._global_state["auto_mode"] is True
 
     # Шаг 2: проверяем что в БД сохранилось "true"
     persisted_value = db_module.get_app_state(db_path, "auto_mode")

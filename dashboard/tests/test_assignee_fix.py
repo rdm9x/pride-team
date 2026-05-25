@@ -91,7 +91,7 @@ def test_find_lead_unknown_dept_returns_none(tmp_path: Path) -> None:
 
 
 def test_has_pending_work_no_dept_fallback(tmp_path: Path, monkeypatch) -> None:
-    """_has_pending_work() без dept_id использует 'dev' → проверяет assignee='тимлид'."""
+    """_has_pending_work_for_role('dev-lead') без задач → False, с задачей → True."""
     import app as _app  # type: ignore
 
     db_path = tmp_path / "tasks.db"
@@ -99,7 +99,7 @@ def test_has_pending_work_no_dept_fallback(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(_app, "DB_PATH", db_path)
 
     # Без задач → False
-    assert _app._has_pending_work() is False
+    assert _app._has_pending_work_for_role("dev-lead") is False
 
     # Добавляем задачу с assignee='тимлид' (dev fallback)
     _db.insert_task(
@@ -111,11 +111,11 @@ def test_has_pending_work_no_dept_fallback(tmp_path: Path, monkeypatch) -> None:
         department_id="dev",
     )
 
-    assert _app._has_pending_work() is True
+    assert _app._has_pending_work_for_role("dev-lead") is True
 
 
 def test_has_pending_work_marketing_inbox(tmp_path: Path, monkeypatch) -> None:
-    """_has_pending_work(dept_id='marketing') проверяет assignee='marketing-lead'."""
+    """_has_pending_work_for_role('marketing-lead') проверяет очередь маркетинга."""
     import app as _app  # type: ignore
 
     db_path = tmp_path / "tasks.db"
@@ -124,7 +124,7 @@ def test_has_pending_work_marketing_inbox(tmp_path: Path, monkeypatch) -> None:
     _setup_marketing(db_path)
 
     # Без задач → False
-    assert _app._has_pending_work(dept_id="marketing") is False
+    assert _app._has_pending_work_for_role("marketing-lead") is False
 
     # Добавляем задачу marketing-lead
     _db.insert_task(
@@ -136,10 +136,10 @@ def test_has_pending_work_marketing_inbox(tmp_path: Path, monkeypatch) -> None:
         department_id="marketing",
     )
 
-    assert _app._has_pending_work(dept_id="marketing") is True
+    assert _app._has_pending_work_for_role("marketing-lead") is True
 
     # dev очередь при этом пустая
-    assert _app._has_pending_work() is False
+    assert _app._has_pending_work_for_role("dev-lead") is False
 
 
 # ---------------------------------------------------------------------------
@@ -148,15 +148,15 @@ def test_has_pending_work_marketing_inbox(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_demo_endpoint_dev_assignee_is_timlid(client) -> None:
-    """POST /api/demo без X-Department → epic assignee='тимлид' (dev dept)."""
+    """POST /api/demo без X-Department → epic assignee='dev-lead' (dev dept)."""
     r = client.post("/api/demo")
     assert r.status_code == 201
 
     tasks_r = client.get("/api/tasks")
     all_tasks = tasks_r.get_json()["задачи"]
     epic = next(t for t in all_tasks if t["title"] == "Build a landing page")
-    assert epic["assignee"] == "тимлид", (
-        f"ожидался assignee='тимлид' для dev dept, получено {epic['assignee']!r}"
+    assert epic["assignee"] == "dev-lead", (
+        f"ожидался assignee='dev-lead' для dev dept, получено {epic['assignee']!r}"
     )
 
 

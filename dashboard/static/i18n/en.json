@@ -71,6 +71,7 @@
   },
   "nav": {
     "brand": "Devboard",
+    "home": "Home",
     "dashboard": "Owner Dashboard",
     "chat": "Chat",
     "inbox": "Inbox",

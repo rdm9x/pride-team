@@ -71,6 +71,7 @@
   },
   "nav": {
     "brand": "Devboard",
+    "home": "Главная",
     "dashboard": "Owner Dashboard",
     "chat": "Чат",
     "inbox": "На столе",

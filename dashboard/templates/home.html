@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title data-i18n="page.title">devboard · Owner Dashboard</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/css/tour.css">
+</head>
+<body>
+
+<!-- ===================== App layout (3 column) ===================== -->
+<div class="app">
+
+  <!-- ===== Sidebar (left) ===== -->
+  <aside class="sidebar">
+    <div class="brand">
+      <strong data-i18n="nav.brand">Devboard</strong>
+    </div>
+
+    <nav class="nav">
+      <!-- F3: Owner Dashboard главная страница -->
+      <button class="nav-item active" onclick="window.location.href='/home'">
+        <span class="ico">🏠</span>
+        <span class="lbl" data-i18n="nav.home">Главная</span>
+      </button>
+
+      <button class="nav-item" onclick="window.location.href='/'">
+        <span class="ico">🗂</span>
+        <span class="lbl" data-i18n="nav.board">Доска</span>
+      </button>
+
+      <button class="nav-item" id="btn-nav-chat" title="Go to chat">
+        <span class="ico">💬</span>
+        <span class="lbl" data-i18n="nav.chat">Чат</span>
+      </button>
+    </nav>
+
+    <!-- ===== Managing Director (ADR-009 §2.7.2) ===== -->
+    <div class="managing-director-row">
+      <button type="button" class="managing-director-item" id="btn-managing-director"
+              data-i18n-attr="title:managingDirector.tooltip,aria-label:managingDirector.label"
+              title="Главный собеседник (общий чат)"
+              aria-label="Управляющий"
+              aria-pressed="false">
+        <span class="ico" aria-hidden="true">🏛</span>
+        <span class="lbl" data-i18n="managingDirector.label">Управляющий</span>
+      </button>
+    </div>
+
+    <!-- ===== Departments ===== -->
+    <div class="departments-list" id="departments-list" role="region"
+         aria-labelledby="departments-list-title">
+      <div class="departments-list-header">
+        <span id="departments-list-title" class="muted"
+              data-i18n="sidebar.departments">Отделы</span>
+      </div>
+      <div class="departments-items" id="departments-items">
+        <!-- dept-item buttons рендерятся из JS -->
+      </div>
+      <button type="button" class="dept-add" id="btn-add-department"
+              data-i18n="sidebar.add_department.label"
+              data-i18n-attr="title:sidebar.add_department.title,aria-label:sidebar.add_department.title"
+              title="Добавить отдел"
+              aria-label="Добавить отдел">+ Department</button>
+    </div>
+
+    <div class="sidebar-footer">
+      <div id="silence-badge" class="silence-badge" hidden
+           data-i18n-attr="title:team.silence.title"><span class="ico">⚠</span> <span data-i18n="team.silence.label">команда молчит</span></div>
+      <div id="router-badge" class="router-badge"
+           data-i18n-attr="title:team.router.title">
+        <span class="ico">🤖</span> <span id="router-summary">…</span>
+      </div>
+      <div id="usage-badge" class="usage-badge"
+           data-i18n-attr="title:usage.badge.title">
+        <span class="ico">🔢</span> <span id="usage-summary" data-i18n="usage.badge.empty">— сессий</span>
+      </div>
+      <div id="sidebar-agents" class="team-roles" role="list"
+           aria-label="Команда" data-i18n-attr="aria-label:sidebar.team">
+        <!-- заполняется loadSidebarAgents() -->
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===== Main (center) ===== -->
+  <main class="main">
+
+    <!-- Top bar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button id="btn-new-task" class="primary" data-i18n="topbar.new_task">+ Новая задача</button>
+      </div>
+      <div class="topbar-right">
+        <div class="locale-switcher" role="group" aria-label="Language" data-i18n-attr="aria-label:topbar.locale_aria">
+          <button type="button" data-locale="ru" aria-pressed="false" title="Russian" data-i18n-attr="title:topbar.locale.ru_title">🇷🇺 RU</button>
+          <button type="button" data-locale="en" aria-pressed="false" title="English" data-i18n-attr="title:topbar.locale.en_title">🇬🇧 EN</button>
+        </div>
+        <div class="theme-toggle" role="group" aria-label="Theme"
+             data-i18n-attr="aria-label:topbar.theme_aria">
+          <button data-theme-set="light" title="Light theme"
+                  data-i18n-attr="title:topbar.theme_light">☀</button>
+          <button data-theme-set="dark" title="Dark theme"
+                  data-i18n-attr="title:topbar.theme_dark">🌙</button>
+        </div>
+        <span id="team-status" class="status stopped" data-i18n="team.status.stopped">⏸ Стоит</span>
+        <label class="auto-toggle"
+               data-i18n-attr="title:topbar.auto_title"
+               title="Auto mode: the team-lead starts the next session on their own when there's work">
+          <input type="checkbox" id="auto-mode-toggle">
+          <span data-i18n="topbar.auto_label">🤖 Авто</span>
+        </label>
+        <div class="start-btn-group" id="start-btn-group">
+          <button id="btn-start" class="start-btn-main" data-i18n="topbar.btn_start">▶ Запустить команду</button>
+          <button id="btn-start-dropdown" class="start-btn-chevron"
+                  aria-haspopup="true" aria-expanded="false"
+                  aria-label="Выбрать роль для запуска"
+                  data-i18n-attr="aria-label:topbar.btn_start_role_aria"
+                  title="Выбрать роль">▼</button>
+          <div id="start-role-popup" class="start-role-popup" hidden role="menu" aria-label="Выбрать роль">
+            <!-- заполняется из JS -->
+          </div>
+        </div>
+        <span id="team-started-as" class="team-started-as" hidden></span>
+        <button id="btn-stop" hidden data-i18n="topbar.btn_stop">⏹ Остановить</button>
+      </div>
+    </header>
+
+    <!-- View: Owner Dashboard (F3) -->
+    <section class="view view-dashboard">
+      <div class="view-header">
+        <h1 data-i18n="dashboard.title">Owner Dashboard</h1>
+        <span class="muted" id="dashboard-total-hint" data-i18n="dashboard.total.hint">Проекты с прогрессом и действиями</span>
+      </div>
+
+      <!-- Projects container (grid of cards) -->
+      <div class="owner-dashboard">
+        <div class="projects-container" id="projects-container">
+          <!-- Project cards рендерятся из JS (loadProjects) -->
+          <div class="loading-spinner" data-i18n="common.loading">Загрузка проектов…</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===== Right sidebar: Chat (optional, ADR-011) ===== -->
+  <aside class="chat-sidebar" id="chat-sidebar" hidden>
+    <!-- Чат потоки/сообщения (если нужны) -->
+  </aside>
+
+</div>
+
+<!-- ===== Modals ===== -->
+
+<!-- Project History Modal -->
+<div id="modal-project-history" class="modal" hidden role="dialog" aria-modal="true"
+     aria-labelledby="modal-project-history-title">
+  <div class="modal-content modal-project-history">
+    <header class="modal-header">
+      <span id="modal-project-history-title">История проекта</span>
+      <button class="close" type="button" data-close="modal-project-history"
+              aria-label="Close" title="Close">✕</button>
+    </header>
+    <div class="modal-body" id="modal-project-history-body">
+      <!-- История проекта рендерится из JS -->
+    </div>
+  </div>
+</div>
+
+<!-- Confirmation Modal (generic) -->
+<div id="modal-confirm" class="modal" hidden>
+  <div class="modal-content" style="width: 420px;">
+    <header class="modal-header">
+      <span data-i18n="modal.confirm.title">Подтверди действие</span>
+      <button class="close" data-close="modal-confirm">✕</button>
+    </header>
+    <div class="modal-body">
+      <p id="modal-confirm-message"></p>
+      <div class="modal-actions">
+        <button id="modal-confirm-yes" class="primary" data-i18n="modal.confirm.yes">Да</button>
+        <button id="modal-confirm-no" data-close="modal-confirm" data-i18n="modal.confirm.no">Отмена</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Scripts ===== -->
+
+<!-- i18n localization -->
+<script src="/static/js/i18n.js"></script>
+
+<!-- Dashboard Owner (F3 — ADR-013) -->
+<script src="/static/js/dashboard-owner.js"></script>
+
+<!-- Common app scripts (theme, locale, team status, etc.) -->
+<script src="/static/app.js"></script>
+
+</body>
+</html>

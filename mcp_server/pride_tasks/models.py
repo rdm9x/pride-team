@@ -62,6 +62,16 @@ class Comment(BaseModel):
     created_at: int
 
 
+class TaskArtifact(BaseModel):
+    """Артефакт задачи (файл результата). Строка таблицы task_artifacts."""
+
+    id: Optional[int] = None
+    task_id: str
+    file_path: str
+    kind: str  # 'log' | 'result' | 'screenshot' | 'report' | etc.
+    created_at: int
+
+
 class Role(BaseModel):
     """Виртуальная роль команды. Соответствует строке таблицы roles."""
 

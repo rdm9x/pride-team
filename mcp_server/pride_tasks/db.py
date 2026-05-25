@@ -125,6 +125,19 @@ CREATE TABLE IF NOT EXISTS task_comments (
 
 CREATE INDEX IF NOT EXISTS idx_comments_task ON task_comments(task_id);
 
+CREATE TABLE IF NOT EXISTS task_artifacts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  task_id TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  FOREIGN KEY (task_id) REFERENCES tasks(id),
+  CONSTRAINT unique_artifact UNIQUE (task_id, file_path)
+);
+
+CREATE INDEX IF NOT EXISTS idx_artifacts_task ON task_artifacts(task_id);
+CREATE INDEX IF NOT EXISTS idx_artifacts_created ON task_artifacts(created_at);
+
 CREATE TABLE IF NOT EXISTS roles (
   name TEXT PRIMARY KEY,
   description TEXT NOT NULL,
@@ -1972,5 +1985,134 @@ def inbox_summary(db_path: Path) -> list[dict[str, Any]]:
                 "last_chat_msg_time": last_msg["ts"] if last_msg and last_msg["ts"] else None,
             })
         return result
+    finally:
+        conn.close()
+
+
+# === Task Artifacts (Phase 2.0.1) ===
+
+def _row_to_artifact(row: sqlite3.Row) -> dict[str, Any]:
+    """Преобразовать строку task_artifacts в dict."""
+    return {
+        "id": row["id"],
+        "task_id": row["task_id"],
+        "file_path": row["file_path"],
+        "kind": row["kind"],
+        "created_at": row["created_at"],
+    }
+
+
+def insert_artifact(
+    db_path: Path,
+    task_id: str,
+    file_path: str,
+    kind: str,
+    created_at: Optional[int] = None,
+) -> dict[str, Any]:
+    """Добавить артефакт к задаче.
+
+    Args:
+        task_id: id задачи
+        file_path: путь к файлу (абсолютный или относительный)
+        kind: тип артефакта ('log', 'result', 'screenshot', 'report', etc.)
+        created_at: timestamp (по умолчанию текущее время)
+
+    Returns:
+        dict с данными артефакта, включая id
+    """
+    if created_at is None:
+        created_at = int(time.time())
+
+    conn = _connect(db_path)
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO task_artifacts (task_id, file_path, kind, created_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (task_id, file_path, kind, created_at),
+        )
+        conn.commit()
+        artifact_id = cursor.lastrowid
+
+        row = conn.execute(
+            "SELECT * FROM task_artifacts WHERE id = ?",
+            (artifact_id,),
+        ).fetchone()
+        return _row_to_artifact(row)
+    finally:
+        conn.close()
+
+
+def get_artifact(db_path: Path, artifact_id: int) -> Optional[dict[str, Any]]:
+    """Получить артефакт по id."""
+    conn = _connect(db_path)
+    try:
+        row = conn.execute(
+            "SELECT * FROM task_artifacts WHERE id = ?",
+            (artifact_id,),
+        ).fetchone()
+        return _row_to_artifact(row) if row else None
+    finally:
+        conn.close()
+
+
+def list_artifacts(
+    db_path: Path,
+    task_id: str,
+) -> list[dict[str, Any]]:
+    """Получить все артефакты задачи, отсортированные по created_at DESC."""
+    conn = _connect(db_path)
+    try:
+        rows = conn.execute(
+            """
+            SELECT * FROM task_artifacts
+            WHERE task_id = ?
+            ORDER BY created_at DESC
+            """,
+            (task_id,),
+        ).fetchall()
+        return [_row_to_artifact(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def update_artifact(
+    db_path: Path,
+    artifact_id: int,
+    **fields: Any,
+) -> Optional[dict[str, Any]]:
+    """Обновить артефакт. Допустимые поля: kind, file_path."""
+    allowed_fields = {"kind", "file_path"}
+    fields = {k: v for k, v in fields.items() if k in allowed_fields}
+
+    if not fields:
+        return get_artifact(db_path, artifact_id)
+
+    conn = _connect(db_path)
+    try:
+        placeholders = ", ".join(f"{k} = ?" for k in fields.keys())
+        values = list(fields.values()) + [artifact_id]
+
+        conn.execute(
+            f"UPDATE task_artifacts SET {placeholders} WHERE id = ?",
+            values,
+        )
+        conn.commit()
+
+        return get_artifact(db_path, artifact_id)
+    finally:
+        conn.close()
+
+
+def delete_artifact(db_path: Path, artifact_id: int) -> bool:
+    """Удалить артефакт. Возвращает True если был удален."""
+    conn = _connect(db_path)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM task_artifacts WHERE id = ?", (artifact_id,))
+        conn.commit()
+        return cursor.rowcount > 0
     finally:
         conn.close()

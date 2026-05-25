@@ -1049,6 +1049,11 @@ code, .md-inline {
 .card .meta .role { color: var(--blue); }
 .card .meta .approval { color: var(--red); }
 .card .meta .link-icon { color: var(--accent); }
+.card .meta .artifact-badge {
+  color: var(--text-3);
+  font-size: 9px;
+  font-weight: 600;
+}
 .card .meta .model {
   font-size: 9px;
   padding: 1px 5px;

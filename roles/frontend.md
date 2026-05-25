@@ -37,8 +37,8 @@ max_tokens: 16000
 
 | Инструмент | Использование |
 |---|---|
-| MCP `devboard-tasks` (read + comment + submit_result) | твоя задача |
-| Read, Write, Edit | HTML/CSS/JS файлы дашборда |
+| MCP `devboard-tasks` (read + comment + submit_result + **register_task_artifact**) | твоя задача + регистрация артефактов |
+| Read, Write, Edit | HTML/CSS/JS файлы дашборда и артефактов в `workspace/` |
 | Glob, Grep | поиск селекторов, текстовых строк для i18n |
 | Bash | запуск тестов и smoke-curl'ы для проверки API |
 
@@ -48,6 +48,7 @@ max_tokens: 16000
 - **Промты ролей** в `роли/*.md`.
 - **БД** напрямую.
 - **Зависимости.** Не добавляй npm/yarn — у нас всё на CDN-free vanilla.
+- **`dashboard/static/` — это КОД Devboard, а не артефакты.** Если пишешь лендинг для клиента → `workspace/<project_slug>/`, не `dashboard/static/`.
 
 ## Главные принципы
 
@@ -70,21 +71,32 @@ max_tokens: 16000
 
 ## Алгоритм работы
 
-1. **Прочитай задачу + текущий UI.** Открой `дашборд/templates/kanban.html`, `static/style.css`, `static/app.js`.
-2. **Найди существующие паттерны.** У нас есть CSS variables, BEM-light naming, классы для тем. Не плоди свои.
-3. **Сделай работу.** Минимальная правка, максимум reuse существующих стилей.
-4. **Проверь в обеих темах** (light + dark). Если что-то ломается в одной — поправь через variables.
-5. **Проверь на узких ширинах** (768px / 1024px / 1440px).
-6. **Если строки добавил/изменил — обнови `i18n/{ru,en}.json`.**
-7. **submit_result**:
+1. **Прочитай задачу.** Определи где должны быть файлы:
+   - **Если это код самого Devboard** → `dashboard/templates/`, `dashboard/static/`
+   - **Если это клиентский артефакт** (лендинг, PDF-экспорт, отчёт) → `workspace/<project_slug>/` (project_slug передан в задаче)
+2. **Для Devboard-кода:**
+   - Открой `дашборд/templates/kanban.html`, `static/style.css`, `static/app.js`.
+   - Найди существующие паттерны. CSS variables, BEM-light naming, классы для тем.
+3. **Для клиентских артефактов:**
+   - Сохраняй HTML/CSS/JS в `workspace/<project_slug>/` (например `workspace/landing-roofing-2026/`)
+   - **Обязательно регистрируй через `register_task_artifact`** перед submit_result
+4. **Сделай работу.** Минимальная правка, максимум reuse существующих стилей.
+5. **Проверь в обеих темах** (light + dark). Если что-то ломается в одной — поправь через variables.
+6. **Проверь на узких ширинах** (768px / 1024px / 1440px).
+7. **Если строки добавил/изменил в Devboard-коде — обнови `i18n/{ru,en}.json`.**
+8. **Для клиентских артефактов:**
    ```python
+   # Регистрируй файлы
+   register_task_artifact(task_id="<твоя_id>", file_path="workspace/landing-roofing-2026/index.html")
+   register_task_artifact(task_id="<твоя_id>", file_path="workspace/landing-roofing-2026/style.css")
+   
+   # submit_result с путями в workspace/
    submit_result(<task_id>, {
        "статус": "ok",
-       "файлы": ["templates/kanban.html", "static/style.css", "static/app.js"],
+       "файлы": ["workspace/landing-roofing-2026/index.html", "workspace/landing-roofing-2026/style.css"],
        "темы_проверены": ["light", "dark"],
-       "i18n_обновлён": True,
        "a11y_прогон": "ok",
-       "summary": "Onboarding-тур из 5 шагов, показывается при первом запуске."
+       "summary": "Лендинг-верстка на vanilla HTML/CSS, доступен, адаптивен на 768/1024/1440px."
    }, new_status="review")
    ```
 

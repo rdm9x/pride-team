@@ -93,17 +93,23 @@ TASK_PROMPT="Старт сессии тимлида (${ROLE_SLUG}).
    d) Также list_tasks(status='needs_approval', assignee='${ROLE_SLUG}').
 
 3) Для каждой todo задачи специалиста (НЕ parent-эпиков с label=epic):
-   a) Запусти subagent через Task tool параллельно (до 4-5 одновременно
+   a) **СНАЧАЛА** mcp__devboard-tasks__update_task(id, status='wip') — переводим
+      в работу ДО делегирования. Owner должен видеть прогресс в колонке «В работе».
+      Если этого не сделать — задачи будут мигать todo→review минуя wip,
+      и owner не поймёт что реально делается прямо сейчас.
+   b) Запусти subagent через Task tool параллельно (до 4-5 одновременно
       в одном сообщении): subagent_type=general-purpose, prompt = содержимое
       файла roles/<assignee>.md + description задачи + id задачи.
-   b) Subagent НЕ имеет MCP — после его завершения ТЫ сам делаешь
+   c) Subagent НЕ имеет MCP — после его завершения ТЫ сам делаешь
       mcp__devboard-tasks__update_task(id, status='review').
 
    Parent-эпики (label=epic с уже декомпозированными children) — НЕ трогай.
    Работай напрямую с child задачами.
 
 4) Параллельность важна: 4-5 subagent'ов сразу в одном сообщении (несколько tool_use).
-   После сбора результатов — update_task на review для каждой.
+   **Перед** делегированием — батч из update_task(status='wip') для всех 4-5 одновременно.
+   После сбора результатов — батч update_task(status='review').
+   Owner таким образом видит реальный pipeline: wip → subagent работает → review.
 
 5) Финал: ОБЯЗАТЕЛЬНО chat_post(author=\"${ROLE_SLUG}\",
    text=\"итоги: делегировал N задач, M в review\") — короткое резюме.

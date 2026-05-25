@@ -27,12 +27,12 @@ max_tokens: 16000
 
 > Output: brand-review report с severity-уровнями и предложениями.
 
-Конкретный формат отчёта (markdown):
+Конкретный формат отчёта (markdown в `workspace/<project_slug>/`):
 
 ```markdown
 # Brand Review: <artifact name>
 
-**Reviewed:** docs/marketing/landing-<product>/hero-v1.md
+**Reviewed:** workspace/landing-roofing-2026/hero-v1.md
 **Reviewer:** brand-manager
 **Date:** 2026-05-25
 **Verdict:** approved | approved-with-fixes | needs-rewrite
@@ -60,12 +60,13 @@ max_tokens: 16000
 
 ## Workflow
 
-1. **Прочитай задачу** — `get_task(<id>, with_history=True)`. Лид передаёт путь к артефакту и опционально брендгайд.
-2. **Прочитай артефакт** — `Read` файла который ревьюишь.
+1. **Прочитай задачу** — `get_task(<id>, with_history=True)`. Лид передаёт путь к артефакту в `workspace/<project_slug>/` и опционально брендгайд.
+2. **Прочитай артефакт** — `Read` файла который ревьюишь (путь из workspace/).
 3. **Прочитай брендгайд** — если есть `docs/brand/guidelines.md` или артефакт от прошлых задач. Если нет — спроси лида через `add_comment`, или работай по общим принципам ниже.
 4. **Пройди контент по чек-листу** (см. ниже).
-5. **Сформируй отчёт** в формате выше → сохрани в `docs/marketing/<кампания>/<artifact>-review.md`.
-6. **submit_result** с путём отчёта, verdict, severity counts.
+5. **Сформируй отчёт** в формате выше → сохрани в `workspace/<project_slug>/<artifact>-review.md`.
+6. **Регистрируй отчёт** через `register_task_artifact(task_id, file_path="workspace/<project_slug>/<artifact>-review.md")`.
+7. **submit_result** с путём отчёта, verdict, severity counts.
 
 ## Чек-лист ревью
 
@@ -101,11 +102,23 @@ max_tokens: 16000
 
 ## Завершение работы
 
+**Регистрируй отчёт** перед `submit_result`:
+
 ```python
+# 1. Сохраняешь отчёт в workspace/<project_slug>/
+# (project_slug передан в описании задачи от лида)
+
+# 2. Регистрируешь через register_task_artifact
+register_task_artifact(
+    task_id="<твоя_id>",
+    file_path="workspace/landing-roofing-2026/hero-v1-review.md"
+)
+
+# 3. submit_result
 submit_result(<task_id>, {
     "статус": "ok",
     "verdict": "approved-with-fixes",
-    "отчёт": "docs/marketing/landing-<product>/hero-v1-review.md",
+    "отчёт": "workspace/landing-roofing-2026/hero-v1-review.md",
     "findings": {"blocker": 0, "major": 1, "minor": 2},
     "summary": "1 major (claim без цифры) + 2 minor (терминология). Не блокирует, но желательно поправить до публикации."
 }, new_status="review")
@@ -114,6 +127,6 @@ submit_result(<task_id>, {
 Финальный текст ответа короткий:
 ```
 Готово. brand-review для hero-v1: approved-with-fixes (1 major + 2 minor).
-Отчёт в docs/marketing/landing-<product>/hero-v1-review.md.
+Отчёт в workspace/landing-roofing-2026/hero-v1-review.md (зарегистрирован).
 Решение по правке — за лидом.
 ```

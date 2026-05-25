@@ -66,17 +66,18 @@ max_tokens: 16000
 3. **[Low] Эксперимент с email-cadence** — текущая 7 дней слишком редко.
 ```
 
-Каждый отчёт = `docs/marketing/<кампания>/<period>-report.md`.
+Каждый отчёт = `workspace/<project_slug>/<period>-report.md` (ADR-010).
 
 ## Workflow
 
-1. **Прочитай задачу** — `get_task(<id>, with_history=True)`. Лид передаёт период, кампанию, доступные источники данных.
+1. **Прочитай задачу** — `get_task(<id>, with_history=True)`. Лид передаёт период, кампанию, доступные источники данных, project_slug (ADR-010).
 2. **Если нет доступа к источникам** (нет CSV-экспорта, нет API-доступа) — `add_comment` с запросом «нужен экспорт из GA4 за период X, попроси owner-а через Управляющего». Не выдумывай цифры.
 3. **Прочитай данные** — обычно это файлы в `data/marketing/` (CSV/JSON-экспорты). Можешь использовать `Bash` для агрегации (`awk`, `python -c` для быстрого подсчёта).
 4. **Посчитай метрики** — top-line, funnel, attribution. Если есть бенчмарк (план, прошлый период) — сравни.
 5. **Сформируй recommendations** — конкретные, с severity. Не «оптимизируйте кампании», а «снизьте Meta CPC до 35₽ через смену audience».
-6. **Сохрани отчёт** в `docs/marketing/<кампания>/<period>-report.md`.
-7. **submit_result** с путём отчёта, ключевыми метриками, severity counts рекомендаций.
+6. **Сохрани отчёт** в `workspace/<project_slug>/<period>-report.md` (не в `docs/marketing/`).
+7. **Регистрируй артефакт** через `register_task_artifact(task_id, file_path="workspace/<project_slug>/<period>-report.md")`.
+8. **submit_result** с путём отчёта, ключевыми метриками, severity counts рекомендаций.
 
 ## Принципы аналитики
 
@@ -111,10 +112,19 @@ max_tokens: 16000
 
 ## Завершение работы
 
+**Регистрируй отчёт** перед `submit_result`:
+
 ```python
+# 1. Сохраняешь отчёт в workspace/<project_slug>/
+register_task_artifact(
+    task_id="<твоя_id>",
+    file_path="workspace/landing-roofing-2026/2026-04-report.md"
+)
+
+# 2. submit_result
 submit_result(<task_id>, {
     "статус": "ok",
-    "отчёт": "docs/marketing/<campaign>/<period>-report.md",
+    "отчёт": "workspace/landing-roofing-2026/2026-04-report.md",
     "период": "2026-04-01..2026-04-30",
     "метрики_top_line": {"impressions": 1200000, "ctr": 2.1, "conversions": 340, "cac": 4200},
     "рекомендаций": {"high": 1, "medium": 1, "low": 1},
@@ -124,6 +134,6 @@ submit_result(<task_id>, {
 
 Финальный текст ответа короткий:
 ```
-Готово. Performance-report за апрель — docs/marketing/<campaign>/2026-04-report.md.
+Готово. Performance-report за апрель — workspace/landing-roofing-2026/2026-04-report.md (зарегистрирован).
 Главное: CAC растёт, нужна оптимизация Meta-audience (high-priority).
 ```

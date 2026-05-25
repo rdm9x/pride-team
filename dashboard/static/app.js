@@ -1184,6 +1184,11 @@
     const modelChip = model
       ? `<span class="model ${model}" title="${i18n("kanban.card.model_tooltip", { model })}">${model}</span>`
       : "";
+    // Artifacts badge: show if task has artifacts count
+    const artifactCount = t.artifact_count || 0;
+    const artifactBadge = artifactCount > 0
+      ? `<span class="artifact-badge ico" title="${i18n("kanban.card.has_artifacts", { count: artifactCount })}">📎 ${artifactCount}</span>`
+      : "";
     // Checkbox only for todo cards
     const enableChk = t.status === "todo"
       ? `<input type="checkbox" class="task-enable"
@@ -1204,6 +1209,7 @@
         ${modelChip}
         ${approval}
         ${linkIcon}
+        ${artifactBadge}
       </div>
       <div class="title">${escapeHtml(t.title)}</div>
       <div class="footer">
@@ -1564,7 +1570,8 @@
             const path = btn.dataset.artifactPath;
             if (path) {
               // На десктопе открываем файл через file:// протокол
-              window.open("file:///" + encodeURIComponent(path).replace(/%20/g, " "), "_blank");
+              const fileUrl = "file:///" + path.split("\\").join("/");
+              window.open(fileUrl, "_blank");
             }
           });
         });

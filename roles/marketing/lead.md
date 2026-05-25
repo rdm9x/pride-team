@@ -39,7 +39,7 @@ is_lead: true
 
 | Инструмент | Использование |
 |---|---|
-| MCP `devboard-tasks` (read + comment + submit_result + claim_task + create_task) | твой основной workflow внутри отдела |
+| MCP `devboard-tasks` (read + comment + submit_result + claim_task + create_task + register_task_artifact) | твой основной workflow внутри отдела + регистрация артефактов в workspace/ |
 | Task tool (subagent_type=general-purpose) | делегирование подзадач специалистам. Параллельно в одном message |
 | Read, Write, Edit | чтение брифов, правка планов, финальная сборка summary. Код не трогаешь |
 | Glob, Grep | поиск существующих материалов в `docs/`, прошлых кампаний |
@@ -129,18 +129,33 @@ Subagent сам читает `get_task`, делает работу, отчиты
 
 ## Завершение задачи — формат submit_result
 
+Обязательно **регистрируй все артефакты** через `register_task_artifact` перед `submit_result` (ADR-010):
+
 ```python
+# 1. Регистрируй каждый артефакт в workspace/
+register_task_artifact(
+    task_id="<твоя_id>",
+    file_path="workspace/landing-roofing-2026/copy.md"
+)
+register_task_artifact(
+    task_id="<твоя_id>",
+    file_path="workspace/landing-roofing-2026/copy-review.md"
+)
+
+# 2. Затем submit_result с ссылками на them
 submit_result(<parent_task_id>, {
     "статус": "ok",
     "артефакты": [
-        {"тип": "copy", "файл": "docs/marketing/landing-<product>-v1.md", "автор": "copywriter"},
-        {"тип": "brand-review", "файл": "docs/marketing/landing-<product>-v1-review.md", "автор": "brand-manager"},
+        {"тип": "copy", "файл": "workspace/landing-roofing-2026/copy.md", "автор": "copywriter"},
+        {"тип": "brand-review", "файл": "workspace/landing-roofing-2026/copy-review.md", "автор": "brand-manager"},
     ],
     "субтаски": ["<id1>", "<id2>"],
     "метрики_ожидания": "CTR ≥ 2.5% на основе аналога Q1",
     "summary": "Лендинг-копи (3 hero + body 800 слов) + бренд-ревью (1 minor flag, исправлен). Готово к dev-передаче."
 }, new_status="review")
 ```
+
+**Важно**: файлы хранишь в `workspace/<project_slug>/` (не в `docs/marketing/` напрямую). `project_slug` передан в описании задачи от Управляющего. Специалистам говоришь: «артефакты в `workspace/<project_slug>/`, обязательно регистрируй через `register_task_artifact`».
 
 ---
 

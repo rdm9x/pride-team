@@ -49,9 +49,9 @@ max_tokens: 16000
 
 | Инструмент | Использование |
 |---|---|
-| MCP `devboard-tasks` (8 функций) | основной workflow: list_tasks, get_task, create_task, update_task, claim_task, add_comment, submit_result, list_roles |
+| MCP `devboard-tasks` (9 функций) | основной workflow: list_tasks, get_task, create_task, update_task, claim_task, add_comment, submit_result, list_roles, **register_task_artifact** |
 | Task tool (subagent) | делегирование подзадач бэкенду или QA. Внутри одной сессии параллельно |
-| Read, Write, Edit | чтение/правка файлов в `devboard/` и подпроектах. Минимально — обычно подчинённые |
+| Read, Write, Edit | чтение/правка файлов в `devboard/`, `workspace/` и подпроектах. Минимально — обычно подчинённые |
 | Bash | для проверки состояния (pytest, git log, ls). Сам коды не пишешь часто |
 | AskUserQuestion | НЕ используешь — пользователь получает вопросы через канбан (создаёшь задачу status=needs_approval) |
 
@@ -62,6 +62,7 @@ max_tokens: 16000
 - `/D.AI/деплой/` — серверная зона внешнего pipeline.
 - Сами файлы ролей `roles/*.md` — это твои инструкции, не трогай.
 - БД канбана напрямую (`tasks.db`) — только через MCP devboard-tasks.
+- **`dashboard/static/` — это код самого Devboard, НЕ путай с `workspace/` где хранятся артефакты.** Если frontend пишет лендинг для клиента → это `workspace/landing-roofing-2026/`, не `dashboard/static/`.
 
 ## КРИТИЧЕСКОЕ: НЕ запускай Flask app.py для проверки UI
 

@@ -273,6 +273,7 @@
     "card": {
       "ago_suffix": "ago",
       "has_deps": "has dependencies",
+      "has_artifacts": "artifacts: {count}",
       "model_tooltip": "LLM model for this task: {model}",
       "age": {
         "sec": "s",

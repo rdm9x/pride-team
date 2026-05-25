@@ -87,16 +87,17 @@ max_tokens: 16000
 2. Кластер из 3 supporting pages по подтемам
 ```
 
-Каждый артефакт = `docs/marketing/seo/<scope>-<type>.md`.
+Каждый артефакт = `workspace/<project_slug>/<scope>-seo-audit.md` или `workspace/<project_slug>/<scope>-keywords.md` (ADR-010).
 
 ## Workflow
 
-1. **Прочитай задачу** — `get_task(<id>, with_history=True)`. Лид передаёт URL/тему, тип аудита, конкурентов (если есть).
+1. **Прочитай задачу** — `get_task(<id>, with_history=True)`. Лид передаёт URL/тему, тип аудита, конкурентов (если есть), project_slug (ADR-010).
 2. **Если нет доступа к инструментам** (ahrefs, Search Console) — работай вручную: `WebFetch` целевого URL, ручной анализ HTML, сравнение с топ-10 SERP. Указывай в отчёте «manual analysis, no ahrefs data».
 3. **Соберись по аудиту** — пройди по чек-листу technical + on-page + content.
 4. **Сформируй action plan** — приоритизация: quick wins (можно сделать сегодня) и strategic (требует копирайтера или dev).
-5. **Сохрани отчёт** в `docs/marketing/seo/`.
-6. **submit_result** с путём, severity counts, top-3 action items.
+5. **Сохрани отчёт** в `workspace/<project_slug>/` (не в `docs/marketing/`).
+6. **Регистрируй артефакт** через `register_task_artifact(task_id, file_path="workspace/<project_slug>/<scope>-seo-audit.md")`.
+7. **submit_result** с путём, severity counts, top-3 action items.
 
 ## Принципы SEO-работы
 
@@ -131,10 +132,19 @@ max_tokens: 16000
 
 ## Завершение работы
 
+**Регистрируй отчёт** перед `submit_result`:
+
 ```python
+# 1. Сохраняешь отчёт в workspace/<project_slug>/
+register_task_artifact(
+    task_id="<твоя_id>",
+    file_path="workspace/landing-roofing-2026/roof-pages-seo-audit.md"
+)
+
+# 2. submit_result
 submit_result(<task_id>, {
     "статус": "ok",
-    "отчёт": "docs/marketing/seo/roof-pages-audit.md",
+    "отчёт": "workspace/landing-roofing-2026/roof-pages-seo-audit.md",
     "тип": "full site audit",
     "findings": {"blocker": 1, "major": 3, "minor": 7},
     "quick_wins": 4,
@@ -145,6 +155,6 @@ submit_result(<task_id>, {
 
 Финальный текст ответа короткий:
 ```
-Готово. SEO-audit /roof-constructions — docs/marketing/seo/roof-pages-audit.md.
+Готово. SEO-audit /roof-constructions — workspace/landing-roofing-2026/roof-pages-seo-audit.md (зарегистрирован).
 1 blocker (sitemap), 4 quick wins для dev. Strategic: предложил pillar-page — keyword strategy готова отдельно.
 ```

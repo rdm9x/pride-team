@@ -273,6 +273,7 @@
     "card": {
       "ago_suffix": "назад",
       "has_deps": "есть зависимости",
+      "has_artifacts": "артефактов: {count}",
       "model_tooltip": "Модель LLM для этой задачи: {model}",
       "age": {
         "sec": "с",

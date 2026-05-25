@@ -132,7 +132,7 @@ def test_ensure_dev_department_global_roles_stay_null(tmp_path: Path) -> None:
             )
 
         # Обычные роли devboard — 'dev'.
-        for normal_role in ("тимлид", "бэкенд", "qa", "архитектор", "frontend", "devops", "техписатель"):
+        for normal_role in ("dev-lead", "бэкенд", "qa", "архитектор", "frontend", "devops", "техписатель"):
             assert roles[normal_role] == DEFAULT_DEPARTMENT_ID, (
                 f"Роль {normal_role!r} должна иметь department_id='dev', получено {roles[normal_role]!r}"
             )

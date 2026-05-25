@@ -2002,7 +2002,6 @@
   $("#form-new-task").addEventListener("submit", async (e) => {
     e.preventDefault();
     const form = e.target;
-    const modelHintVal = form.model_hint ? form.model_hint.value : "auto";
     // ADR-003 §2.4.2 + ADR-009: задача создаётся в текущем активном отделе.
     // Используем существующую функцию currentDepartment() (читает ключ
     // 'devboard-current-department', не как в ADR-003 с двоеточием).
@@ -2013,7 +2012,6 @@
       priority: form.priority.value,
       assignee: form.assignee.value || null,
       requires_approval: form.requires_approval.checked,
-      model_hint: modelHintVal === "auto" ? null : modelHintVal,
       department_id: currentDept,
     };
     const r = await fetch("/api/tasks", {
@@ -4922,6 +4920,129 @@
         return;
       }
     });
+  })();
+
+  // ===================== F2 (1.7): Company Context Modal =====================
+  (function () {
+    const modal = $("#modal-company-context");
+    const form = $("#form-company-context");
+    const closeBtn = $("#btn-company-context-close");
+    const skipBtn = $("#btn-company-context-skip");
+    const settingsBtn = $("#btn-settings-company-context");
+    const errorEl = $("#company-context-error");
+
+    if (!modal || !form) return;
+
+    function closeCompanyContextModal() {
+      if (modal) modal.hidden = true;
+      if (errorEl) {
+        errorEl.hidden = true;
+        errorEl.textContent = "";
+      }
+    }
+
+    async function openCompanyContextModal(shouldFetch = true) {
+      if (shouldFetch) {
+        try {
+          const resp = await fetch("/api/onboarding/company-context");
+          const data = await resp.json();
+          if (data.exists && data.content) {
+            const lines = data.content.split("\n");
+            const frontmatter = {};
+            for (let i = 0; i < lines.length; i++) {
+              const line = lines[i].trim();
+              if (!line || line.startsWith("##")) break;
+              const m = line.match(/^(\w+):\s*(.+)$/);
+              if (m) frontmatter[m[1]] = m[2];
+            }
+            if (frontmatter.name) $("#company-context-name").value = frontmatter.name;
+            if (frontmatter.description) $("#company-context-description").value = frontmatter.description;
+            if (frontmatter.brand_voice) $("#company-context-brand-voice").value = frontmatter.brand_voice;
+            if (frontmatter.values) $("#company-context-values").value = frontmatter.values;
+            if (frontmatter.audience) $("#company-context-audience").value = frontmatter.audience;
+          }
+        } catch (e) {
+          console.error("Failed to fetch company context:", e);
+        }
+      }
+      if (modal) modal.hidden = false;
+      setTimeout(() => $("#company-context-name")?.focus(), 50);
+    }
+
+    async function saveCompanyContext(e) {
+      e.preventDefault();
+      if (errorEl) {
+        errorEl.hidden = true;
+        errorEl.textContent = "";
+      }
+      const formData = new FormData(form);
+      const name = (formData.get("name") || "").trim();
+      const description = (formData.get("description") || "").trim();
+      const brand_voice = (formData.get("brand_voice") || "").trim();
+      const values = (formData.get("values") || "").trim();
+      const audience = (formData.get("audience") || "").trim();
+
+      if (!name) {
+        if (errorEl) {
+          errorEl.textContent = "Название компании обязательно";
+          errorEl.hidden = false;
+        }
+        return;
+      }
+
+      try {
+        const resp = await fetch("/api/onboarding/company-context", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, description, brand_voice, values, audience }),
+        });
+        const result = await resp.json();
+        if (!resp.ok) {
+          const reason = result.reason || result.причина || "Ошибка сохранения";
+          if (errorEl) {
+            errorEl.textContent = reason;
+            errorEl.hidden = false;
+          }
+          return;
+        }
+        closeCompanyContextModal();
+      } catch (err) {
+        console.error("Failed to save company context:", err);
+        if (errorEl) {
+          errorEl.textContent = err.message || "Сетевая ошибка";
+          errorEl.hidden = false;
+        }
+      }
+    }
+
+    form.addEventListener("submit", saveCompanyContext);
+    if (closeBtn) closeBtn.addEventListener("click", closeCompanyContextModal);
+    if (skipBtn) skipBtn.addEventListener("click", closeCompanyContextModal);
+    if (settingsBtn) {
+      settingsBtn.addEventListener("click", () => {
+        openCompanyContextModal(true);
+      });
+    }
+
+    function checkCompanyContextOnLoad() {
+      fetch("/api/onboarding/company-context")
+        .then((r) => r.json())
+        .then((data) => {
+          const firstRunDone = localStorage.getItem("first_run_done") === "true";
+          if (!data.exists && !firstRunDone) {
+            const onWizardDone = () => {
+              setTimeout(() => openCompanyContextModal(false), 300);
+              window.removeEventListener("wizard:done", onWizardDone);
+            };
+            window.addEventListener("wizard:done", onWizardDone);
+          }
+        })
+        .catch((e) => console.error("Failed to check company context:", e));
+    }
+
+    window.openCompanyContextModal = openCompanyContextModal;
+    window.closeCompanyContextModal = closeCompanyContextModal;
+    setTimeout(checkCompanyContextOnLoad, 100);
   })();
 
   refresh();

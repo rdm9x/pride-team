@@ -952,6 +952,48 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
     def index() -> str:
         return render_template("kanban.html")
 
+    @app.get("/docs/<path:filename>")
+    def serve_docs(filename: str) -> Any:
+        """Serve markdown documentation files from /docs directory."""
+        from flask import send_from_directory
+        docs_dir = _REPO_ROOT / "docs"
+        # Security: only allow .md files and prevent directory traversal
+        if not filename.endswith(".md") or ".." in filename:
+            return "Not found", 404
+        file_path = docs_dir / filename
+        if not file_path.exists() or not file_path.is_file():
+            return "Not found", 404
+        # Serve as HTML (markdown) with proper content-type
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        # Convert markdown to HTML (basic: wrap in <pre> and escape)
+        from html import escape
+        html = f"""<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{filename}</title>
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; line-height: 1.6; }}
+        pre {{ background: #f5f5f5; padding: 15px; overflow-x: auto; border-radius: 5px; }}
+        code {{ font-family: "Courier New", monospace; }}
+        h1, h2, h3 {{ margin-top: 30px; }}
+        table {{ border-collapse: collapse; width: 100%; margin: 20px 0; }}
+        td, th {{ border: 1px solid #ddd; padding: 12px; text-align: left; }}
+        th {{ background: #f9f9f9; }}
+        a {{ color: #0066cc; text-decoration: none; }} a:hover {{ text-decoration: underline; }}
+        blockquote {{ border-left: 4px solid #ddd; padding-left: 20px; margin: 20px 0; color: #666; }}
+    </style>
+</head>
+<body>
+    <article style="color: #333;">
+        <pre>{escape(content)}</pre>
+    </article>
+</body>
+</html>"""
+        return html, 200, {"Content-Type": "text/html; charset=utf-8"}
+
     # === Departments ===
 
     @app.get("/api/departments")
@@ -1010,6 +1052,41 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         priority = request.args.get("priority", "P3")
         position, total = _preview_queue_position(_db(), dept_id, priority)
         return jsonify({"position": position, "total": total})
+
+    @app.get("/api/departments/<dept_id>/roles")
+    def api_get_department_roles(dept_id: str) -> Any:
+        """F1 (1.7): Список ролей отдела для dropdown assignee.
+
+        Возвращает JSON с массивом ролей:
+          - lead: { name, description } — лид отдела (роль заканчивается на '-lead')
+          - specialists: [{ name, description }, ...] — остальные роли в алфавитном порядке
+
+        404 если отдела нет.
+        """
+        dept = db.get_department(_db(), dept_id)
+        if dept is None:
+            return jsonify({"статус": "not_found", "status": "not_found"}), 404
+
+        roles = dept.get("roles", [])
+
+        # Разделяем лида и специалистов
+        lead_role = None
+        specialist_roles = []
+
+        for role in roles:
+            if role["name"].endswith("-lead"):
+                lead_role = role
+            else:
+                specialist_roles.append(role)
+
+        # Сортируем специалистов по имени (алфавитный порядок)
+        specialist_roles.sort(key=lambda r: r["name"])
+
+        result = {
+            "lead": lead_role,
+            "specialists": specialist_roles,
+        }
+        return jsonify(result)
 
     @app.post("/api/departments")
     def api_create_department() -> Any:

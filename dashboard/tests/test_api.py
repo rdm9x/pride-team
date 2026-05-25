@@ -370,7 +370,7 @@ def test_roles_endpoint(client) -> None:
     assert j["статус"] == "ok"
     names = sorted([role["name"] for role in j["роли"]])
     assert names == sorted([
-        "тимлид", "бэкенд", "qa",
+        "dev-lead", "бэкенд", "qa",
         "архитектор", "frontend", "devops", "техписатель",
     ])
 

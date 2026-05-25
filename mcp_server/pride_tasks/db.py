@@ -446,6 +446,54 @@ def _ensure_hr_sessions_columns(conn: sqlite3.Connection) -> None:
         pass
 
 
+def _migrate_тимлид_to_dev_lead(conn: sqlite3.Connection) -> None:
+    """B1 (1.7) миграция: переименование роли 'тимлид' → 'dev-lead' в dev-отделе.
+
+    Идемпотентная миграция. Если 'dev-lead' уже существует, то ничего не делается.
+    Если 'тимлид' существует, переименовывается в 'dev-lead' вместе с обновлением
+    assignee в tasks.
+    """
+    try:
+        # Проверка: есть ли уже dev-lead в dev?
+        row = conn.execute(
+            "SELECT name FROM roles WHERE name = 'dev-lead' AND department_id = 'dev'"
+        ).fetchone()
+        if row:
+            # Миграция уже выполнена
+            return
+
+        # Проверка: есть ли тимлид в dev?
+        row = conn.execute(
+            "SELECT name, description, capabilities FROM roles "
+            "WHERE name = 'тимлид' AND department_id = 'dev'"
+        ).fetchone()
+        if not row:
+            # Ничего не делаем — ни того ни другого нет
+            return
+
+        # Извлечь информацию о тимлиде
+        тимлид_desc = row[1]
+        тимлид_caps = row[2]
+
+        # Обновить tasks.assignee: тимлид → dev-lead
+        conn.execute(
+            "UPDATE tasks SET assignee = 'dev-lead' WHERE assignee = 'тимлид'"
+        )
+
+        # Удалить старую запись и вставить новую
+        conn.execute(
+            "DELETE FROM roles WHERE name = 'тимлид' AND department_id = 'dev'"
+        )
+        conn.execute(
+            "INSERT INTO roles (name, description, capabilities, department_id) "
+            "VALUES ('dev-lead', ?, ?, 'dev')",
+            (тимлид_desc, тимлид_caps),
+        )
+    except sqlite3.OperationalError:
+        # Таблица roles может не существовать (вряд ли, но на случай)
+        pass
+
+
 def init_db(db_path: Optional[Path] = None) -> Path:
     """Создаёт схему и базовые роли. Идемпотентно."""
 
@@ -465,6 +513,7 @@ def init_db(db_path: Optional[Path] = None) -> Path:
                     )
             ensure_dev_department(conn)
             _ensure_hr_sessions_columns(conn)
+            _migrate_тимлид_to_dev_lead(conn)
             conn.execute("COMMIT")
         finally:
             conn.close()

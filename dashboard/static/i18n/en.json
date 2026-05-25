@@ -625,7 +625,6 @@
     }
   },
   "task": {
-    "model_hint": "Model (hint)",
     "reader": {
       "tldr": "Summary",
       "steps": "What to do",

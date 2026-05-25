@@ -371,12 +371,12 @@ def test_migration_legacy_тимлид_still_works(client) -> None:
     assert claim["задача"]["assignee"] == "тимлид"
 
 
-def test_list_roles_includes_legacy_тимлид_name(client) -> None:
-    """list_roles() возвращает запись с name='тимлид' (PK сохранён под backward-compat).
+def test_list_roles_uses_dev_lead_name(client) -> None:
+    """ADR-009 Phase 1.7: после миграции роль называется 'dev-lead', а не 'тимлид'.
 
-    Если в БД есть колонка slug — она должна быть 'dev-lead' (A2). На свежей
-    test-БД колонки slug может не быть (schema без её добавления через
-    _add_column_if_missing), но запись по name='тимлид' обязана быть в _DEFAULT_ROLES.
+    Этот тест ранее проверял что legacy 'тимлид' остаётся для backward compat,
+    но после полной миграции (scripts/migrate_тимлид_to_dev_lead.py) — `тимлид`
+    исчезает из БД, остаётся только `dev-lead`.
     """
     from pride_tasks import tools  # type: ignore
 
@@ -384,10 +384,12 @@ def test_list_roles_includes_legacy_тимлид_name(client) -> None:
     roles_res = tools.list_roles(db_path=db_path)
     assert roles_res["статус"] == "ok"
     names = {r["name"] for r in roles_res["роли"]}
-    # Legacy name 'тимлид' должно быть в списке.
-    assert "тимлид" in names, (
-        f"legacy name 'тимлид' пропал из list_roles → 41 task с этим assignee "
-        f"станут осиротевшими. Получено: {names}"
+    # После Phase 1.7 миграции — dev-lead, не тимлид.
+    assert "dev-lead" in names, (
+        f"роль 'dev-lead' должна быть после миграции. Получено: {names}"
+    )
+    assert "тимлид" not in names, (
+        f"legacy 'тимлид' должен исчезнуть после полной миграции. Получено: {names}"
     )
 
 

@@ -26,7 +26,7 @@ def test_init_db_creates_schema(tmp_path: Path) -> None:
 
 
 EXPECTED_ROLES = sorted(
-    ["тимлид", "бэкенд", "qa", "архитектор", "frontend", "devops", "техписатель"]
+    ["dev-lead", "бэкенд", "qa", "архитектор", "frontend", "devops", "техписатель"]
 )
 
 
@@ -44,7 +44,8 @@ def test_default_roles_loaded(db_path: Path) -> None:
     assert len(roles) == len(EXPECTED_ROLES)
     by_name = {r["name"]: r for r in roles}
     assert "python" in by_name["бэкенд"]["capabilities"]
-    assert "декомпозиция" in by_name["тимлид"]["capabilities"]
+    # B1 (1.7): тимлид мигрирован в dev-lead при инициализации БД
+    assert "декомпозиция" in by_name["dev-lead"]["capabilities"]
     assert "adr" in by_name["архитектор"]["capabilities"]
     assert "docker" in by_name["devops"]["capabilities"]
 

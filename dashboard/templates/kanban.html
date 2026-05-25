@@ -808,15 +808,6 @@
           </select>
         </label>
         <label class="check"><input type="checkbox" name="requires_approval"> Approval</label>
-        <label>
-          <span data-i18n="task.model_hint">Модель (подсказка)</span>
-          <select id="new-task-model-hint" name="model_hint">
-            <option value="auto" selected data-i18n="common.auto">авто</option>
-            <option value="haiku">haiku</option>
-            <option value="sonnet">sonnet</option>
-            <option value="opus">opus</option>
-          </select>
-        </label>
       </div>
       <div class="actions">
         <button type="button" data-close="modal-new" data-i18n="common.cancel">Отмена</button>
@@ -1308,6 +1299,67 @@
         </div>
       </section>
     </div>
+  </div>
+</div>
+
+<!-- ============== F2 (1.7): Модалка контекста компании ============== -->
+<div id="modal-company-context" class="modal" hidden role="dialog" aria-modal="true"
+     aria-labelledby="modal-company-context-title">
+  <div class="modal-content" style="width: 560px;">
+    <header>
+      <span id="modal-company-context-title" data-i18n="onboarding.company_context.title">Контекст компании</span>
+      <button class="close" type="button" id="btn-company-context-close"
+              data-i18n-attr="aria-label:common.close,title:common.close"
+              aria-label="Close" title="Close">✕</button>
+    </header>
+    <form id="form-company-context" class="modal-body">
+      <p class="form-hint" data-i18n="onboarding.company_context.hint">
+        Заполните информацию о вашей компании. Эти данные будут использованы командой при принятии решений.
+      </p>
+
+      <label>
+        <span data-i18n="onboarding.company_context.field.name">Название компании</span>
+        <input type="text" name="name" id="company-context-name" required maxlength="200"
+               placeholder="Например: ПРАЙД" autocomplete="off"
+               data-i18n-attr="placeholder:onboarding.company_context.field.name_placeholder">
+      </label>
+
+      <label>
+        <span data-i18n="onboarding.company_context.field.description">Чем занимается компания</span>
+        <textarea name="description" id="company-context-description" rows="3"
+                  placeholder="Описание основного вида деятельности, продуктов, услуг…"
+                  data-i18n-attr="placeholder:onboarding.company_context.field.description_placeholder"></textarea>
+      </label>
+
+      <label>
+        <span data-i18n="onboarding.company_context.field.brand_voice">Brand voice / Тон коммуникации</span>
+        <textarea name="brand_voice" id="company-context-brand-voice" rows="3"
+                  placeholder="Как общается компания? Формальный, дружелюбный, авторитетный, созидательный…"
+                  data-i18n-attr="placeholder:onboarding.company_context.field.brand_voice_placeholder"></textarea>
+      </label>
+
+      <label>
+        <span data-i18n="onboarding.company_context.field.values">Ценности и принципы</span>
+        <textarea name="values" id="company-context-values" rows="3"
+                  placeholder="Основные ценности компании, философия, принципы работы…"
+                  data-i18n-attr="placeholder:onboarding.company_context.field.values_placeholder"></textarea>
+      </label>
+
+      <label>
+        <span data-i18n="onboarding.company_context.field.audience">Целевая аудитория</span>
+        <textarea name="audience" id="company-context-audience" rows="3"
+                  placeholder="Кто использует/покупает ваши продукты? Возраст, интересы, боли…"
+                  data-i18n-attr="placeholder:onboarding.company_context.field.audience_placeholder"></textarea>
+      </label>
+
+      <div id="company-context-error" class="form-error" role="alert" hidden></div>
+
+      <div class="actions">
+        <button type="button" id="btn-company-context-skip" class="secondary"
+                data-i18n="onboarding.company_context.btn_skip">Пропустить</button>
+        <button type="submit" class="primary" data-i18n="onboarding.company_context.btn_save">Сохранить</button>
+      </div>
+    </form>
   </div>
 </div>
 

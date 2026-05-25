@@ -147,8 +147,9 @@ def test_list_roles(db_path: Path) -> None:
     assert res["статус"] == "ok"
     assert res["всего"] == 7
     names = sorted([r["name"] for r in res["роли"]])
+    # ADR-009 Phase 1.7: role renamed тимлид → dev-lead after DB migration.
     assert names == sorted([
-        "тимлид", "бэкенд", "qa",
+        "dev-lead", "бэкенд", "qa",
         "архитектор", "frontend", "devops", "техписатель",
     ])
 

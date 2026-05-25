@@ -534,6 +534,86 @@ def _auto_monitor_loop() -> None:
             log.warning("auto-monitor: исключение: %s", exc)
 
 
+def pick_model_for_role(role: str, db_path: "Path | None" = None) -> str:
+    """Выбрать alias модели (haiku/sonnet/opus) для роли по её очереди задач.
+
+    B5 (1.6): Фильтрует задачи очереди роли (assignee=role, status=todo),
+    применяет router.pick() — максимальный model_hint wins.
+
+    Returns:
+        alias модели: 'haiku' | 'sonnet' | 'opus'
+    """
+    from pride_tasks import db as _db_mod, router as _router_mod  # local import — не тяжело
+
+    path = db_path or DB_PATH
+    # Берём только todo-задачи этой роли — именно они определяют следующую сессию
+    role_tasks = _db_mod.list_tasks(path, status="todo", assignee=role, limit=200)
+    decision = _router_mod.pick(role_tasks)
+    return decision["model_alias"]
+
+
+def build_claude_command(
+    role: str,
+    *,
+    db_path: "Path | None" = None,
+    commands_dir: "Path | None" = None,
+) -> "tuple[list[str], dict[str, str], Path]":
+    """Построить (cmd, extra_env) для запуска subprocess тимлида.
+
+    B5 (1.6): Определяет модель через pick_model_for_role() и записывает
+    PRIDE_TEAM_MODEL в extra_env — devboard-work.sh подхватит её и пропустит
+    внутренний роутер, запустив claude с нужной --model.
+
+    Returns:
+        (cmd, extra_env) — список аргументов и словарь доп. переменных окружения.
+    """
+    _cmds = commands_dir or _COMMANDS_DIR
+
+    if role == "managing-director":
+        if sys.platform == "win32":
+            work_script = _cmds / "devboard-managing.ps1"
+            cmd: list[str] = [
+                "powershell",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-NoProfile",
+                "-File",
+                str(work_script),
+            ]
+        else:
+            work_script = _cmds / "devboard-managing.sh"
+            cmd = ["/bin/bash", str(work_script)]
+    else:
+        if sys.platform == "win32":
+            work_script = _cmds / "devboard-work.ps1"
+            cmd = [
+                "powershell",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-NoProfile",
+                "-File",
+                str(work_script),
+                "--role",
+                role,
+            ]
+        else:
+            work_script = _cmds / "devboard-work.sh"
+            cmd = ["/bin/bash", str(work_script), "--role", role]
+
+    # B5 (1.6): Определяем модель по hint-очереди роли и форсируем через env-var.
+    # devboard-work.sh (строки 125-128) читает PRIDE_TEAM_MODEL и пропускает
+    # встроенный роутер — claude получает --model с нужным значением.
+    model_alias = pick_model_for_role(role, db_path=db_path)
+    extra_env: dict[str, str] = {
+        "PRIDE_TASKS_DB": str(db_path or DB_PATH),
+        "PYTHONIOENCODING": "utf-8",
+        "PYTHONUTF8": "1",
+        "PRIDE_TEAM_MODEL": model_alias,
+    }
+
+    return cmd, extra_env, work_script
+
+
 def _start_team_process(triggered_by: str = "user", role: str = "managing-director") -> dict[str, Any]:
     """Запустить subprocess тимлида.
 
@@ -543,6 +623,9 @@ def _start_team_process(triggered_by: str = "user", role: str = "managing-direct
 
     Выбор платформы: на Windows — .ps1 через powershell,
     на macOS/Linux — .sh через bash.
+
+    B5 (1.6): модель определяется через build_claude_command() / pick_model_for_role()
+    по model_hint задач в очереди роли и инжектируется через PRIDE_TEAM_MODEL env-var.
     """
 
     with _team_state["lock"]:
@@ -550,38 +633,7 @@ def _start_team_process(triggered_by: str = "user", role: str = "managing-direct
         if proc is not None and proc.poll() is None:
             return {"ok": False, "reason": "already_running", "pid": proc.pid}
 
-        if role == "managing-director":
-            # Управляющий — отдельный скрипт
-            if sys.platform == "win32":
-                work_script = _COMMANDS_DIR / "devboard-managing.ps1"
-                cmd = [
-                    "powershell",
-                    "-ExecutionPolicy",
-                    "Bypass",
-                    "-NoProfile",
-                    "-File",
-                    str(work_script),
-                ]
-            else:
-                work_script = _COMMANDS_DIR / "devboard-managing.sh"
-                cmd = ["/bin/bash", str(work_script)]
-        else:
-            # Любая другая роль — devboard-work.sh --role <slug>
-            if sys.platform == "win32":
-                work_script = _COMMANDS_DIR / "devboard-work.ps1"
-                cmd = [
-                    "powershell",
-                    "-ExecutionPolicy",
-                    "Bypass",
-                    "-NoProfile",
-                    "-File",
-                    str(work_script),
-                    "--role",
-                    role,
-                ]
-            else:
-                work_script = _COMMANDS_DIR / "devboard-work.sh"
-                cmd = ["/bin/bash", str(work_script), "--role", role]
+        cmd, extra_env, work_script = build_claude_command(role)
 
         if not work_script.exists():
             return {"ok": False, "reason": "missing_script", "path": str(work_script)}
@@ -597,10 +649,7 @@ def _start_team_process(triggered_by: str = "user", role: str = "managing-direct
             cwd=str(_REPO_ROOT),
             env={
                 **os.environ,
-                "PRIDE_TASKS_DB": str(DB_PATH),
-                # UTF-8 для Python и Claude CLI на Windows (без этого RU становится иероглифами)
-                "PYTHONIOENCODING": "utf-8",
-                "PYTHONUTF8": "1",
+                **extra_env,
             },
         )
         _team_state["process"] = new_proc

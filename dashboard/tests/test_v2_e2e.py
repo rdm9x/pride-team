@@ -64,7 +64,9 @@ def fake_popen(monkeypatch):
         proc = MagicMock()
         proc.poll.return_value = None
         proc.stdin = MagicMock()
+        # stdout.readline() returning '' causes _hr_stream_reader thread to exit cleanly.
         proc.stdout = MagicMock()
+        proc.stdout.readline.return_value = ""
         proc.stderr = MagicMock()
         proc.wait = MagicMock(return_value=0)
         proc.kill = MagicMock()
@@ -73,11 +75,14 @@ def fake_popen(monkeypatch):
         created.append(proc)
         return proc
 
-    monkeypatch.setattr(hr_runner, "_build_claude_cmd", lambda txt: ["true"])
+    monkeypatch.setattr(
+        hr_runner, "_build_claude_cmd",
+        lambda txt, mcp_config, initial_message: ["true"],
+    )
     real_spawn = hr_runner.spawn_hr_subprocess
 
-    def patched_spawn(session_id: str, initial_message: str, *, popen_factory=None):
-        return real_spawn(session_id, initial_message, popen_factory=factory)
+    def patched_spawn(session_id: str, initial_message: str, *, db_path=None, popen_factory=None):
+        return real_spawn(session_id, initial_message, db_path=db_path, popen_factory=factory)
 
     monkeypatch.setattr(hr_runner, "spawn_hr_subprocess", patched_spawn)
     return created

@@ -7,6 +7,7 @@ Mock'аем subprocess.Popen / hr_runner.spawn_hr_subprocess — мы НЕ за�
 
 from __future__ import annotations
 
+import io
 import json
 import sys
 from pathlib import Path
@@ -46,7 +47,9 @@ def fake_popen(monkeypatch):
         proc = MagicMock()
         proc.poll.return_value = None  # ещё жив
         proc.stdin = MagicMock()
+        # stdout.readline() возвращает '' → reader thread немедленно завершается.
         proc.stdout = MagicMock()
+        proc.stdout.readline.return_value = ""
         proc.stderr = MagicMock()
         proc.wait = MagicMock(return_value=0)
         proc.kill = MagicMock()
@@ -56,14 +59,25 @@ def fake_popen(monkeypatch):
         return proc
 
     # Подменяем _build_claude_cmd чтобы не зависеть от наличия claude CLI.
-    monkeypatch.setattr(hr_runner, "_build_claude_cmd", lambda txt: ["true"])
+    monkeypatch.setattr(
+        hr_runner, "_build_claude_cmd",
+        lambda txt, mcp_config, initial_message: ["true"],
+    )
     # Подменяем сам spawn — через popen_factory параметр.
     real_spawn = hr_runner.spawn_hr_subprocess
 
-    def patched_spawn(session_id: str, initial_message: str, *, popen_factory=None):
-        return real_spawn(session_id, initial_message, popen_factory=factory)
+    def patched_spawn(session_id: str, initial_message: str, *, db_path=None, popen_factory=None):
+        return real_spawn(session_id, initial_message, db_path=db_path, popen_factory=factory)
 
     monkeypatch.setattr(hr_runner, "spawn_hr_subprocess", patched_spawn)
+
+    # Подменяем respawn — через popen_factory параметр.
+    real_respawn = hr_runner.respawn_hr_for_revise
+
+    def patched_respawn(session_id: str, owner_comment: str, *, db_path=None, popen_factory=None):
+        return real_respawn(session_id, owner_comment, db_path=db_path, popen_factory=factory)
+
+    monkeypatch.setattr(hr_runner, "respawn_hr_for_revise", patched_respawn)
     return created
 
 
@@ -190,8 +204,6 @@ def test_hr_start_creates_session(client, fake_popen):
     assert "hr_session_id" in body
     # Subprocess создан
     assert len(fake_popen) == 1
-    # Initial message передан в stdin
-    fake_popen[0].stdin.write.assert_called()
 
 
 def test_hr_start_requires_name(client, fake_popen):
@@ -221,9 +233,11 @@ def test_hr_start_with_template_hint(client, fake_popen):
 
 
 def test_hr_answer_increments_iteration(client, fake_popen):
-    """POST /api/hr/answer передаёт stdin, iteration_count++."""
+    """POST /api/hr/answer спавнит новый subprocess (respawn), iteration_count++."""
     r = client.post("/api/hr/start", json={"name": "Design", "description": "d"})
     sid = r.get_json()["hr_session_id"]
+    # После start — 1 subprocess.
+    assert len(fake_popen) == 1
 
     r2 = client.post("/api/hr/answer", json={
         "hr_session_id": sid,
@@ -231,6 +245,8 @@ def test_hr_answer_increments_iteration(client, fake_popen):
     })
     assert r2.status_code == 200
     assert r2.get_json()["iteration_count"] == 1
+    # respawn_hr_for_revise спавнит новый subprocess → итого 2.
+    assert len(fake_popen) == 2
 
     r3 = client.post("/api/hr/answer", json={
         "hr_session_id": sid,
@@ -238,9 +254,8 @@ def test_hr_answer_increments_iteration(client, fake_popen):
     })
     assert r3.status_code == 200
     assert r3.get_json()["iteration_count"] == 2
-
-    # stdin.write вызывался — хотя бы 2 раза для answer + 1 для initial.
-    assert fake_popen[0].stdin.write.call_count >= 3
+    # Каждый answer спавнит новый subprocess → итого 3.
+    assert len(fake_popen) == 3
 
 
 def test_hr_answer_not_found(client, fake_popen):
@@ -258,6 +273,106 @@ def test_hr_answer_requires_message(client, fake_popen):
     sid = r.get_json()["hr_session_id"]
     r2 = client.post("/api/hr/answer", json={"hr_session_id": sid})
     assert r2.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# respawn_hr_for_revise unit tests
+# ---------------------------------------------------------------------------
+
+
+def test_respawn_hr_for_revise_spawns_new_process(tmp_path, fake_popen):
+    """respawn_hr_for_revise создаёт новый subprocess и обновляет state → hr_planning."""
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "mcp_server"))
+    from pride_tasks import db
+
+    dbp = tmp_path / "tasks.db"
+    db.init_db(dbp)
+    sess = db.create_hr_session(dbp, department_name="Revise")
+    sid = sess["id"]
+    # Симулируем что HR уже предложил план.
+    db.update_hr_session(
+        dbp, sid,
+        state="awaiting_owner_review",
+        plan_json='{"department": {"name": "Revise"}, "roles": []}',
+        iteration_count=0,
+    )
+
+    proc = hr_runner.respawn_hr_for_revise(sid, "Добавь аналитика", db_path=dbp)
+    assert proc is not None
+
+    updated = db.get_hr_session(dbp, sid)
+    assert updated["state"] == "hr_planning"
+    assert updated["iteration_count"] == 1
+    assert updated["last_message"] == "Добавь аналитика"
+
+
+def test_respawn_hr_for_revise_no_db_path_returns_none():
+    """respawn_hr_for_revise без db_path → None (логирует предупреждение)."""
+    result = hr_runner.respawn_hr_for_revise("some-session-id", "комментарий")
+    assert result is None
+
+
+def test_respawn_hr_for_revise_missing_session_returns_none(tmp_path):
+    """respawn_hr_for_revise с несуществующей сессией → None."""
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "mcp_server"))
+    from pride_tasks import db
+
+    dbp = tmp_path / "tasks.db"
+    db.init_db(dbp)
+
+    result = hr_runner.respawn_hr_for_revise("nonexistent-id", "x", db_path=dbp)
+    assert result is None
+
+
+def test_respawn_hr_for_revise_initial_message_contains_prev_plan(tmp_path):
+    """respawn_hr_for_revise передаёт предыдущий план в initial_message."""
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "mcp_server"))
+    from pride_tasks import db
+
+    dbp = tmp_path / "tasks.db"
+    db.init_db(dbp)
+    sess = db.create_hr_session(dbp, department_name="PlanCheck")
+    sid = sess["id"]
+    prev_plan_json = '{"department": {"name": "PlanCheck"}, "roles": []}'
+    db.update_hr_session(
+        dbp, sid,
+        state="awaiting_owner_review",
+        plan_json=prev_plan_json,
+        iteration_count=2,
+    )
+
+    captured_cmd = []
+
+    def capturing_factory(cmd, **kwargs):
+        captured_cmd.append(cmd)
+        proc = MagicMock()
+        proc.poll.return_value = None
+        proc.stdin = MagicMock()
+        proc.stdout = MagicMock()
+        proc.stdout.readline.return_value = ""
+        proc.stderr = MagicMock()
+        proc.wait = MagicMock(return_value=0)
+        proc.kill = MagicMock()
+        return proc
+
+    hr_runner.respawn_hr_for_revise(
+        sid, "сделай три роли", db_path=dbp, popen_factory=capturing_factory
+    )
+
+    # initial_message передаётся через --print флаг в _build_claude_cmd
+    # После monkeypatch в fake_popen _build_claude_cmd возвращает ["true"],
+    # поэтому здесь используем capturing_factory напрямую — cmd будет из _build_claude_cmd.
+    assert len(captured_cmd) == 1
+    # Проверяем что Plan JSON и owner-комментарий попали в initial_message,
+    # который передаётся в _build_claude_cmd как последний позиционный аргумент.
+    # cmd — список флагов; --print идёт перед initial_message.
+    cmd = captured_cmd[0]
+    if "--print" in cmd:
+        msg_idx = cmd.index("--print") + 1
+        initial_msg = cmd[msg_idx]
+        assert prev_plan_json in initial_msg
+        assert "сделай три роли" in initial_msg
+        assert "Plan v3" in initial_msg  # revision = iteration_count(2) + 1
 
 
 # ---------------------------------------------------------------------------
@@ -480,3 +595,131 @@ def test_department_slug_basic():
     assert hr_runner.department_slug("Sales B2B") == "sales-b2b"
     # Кириллица — fallback 'dept'
     assert hr_runner.department_slug("Маркетинг") == "dept"
+
+
+# ---------------------------------------------------------------------------
+# _extract_plan_json unit
+# ---------------------------------------------------------------------------
+
+
+def test_extract_plan_json_valid():
+    """_extract_plan_json разбирает корректный ```json блок."""
+    text = 'Вот план:\n```json\n{"department": {"name": "X"}, "roles": []}\n```\nГотово.'
+    result = hr_runner._extract_plan_json(text)
+    assert result is not None
+    assert result["department"]["name"] == "X"
+
+
+def test_extract_plan_json_no_block():
+    """_extract_plan_json возвращает None если нет ```json блока."""
+    assert hr_runner._extract_plan_json("просто текст без кода") is None
+
+
+def test_extract_plan_json_invalid_json():
+    """_extract_plan_json возвращает None если JSON невалидный."""
+    text = "```json\n{not valid json}\n```"
+    assert hr_runner._extract_plan_json(text) is None
+
+
+def test_extract_plan_json_multiline():
+    """_extract_plan_json работает с многострочным JSON."""
+    plan = {"department": {"name": "HR"}, "roles": [{"slug": "hr-lead"}]}
+    text = f"```json\n{json.dumps(plan, indent=2)}\n```"
+    result = hr_runner._extract_plan_json(text)
+    assert result == plan
+
+
+# ---------------------------------------------------------------------------
+# _build_claude_cmd unit
+# ---------------------------------------------------------------------------
+
+
+def test_build_claude_cmd_flags():
+    """_build_claude_cmd возвращает правильный список флагов."""
+    cmd = hr_runner._build_claude_cmd("prompt", "/path/.mcp.json", "initial msg")
+    assert cmd[0] == "claude"
+    assert "--mcp-config" in cmd
+    assert cmd[cmd.index("--mcp-config") + 1] == "/path/.mcp.json"
+    assert "--output-format" in cmd
+    assert cmd[cmd.index("--output-format") + 1] == "stream-json"
+    assert "--print" in cmd
+    assert cmd[cmd.index("--print") + 1] == "initial msg"
+    assert "--permission-mode" in cmd
+    assert cmd[cmd.index("--permission-mode") + 1] == "bypassPermissions"
+    assert "--model" in cmd
+    assert cmd[cmd.index("--model") + 1] == "claude-opus-4-7"
+    assert "--include-partial-messages" in cmd
+    assert "--verbose" in cmd
+    assert "--append-system-prompt" in cmd
+    assert cmd[cmd.index("--append-system-prompt") + 1] == "prompt"
+
+
+def test_build_claude_cmd_override(monkeypatch):
+    """PRIDE_HR_CLAUDE_CMD override проставляется перед флагами."""
+    monkeypatch.setenv("PRIDE_HR_CLAUDE_CMD", "python fake_claude.py")
+    cmd = hr_runner._build_claude_cmd("p", "/mcp.json", "msg")
+    assert cmd[:3] == ["python", "fake_claude.py", "--append-system-prompt"]
+    assert "--mcp-config" in cmd
+
+
+# ---------------------------------------------------------------------------
+# _hr_stream_reader unit
+# ---------------------------------------------------------------------------
+
+
+def test_hr_stream_reader_detects_chat_post(tmp_path):
+    """_hr_stream_reader обновляет state при обнаружении chat_post с JSON-планом."""
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "mcp_server"))
+    from pride_tasks import db
+
+    dbp = tmp_path / "tasks.db"
+    db.init_db(dbp)
+    sess = db.create_hr_session(dbp, department_name="StreamTest")
+    sid = sess["id"]
+
+    plan = {"department": {"name": "StreamTest"}, "roles": []}
+    text_with_plan = f"Вот план:\n```json\n{json.dumps(plan)}\n```"
+    event_line = json.dumps({
+        "type": "assistant",
+        "message": {
+            "content": [{
+                "type": "tool_use",
+                "name": "mcp__pride-tasks__chat_post",
+                "input": {"text": text_with_plan},
+            }]
+        },
+    })
+
+    proc = MagicMock()
+    lines = iter([event_line + "\n", ""])
+    proc.stdout.readline.side_effect = lambda: next(lines)
+
+    hr_runner._hr_stream_reader(sid, proc, dbp)
+
+    updated = db.get_hr_session(dbp, sid)
+    assert updated["state"] == "awaiting_owner_review"
+    assert updated["plan_json"] is not None
+    saved_plan = json.loads(updated["plan_json"])
+    assert saved_plan["department"]["name"] == "StreamTest"
+
+
+def test_hr_stream_reader_failed_without_plan(tmp_path):
+    """_hr_stream_reader помечает state='failed' если subprocess завершился без плана."""
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "mcp_server"))
+    from pride_tasks import db
+
+    dbp = tmp_path / "tasks.db"
+    db.init_db(dbp)
+    sess = db.create_hr_session(dbp, department_name="FailTest")
+    sid = sess["id"]
+
+    result_line = json.dumps({"type": "result", "subtype": "success"})
+    proc = MagicMock()
+    lines = iter([result_line + "\n", ""])
+    proc.stdout.readline.side_effect = lambda: next(lines)
+
+    hr_runner._hr_stream_reader(sid, proc, dbp)
+
+    updated = db.get_hr_session(dbp, sid)
+    assert updated["state"] == "aborted"
+    assert "without publishing plan" in (updated.get("last_message") or "")

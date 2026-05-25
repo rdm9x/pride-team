@@ -1209,7 +1209,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             initial_message = f"Создай отдел: {name}"
 
         proc = hr_runner.spawn_hr_subprocess(
-            session["id"], initial_message
+            session["id"], initial_message, db_path=_db()
         )
         if proc is None:
             # Spawn упал — переводим сразу в aborted.
@@ -1237,8 +1237,8 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         """Owner отправляет правки/ответ в активную HR-сессию.
 
         Body (JSON): {hr_session_id: str, message: str}.
-        Прокидывает в stdin subprocess, увеличивает iteration_count,
-        переводит state в hr_revising (если был awaiting_owner_review/hr_planning).
+        Спавнит новый HR subprocess с контекстом предыдущего плана и owner-комментом
+        через respawn_hr_for_revise (старый stdin-подход заменён — subprocess умирал).
         """
         data = request.get_json(silent=True) or {}
         sid = (data.get("hr_session_id") or "").strip()
@@ -1268,21 +1268,15 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
                 "reason": f"session is in final state {session['state']}",
             }), 409
 
-        sent = hr_runner.send_to_hr_subprocess(sid, message)
-        if not sent:
+        proc = hr_runner.respawn_hr_for_revise(sid, message, db_path=_db())
+        if proc is None:
             return jsonify({
                 "статус": "error", "status": "error",
-                "причина": "HR subprocess недоступен (упал или не запущен)",
-                "reason": "HR subprocess not available",
+                "причина": "не удалось запустить HR subprocess для revision",
+                "reason": "failed to spawn HR subprocess for revision",
             }), 502
 
-        new_state = "hr_revising" if session["state"] == "awaiting_owner_review" else session["state"]
-        updated = db.update_hr_session(
-            _db(), sid,
-            state=new_state,
-            iteration_count=session["iteration_count"] + 1,
-            last_message=message,
-        )
+        updated = db.get_hr_session(_db(), sid)
 
         return jsonify({
             "hr_session_id": sid,

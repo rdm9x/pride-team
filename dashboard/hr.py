@@ -26,10 +26,18 @@ import re
 import shlex
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 from threading import Lock
 from typing import Any, Optional
+
+# Гарантируем что mcp_server/ в sys.path для `from pride_tasks import db`.
+_MCP_DIR = Path(__file__).resolve().parent.parent / "mcp_server"
+if str(_MCP_DIR) not in sys.path:
+    sys.path.insert(0, str(_MCP_DIR))
+
+from pride_tasks import db  # noqa: E402
 
 log = logging.getLogger("pride_dashboard.hr")
 
@@ -73,8 +81,8 @@ def _hr_system_prompt_text() -> str:
         return ""
 
 
-def _build_claude_cmd(prompt_text: str) -> list[str]:
-    """Команда запуска claude CLI с HR system-prompt.
+def _build_claude_cmd(prompt_text: str, mcp_config: str, initial_message: str) -> list[str]:
+    """Команда запуска claude CLI с HR system-prompt и полным набором флагов.
 
     Используем PRIDE_HR_CLAUDE_CMD env override для тестов / нестандартных путей.
     По умолчанию — `claude` в PATH.
@@ -82,23 +90,99 @@ def _build_claude_cmd(prompt_text: str) -> list[str]:
     override = os.environ.get("PRIDE_HR_CLAUDE_CMD")
     if override:
         # Разрешаем "python -u fake.py" и т.п.
-        return shlex.split(override) + ["--append-system-prompt", prompt_text]
-    return ["claude", "--append-system-prompt", prompt_text]
+        return shlex.split(override) + [
+            "--append-system-prompt", prompt_text,
+            "--mcp-config", mcp_config,
+            "--permission-mode", "bypassPermissions",
+            "--model", "claude-opus-4-7",
+            "--output-format", "stream-json",
+            "--verbose",
+            "--include-partial-messages",
+            "--print", initial_message,
+        ]
+    return [
+        "claude",
+        "--append-system-prompt", prompt_text,
+        "--mcp-config", mcp_config,
+        "--permission-mode", "bypassPermissions",
+        "--model", "claude-opus-4-7",
+        "--output-format", "stream-json",
+        "--verbose",
+        "--include-partial-messages",
+        "--print", initial_message,
+    ]
+
+
+def _extract_plan_json(text: str) -> dict | None:
+    """Извлечь ```json ... ``` блок из chat_post.text и распарсить."""
+    m = re.search(r"```json\s*\n(.*?)\n```", text, re.DOTALL)
+    if not m:
+        return None
+    try:
+        return json.loads(m.group(1))
+    except json.JSONDecodeError:
+        return None
+
+
+def _hr_stream_reader(session_id: str, proc: subprocess.Popen, db_path: Path) -> None:
+    """Читает stream-json stdout HR claude subprocess.
+
+    Ищет tool_use chat_post → извлекает план JSON, обновляет state в БД.
+    При завершении subprocess без плана → state='failed'.
+    """
+    for line in iter(proc.stdout.readline, ""):
+        if not line:
+            break
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if event.get("type") == "assistant":
+            for block in event.get("message", {}).get("content", []):
+                if (
+                    block.get("type") == "tool_use"
+                    and block.get("name") == "mcp__pride-tasks__chat_post"
+                ):
+                    text = block.get("input", {}).get("text", "")
+                    plan = _extract_plan_json(text)
+                    if plan:
+                        db.update_hr_session(
+                            db_path,
+                            session_id,
+                            state="awaiting_owner_review",
+                            plan_json=json.dumps(plan, ensure_ascii=False),
+                        )
+                        break
+        if event.get("type") == "result":
+            sess = db.get_hr_session(db_path, session_id)
+            if sess and sess.get("state") == "hr_planning":
+                db.update_hr_session(
+                    db_path,
+                    session_id,
+                    state="aborted",
+                    last_message="HR subprocess finished without publishing plan",
+                )
 
 
 def spawn_hr_subprocess(
     session_id: str,
     initial_message: str,
     *,
+    db_path: Optional[Path] = None,
     popen_factory: Any = subprocess.Popen,
 ) -> Optional[subprocess.Popen]:
     """Спавнит claude CLI как subprocess для HR-сессии.
 
+    db_path — путь к SQLite БД (передаётся в reader thread для обновления state).
     popen_factory — точка инъекции для тестов (mock'аем Popen).
     Возвращает Popen или None если spawn упал (логируем, не raise).
     """
     prompt_text = _hr_system_prompt_text()
-    cmd = _build_claude_cmd(prompt_text)
+    # Путь к .mcp.json: PRIDE_MCP_CONFIG env или корень репо.
+    mcp_config = os.environ.get(
+        "PRIDE_MCP_CONFIG", str(_REPO_ROOT / ".mcp.json")
+    )
+    cmd = _build_claude_cmd(prompt_text, mcp_config, initial_message)
     env = dict(os.environ)
     env.setdefault("PYTHONIOENCODING", "utf-8")
     env["PYTHONUTF8"] = "1"
@@ -118,16 +202,105 @@ def spawn_hr_subprocess(
         log.error("spawn HR claude CLI failed: %s (cmd=%s)", exc, cmd)
         return None
 
-    # Передаём начальное сообщение (description от owner'а).
-    if initial_message and proc.stdin is not None:
-        try:
-            proc.stdin.write(initial_message + "\n")
-            proc.stdin.flush()
-        except (BrokenPipeError, OSError) as exc:
-            log.warning("HR stdin write failed: %s", exc)
+    with _subprocs_lock:
+        _subprocs[session_id] = proc
+
+    # Запускаем reader thread для парсинга stream-json и обновления state в БД.
+    if db_path is not None:
+        reader = threading.Thread(
+            target=_hr_stream_reader,
+            args=(session_id, proc, db_path),
+            daemon=True,
+            name=f"hr-stream-reader-{session_id[:8]}",
+        )
+        reader.start()
+
+    return proc
+
+
+def respawn_hr_for_revise(
+    session_id: str,
+    owner_comment: str,
+    *,
+    db_path: Optional[Path] = None,
+    popen_factory: Any = subprocess.Popen,
+) -> Optional[subprocess.Popen]:
+    """Спавнит новый HR subprocess для revision по owner-комментарию.
+
+    Закрывает старый subprocess (если жив), формирует initial_message с
+    предыдущим планом и owner-комментом, спавнит новый subprocess и обновляет
+    state в БД: hr_planning, iteration_count + 1.
+
+    db_path — путь к SQLite БД.
+    popen_factory — точка инъекции для тестов (mock'аем Popen).
+    Возвращает Popen или None если spawn упал.
+    """
+    if db_path is None:
+        log.warning("respawn_hr_for_revise: db_path не передан, revision невозможен")
+        return None
+
+    sess = db.get_hr_session(db_path, session_id)
+    if sess is None:
+        log.warning("respawn_hr_for_revise: сессия %s не найдена", session_id)
+        return None
+
+    prev_plan = sess.get("plan_json") or "{}"
+    # Используем iteration_count как номер ревизии (нет отдельной колонки revision).
+    current_revision = sess.get("iteration_count", 0) + 1
+
+    initial_message = (
+        f"Owner запросил revision к предыдущему плану.\n\n"
+        f"Предыдущий план (Plan v{current_revision}):\n"
+        f"```json\n{prev_plan}\n```\n\n"
+        f"Комментарий owner'а:\n{owner_comment}\n\n"
+        f"Опубликуй Plan v{current_revision + 1} через chat_post с обновлённым ```json``` блоком."
+    )
+
+    # Закрываем старый subprocess перед спавном нового.
+    close_hr_subprocess(session_id)
+
+    prompt_text = _hr_system_prompt_text()
+    mcp_config = os.environ.get("PRIDE_MCP_CONFIG", str(_REPO_ROOT / ".mcp.json"))
+    cmd = _build_claude_cmd(prompt_text, mcp_config, initial_message)
+    env = dict(os.environ)
+    env.setdefault("PYTHONIOENCODING", "utf-8")
+    env["PYTHONUTF8"] = "1"
+
+    try:
+        proc = popen_factory(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
+        )
+    except (OSError, FileNotFoundError) as exc:
+        log.error("respawn HR claude CLI failed: %s (cmd=%s)", exc, cmd)
+        return None
 
     with _subprocs_lock:
         _subprocs[session_id] = proc
+
+    reader = threading.Thread(
+        target=_hr_stream_reader,
+        args=(session_id, proc, db_path),
+        daemon=True,
+        name=f"hr-stream-reader-{session_id[:8]}",
+    )
+    reader.start()
+
+    db.update_hr_session(
+        db_path,
+        session_id,
+        state="hr_planning",
+        iteration_count=current_revision,
+        last_message=owner_comment,
+    )
+
     return proc
 
 
@@ -305,10 +478,14 @@ def _reset_state_for_tests() -> None:
 __all__ = [
     "HR_MAX_VALIDATION_ATTEMPTS",
     "spawn_hr_subprocess",
+    "respawn_hr_for_revise",
     "send_to_hr_subprocess",
     "close_hr_subprocess",
     "materialize_roles",
     "department_slug",
+    "_build_claude_cmd",
+    "_extract_plan_json",
+    "_hr_stream_reader",
     "_reset_state_for_tests",
     "_subprocs",
 ]

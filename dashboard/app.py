@@ -68,21 +68,44 @@ _persisted_auto_mode = db.get_app_state(DB_PATH, "auto_mode", "false")
 _auto_mode_initial = _persisted_auto_mode.lower() in ("true", "1", "yes")
 log.info("загружена persisted auto_mode из БД: %s", _auto_mode_initial)
 
-_team_state: dict[str, Any] = {
-    "process": None,            # subprocess.Popen | None
-    "queue": Queue(),           # очередь строк stdout/stderr для SSE
-    "started_at": None,
-    "lock": Lock(),
+
+def _create_team_state_for_role() -> dict[str, Any]:
+    """Создаёт новое состояние для роли (процесс, очередь, лок и т.д.)."""
+    return {
+        "process": None,            # subprocess.Popen | None
+        "queue": Queue(),           # очередь строк stdout/stderr для SSE
+        "started_at": None,
+        "lock": Lock(),
+        "starts_history": [],       # timestamps последних запусков (для rate-limit)
+        "reader_thread": None,      # Thread | None — текущий _stream_reader
+    }
+
+
+# D38BCDDA9CF9 (Phase 2.1): _team_states[role] → параллельные сессии разных ролей.
+# Раньше: _team_state хранил одну сессию → блокировал другие роли.
+# Теперь: каждой роли свой процесс, свой лок, своя история.
+_team_states: dict[str, dict[str, Any]] = {
+    # роль → состояние
+    # Инициализируем для всех возможных ролей при загрузке
+}
+
+# Глобальные параметры авто-режима (применяются ко всем ролям)
+_global_state: dict[str, Any] = {
     "auto_mode": _auto_mode_initial,  # авто-запуск следующей сессии после завершения (S17.5: persisted)
-    "starts_history": [],       # timestamps последних запусков (для rate-limit)
-    "auto_pause_reason": None,  # если auto заблокирован — почему
-    "reader_thread": None,      # Thread | None — текущий _stream_reader (S17.3 fix)
+    "auto_pause_reason": None,  # если auto заблокирован глобально — почему
 }
 
 # Лимиты авто-режима (защита от инфинит-лупа)
 _AUTO_MIN_INTERVAL_SEC = 30          # минимум между запусками
 _AUTO_MAX_PER_HOUR = 20              # не больше 20 сессий в час
 _AUTO_CHECK_INTERVAL_SEC = 10        # как часто monitor-thread проверяет
+
+
+def _get_team_state_for_role(role: str) -> dict[str, Any]:
+    """Получить (или инициализировать) состояние для роли."""
+    if role not in _team_states:
+        _team_states[role] = _create_team_state_for_role()
+    return _team_states[role]
 
 
 def _format_stream_event(raw: str) -> Optional[str]:
@@ -468,85 +491,131 @@ def _stream_reader(proc: subprocess.Popen, queue: Queue, log_file: Path) -> None
     _auto_restore_delegated_tasks(delegated_ids)
 
 
-def _has_pending_work(dept_id: str = "dev") -> bool:
-    """Есть ли в отделе задачи требующие лида? (todo + wip + needs_approval)
+def _has_pending_work_for_role(role: str) -> bool:
+    """Есть ли для роли задачи требующие выполнения?
 
-    Phase 1.7 fix: раньше проверяли только `assignee=<dept>-lead`. Но лид —
-    координатор: child задачи назначены на специалистов (бэкенд/qa/frontend/...),
-    а сам лид имеет только parent-эпики. Когда parent в wip и тимлид работает —
-    todo для самого лида = 0. Auto-monitor решал «очередь пуста» → пауза.
-
-    Теперь проверяем ВЕСЬ department: если есть todo для любого члена отдела
-    (включая parent для лида) — есть pending work, лид должен координировать.
+    D38BCDDA9CF9: для каждой роли (lead) проверяем очередь её отдела.
+    managing-director проверяет глобальную очередь (dev + marketing + ...).
     """
     try:
-        # 1. Что-то для самого лида (parent эпики, approval-задачи)
-        assignee = _find_lead_for_department(DB_PATH, dept_id) or "тимлид"
-        for status in ("todo", "wip", "needs_approval"):
-            tasks = db.list_tasks(DB_PATH, status=status, assignee=assignee, limit=5)
-            if tasks:
+        if role == "managing-director":
+            # Глобальный режим: есть ли ANY todo в любом отделе
+            all_todo = db.list_tasks(DB_PATH, status="todo", limit=5)
+            if all_todo:
                 return True
-        # 2. Любая todo задача в отделе — лид должен координировать
-        dept_todo = db.list_tasks(DB_PATH, status="todo", department_id=dept_id,
-                                  _filter_department=True, limit=5)
-        if dept_todo:
-            return True
+            return False
+        else:
+            # Роль привязана к отделу (marketing-lead → marketing, design-lead → design)
+            # Legacy: тимлид → dev
+            if role == "тимлид":
+                dept_id = "dev"
+            else:
+                dept_id = role.split("-lead")[0]  # marketing-lead → marketing
+            # 1. Что-то для самого лида (проверяем и role и его legacy имя)
+            for status in ("todo", "wip", "needs_approval"):
+                tasks = db.list_tasks(DB_PATH, status=status, assignee=role, limit=5)
+                if tasks:
+                    return True
+                # Legacy: если ищем тимлид, тоже проверяем
+                if role == "dev-lead":
+                    tasks = db.list_tasks(DB_PATH, status=status, assignee="тимлид", limit=5)
+                    if tasks:
+                        return True
+            # 2. Любая todo задача в отделе
+            dept_todo = db.list_tasks(DB_PATH, status="todo", department_id=dept_id,
+                                      _filter_department=True, limit=5)
+            if dept_todo:
+                return True
     except Exception as exc:  # noqa: BLE001
-        log.warning("auto: ошибка при проверке очереди: %s", exc)
+        log.warning("auto: ошибка при проверке очереди для role=%s: %s", role, exc)
     return False
 
 
-def _auto_can_start(now: int) -> tuple[bool, str]:
-    """Можно ли сейчас запустить авто-сессию? (bool, reason)."""
-    if not _team_state["auto_mode"]:
+def _auto_can_start_for_role(role: str, now: int) -> tuple[bool, str]:
+    """Можно ли сейчас запустить авто-сессию для ЭТОЙ роли?
+
+    D38BCDDA9CF9: проверяем только занятость ЭТУ роли, не глобально.
+    Разные роли могут работать параллельно.
+    """
+    if not _global_state["auto_mode"]:
         return False, "авто-режим выключен"
-    proc = _team_state["process"]
-    if proc is not None and proc.poll() is None:
-        return False, "сессия уже работает"
-    # S17.3: ждём завершения _stream_reader предыдущей сессии прежде чем
-    # стартовать новую. _stream_reader может удерживать SQLite write-lock
-    # через _auto_restore_delegated_tasks — если новый MCP-сервер попытается
-    # открыть tasks.db пока лок занят, он не сможет инициализироваться и
-    # claude упадёт с is_error=1 через 90 секунд (HTTP timeout).
-    reader = _team_state.get("reader_thread")
-    if reader is not None and reader.is_alive():
-        return False, "предыдущий reader_thread ещё жив (cleanup)"
-    history = _team_state["starts_history"]
-    # Чистим старше часа
-    cutoff = now - 3600
-    history[:] = [t for t in history if t >= cutoff]
-    if history:
-        since_last = now - history[-1]
-        if since_last < _AUTO_MIN_INTERVAL_SEC:
-            return False, f"слишком часто (последний запуск {since_last}с назад, минимум {_AUTO_MIN_INTERVAL_SEC}с)"
-    if len(history) >= _AUTO_MAX_PER_HOUR:
-        return False, f"лимит {_AUTO_MAX_PER_HOUR} сессий в час исчерпан"
-    if not _has_pending_work():
-        return False, "очередь тимлида пустая"
+
+    team_state = _get_team_state_for_role(role)
+    with team_state["lock"]:
+        proc = team_state["process"]
+        if proc is not None and proc.poll() is None:
+            return False, f"роль {role} уже работает (pid={proc.pid})"
+
+        # S17.3: ждём завершения _stream_reader предыдущей сессии
+        reader = team_state.get("reader_thread")
+        if reader is not None and reader.is_alive():
+            return False, f"reader_thread для {role} ещё жив (cleanup)"
+
+        history = team_state["starts_history"]
+        # Чистим старше часа
+        cutoff = now - 3600
+        history[:] = [t for t in history if t >= cutoff]
+        if history:
+            since_last = now - history[-1]
+            if since_last < _AUTO_MIN_INTERVAL_SEC:
+                return False, f"{role}: слишком часто ({since_last}с, минимум {_AUTO_MIN_INTERVAL_SEC}с)"
+        if len(history) >= _AUTO_MAX_PER_HOUR:
+            return False, f"{role}: лимит {_AUTO_MAX_PER_HOUR} в час исчерпан"
+
+    if not _has_pending_work_for_role(role):
+        return False, f"{role}: очередь пуста"
+
     return True, "ок"
 
 
-def _auto_monitor_loop() -> None:
-    """Фоновый поток: следит за завершением сессии и запускает следующую если в авто-режиме."""
-    log.info("auto-monitor: запущен")
+def _auto_monitor_loop(db_path: Path = DB_PATH) -> None:
+    """Фоновый поток: следит за завершением сессий и запускает следующие если в авто-режиме.
+
+    D38BCDDA9CF9: НОВОЕ — пытается запустить ВСЕ свободные роли параллельно.
+    Раньше: одна сессия за раз.
+    Теперь: если marketing-lead свободна И есть работа → запускаем её,
+            параллельно dev-lead может быть в работе.
+    """
+    log.info("auto-monitor: запущен (parallel mode, db_path=%s)", db_path)
     while True:
         time.sleep(_AUTO_CHECK_INTERVAL_SEC)
         try:
             now = int(time.time())
-            ok, reason = _auto_can_start(now)
-            if ok:
-                # Auto-mode тоже использует smart-default: ищет lead-роль с
-                # самой свежей todo задачей (см. _smart_default_role).
-                # Раньше hardcoded на managing-director → бесконечный loop
-                # коротких сессий «у меня нет работы» каждые 30 сек.
-                smart_role = _smart_default_role(DB_PATH)
-                log.info("auto-monitor: запускаю следующую сессию (role=%s)", smart_role)
-                _team_state["auto_pause_reason"] = None
-                res = _start_team_process(triggered_by="auto", role=smart_role)
-                if not res.get("ok"):
-                    _team_state["auto_pause_reason"] = res.get("reason", "не запустился")
+
+            # Получаем все известные роли из БД
+            all_roles = db.list_roles(db_path)
+            lead_roles = [r["name"] for r in all_roles if r["name"].endswith("-lead")]
+            if not lead_roles:
+                lead_roles = []
+            # Всегда добавляем managing-director
+            if "managing-director" not in lead_roles:
+                lead_roles.append("managing-director")
+
+            # Пробуем запустить каждую свободную роль с очередью
+            for role in lead_roles:
+                ok, reason = _auto_can_start_for_role(role, now)
+                if ok:
+                    log.info("auto-monitor: запускаю роль %s", role)
+                    _global_state["auto_pause_reason"] = None
+                    res = _start_team_process(triggered_by="auto", role=role)
+                    if not res.get("ok"):
+                        log.warning("auto-monitor: ошибка при запуске %s: %s", role, res.get("reason"))
+                else:
+                    log.debug("auto-monitor: %s не может стартовать: %s", role, reason)
+
+            # Если ничего не запустилось и авто включён — сохраняем причину
+            if _global_state["auto_mode"]:
+                all_blocked = all(
+                    not _auto_can_start_for_role(role, now)[0]
+                    for role in lead_roles
+                )
+                if all_blocked:
+                    # Ищем наиболее актуальную причину
+                    reasons = [_auto_can_start_for_role(role, now)[1] for role in lead_roles]
+                    _global_state["auto_pause_reason"] = "; ".join(set(reasons))[:200]
             else:
-                _team_state["auto_pause_reason"] = reason if _team_state["auto_mode"] else None
+                _global_state["auto_pause_reason"] = None
+
         except Exception as exc:  # noqa: BLE001
             log.warning("auto-monitor: исключение: %s", exc)
 
@@ -681,21 +750,22 @@ def build_claude_command(
 
 
 def _start_team_process(triggered_by: str = "user", role: str = "managing-director") -> dict[str, Any]:
-    """Запустить subprocess тимлида.
+    """Запустить subprocess тимлида для ЭТОЙ роли.
+
+    D38BCDDA9CF9: каждой роли свой процесс. marketing-lead и dev-lead
+    могут работать параллельно (разные _team_states[role]).
 
     Выбор скрипта зависит от роли (role):
       - 'managing-director' → devboard-managing.sh (или .ps1 на Windows)
       - остальные роли → devboard-work.sh --role <role> (или .ps1 --role <role>)
 
-    Выбор платформы: на Windows — .ps1 через powershell,
-    на macOS/Linux — .sh через bash.
-
     B5 (1.6): модель определяется через build_claude_command() / pick_model_for_role()
     по model_hint задач в очереди роли и инжектируется через DEVBOARD_TEAM_MODEL env-var.
     """
+    team_state = _get_team_state_for_role(role)
 
-    with _team_state["lock"]:
-        proc = _team_state["process"]
+    with team_state["lock"]:
+        proc = team_state["process"]
         if proc is not None and proc.poll() is None:
             return {"ok": False, "reason": "already_running", "pid": proc.pid}
 
@@ -718,33 +788,42 @@ def _start_team_process(triggered_by: str = "user", role: str = "managing-direct
                 **extra_env,
             },
         )
-        _team_state["process"] = new_proc
+        team_state["process"] = new_proc
         now = int(time.time())
-        _team_state["started_at"] = now
-        _team_state["starts_history"].append(now)
-        _PID_FILE.write_text(str(new_proc.pid))
-        log.info("team session started (triggered_by=%s, pid=%d)", triggered_by, new_proc.pid)
-        # Чистим очередь
-        while not _team_state["queue"].empty():
+        team_state["started_at"] = now
+        team_state["starts_history"].append(now)
+        # Специально для managing-director пишем PID в файл (для совместимости)
+        if role == "managing-director":
+            _PID_FILE.write_text(str(new_proc.pid))
+        log.info("team session started (role=%s, triggered_by=%s, pid=%d)", role, triggered_by, new_proc.pid)
+        # Чистим очередь роли
+        while not team_state["queue"].empty():
             try:
-                _team_state["queue"].get_nowait()
+                team_state["queue"].get_nowait()
             except Empty:
                 break
-        # Поток-читатель
+        # Поток-читатель для этой роли
         t = Thread(
             target=_stream_reader,
-            args=(new_proc, _team_state["queue"], _LIVE_LOG),
+            args=(new_proc, team_state["queue"], _LIVE_LOG),
             daemon=True,
-            name=f"stream-reader-{new_proc.pid}",
+            name=f"stream-reader-{role}-{new_proc.pid}",
         )
         t.start()
-        _team_state["reader_thread"] = t  # S17.3: отслеживаем для auto_can_start
-        return {"ok": True, "pid": new_proc.pid}
+        team_state["reader_thread"] = t
+        return {"ok": True, "pid": new_proc.pid, "role": role}
 
 
-def _stop_team_process() -> dict[str, Any]:
-    with _team_state["lock"]:
-        proc = _team_state["process"]
+def _stop_team_process(role: str = "managing-director") -> dict[str, Any]:
+    """Остановить сессию для ЭТОЙ роли.
+
+    D38BCDDA9CF9: останавливаем только процесс указанной роли.
+    Другие роли продолжают работать.
+    """
+    team_state = _get_team_state_for_role(role)
+
+    with team_state["lock"]:
+        proc = team_state["process"]
         if proc is None or proc.poll() is not None:
             return {"ok": False, "reason": "not_running"}
         # Windows не понимает SIGTERM для не-консольного дочернего процесса;
@@ -757,21 +836,47 @@ def _stop_team_process() -> dict[str, Any]:
             proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
             proc.kill()
-        _team_state["process"] = None
-        if _PID_FILE.exists():
+        team_state["process"] = None
+        if role == "managing-director" and _PID_FILE.exists():
             _PID_FILE.unlink()
-        return {"ok": True}
+        return {"ok": True, "role": role}
 
 
-def _team_status() -> dict[str, Any]:
-    proc = _team_state["process"]
+def _team_status(role: str = "managing-director") -> dict[str, Any]:
+    """Статус сессии для ЭТОЙ роли.
+
+    D38BCDDA9CF9: возвращаем только статус одной роли.
+    Для получения статуса всех ролей → /api/team/status-all
+    """
+    team_state = _get_team_state_for_role(role)
+    proc = team_state["process"]
     if proc is None or proc.poll() is not None:
-        return {"status": "stopped"}
+        return {"status": "stopped", "role": role}
     return {
         "status": "running",
         "pid": proc.pid,
-        "started_at": _team_state["started_at"],
+        "started_at": team_state["started_at"],
+        "role": role,
     }
+
+
+def _team_status_all() -> dict[str, Any]:
+    """Статус ВСЕх активных ролей.
+
+    D38BCDDA9CF9: возвращаем dict {role → status, ...}
+    """
+    result = {}
+    for role, team_state in _team_states.items():
+        proc = team_state["process"]
+        if proc is None or proc.poll() is not None:
+            result[role] = {"status": "stopped"}
+        else:
+            result[role] = {
+                "status": "running",
+                "pid": proc.pid,
+                "started_at": team_state["started_at"],
+            }
+    return result
 
 
 # === Inter-department helpers (S11.1, ADR-005) ===
@@ -1012,7 +1117,8 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
     if db_path is None and not app.config.get("TESTING"):
         _start_backup_thread(effective_db)
         # Auto-режим: фоновый монитор запускает следующую сессию по графу зависимостей
-        Thread(target=_auto_monitor_loop, daemon=True, name="auto-monitor").start()
+        # D38BCDDA9CF9: передаём db_path в функцию
+        Thread(target=_auto_monitor_loop, args=(effective_db,), daemon=True, name="auto-monitor").start()
 
     def _db() -> Path:
         return app.config["DB_PATH"]
@@ -2633,24 +2739,38 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
 
     @app.post("/api/team/stop")
     def api_team_stop() -> Any:
-        res = _stop_team_process()
+        body = request.get_json(silent=True) or {}
+        role = body.get("role", "managing-director")
+        res = _stop_team_process(role=role)
         if not res["ok"]:
             return jsonify({"статус": "error", **res}), 409
         return jsonify({"статус": "ok"})
 
     @app.get("/api/team/status")
     def api_team_status() -> Any:
-        s = _team_status()
-        s["auto_mode"] = _team_state["auto_mode"]
-        s["auto_pause_reason"] = _team_state.get("auto_pause_reason")
-        s["starts_last_hour"] = len(_team_state["starts_history"])
+        args = request.args
+        role = args.get("role", "managing-director")
+        s = _team_status(role=role)
+        s["auto_mode"] = _global_state["auto_mode"]
+        s["auto_pause_reason"] = _global_state.get("auto_pause_reason")
+        # Возвращаем историю запусков этой роли
+        team_state = _get_team_state_for_role(role)
+        s["starts_last_hour"] = len(team_state["starts_history"])
         return jsonify(s)
+
+    @app.get("/api/team/status-all")
+    def api_team_status_all() -> Any:
+        """D38BCDDA9CF9: статус ВСЕх активных ролей (для live-output с несколькими панелями)."""
+        result = _team_status_all()
+        result["auto_mode"] = _global_state["auto_mode"]
+        result["auto_pause_reason"] = _global_state.get("auto_pause_reason")
+        return jsonify(result)
 
     @app.post("/api/team/auto")
     def api_team_auto() -> Any:
         data = request.get_json(silent=True) or {}
         enabled = bool(data.get("enabled"))
-        _team_state["auto_mode"] = enabled
+        _global_state["auto_mode"] = enabled
         # S17.5 (Task 99119C362B4A): сохраняем auto_mode в БД для персистирования при перезагрузке
         try:
             db.set_app_state(_db(), "auto_mode", "true" if enabled else "false")
@@ -2659,28 +2779,426 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             log.warning("не удалось сохранить auto_mode в БД: %s", exc)
         # При выключении сбрасываем причину паузы
         if not enabled:
-            _team_state["auto_pause_reason"] = None
+            _global_state["auto_pause_reason"] = None
+
+        # Возвращаем статус для всех ролей
+        all_states = _team_status_all()
+        total_starts = sum(len(_get_team_state_for_role(r)["starts_history"])
+                          for r in _team_states.keys())
         return jsonify({
             "статус": "ok",
             "auto_mode": enabled,
-            "starts_last_hour": len(_team_state["starts_history"]),
+            "all_roles": all_states,
+            "total_starts_last_hour": total_starts,
         })
 
     @app.get("/api/team/stream")
     def api_team_stream() -> Response:
+        """D38BCDDA9CF9: stream ВСЕх активных ролей параллельно.
+
+        Возвращает SSE с событиями от всех ролей.
+        item = {"ts": time, "role": role, "human": description, "raw": raw_json}
+        """
         def event_stream():
             yield "retry: 3000\n\n"
             while True:
                 try:
-                    item = _team_state["queue"].get(timeout=15)
-                    # item — dict {ts, human, raw} (или старая строка для совместимости)
-                    if isinstance(item, str):
-                        item = {"ts": "", "human": item, "raw": item}
-                    yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
-                except Empty:
+                    # Пытаемся получить элемент из очереди любой роли
+                    item = None
+                    timeout_left = 15
+                    for role, team_state in _team_states.items():
+                        try:
+                            item = team_state["queue"].get(block=False)
+                            # Добавляем role в item для display
+                            if isinstance(item, str):
+                                item = {"ts": "", "role": role, "human": item, "raw": item}
+                            elif isinstance(item, dict) and "role" not in item:
+                                item["role"] = role
+                            break
+                        except Empty:
+                            pass
+                    if item is None:
+                        # Все очереди пусты, ждём с timeout
+                        time.sleep(min(1, timeout_left))
+                        yield ": heartbeat\n\n"
+                    else:
+                        yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
+                except Exception:
                     yield ": heartbeat\n\n"
 
         return Response(event_stream(), mimetype="text/event-stream")
+
+    # === Owner Dashboard (ADR-013) ===
+
+    def _infer_project_slug_from_path(workspace_path: str) -> Optional[str]:
+        """Инферирует project_slug из пути workspace/.
+
+        Паттерн: workspace/<project-slug>/ или workspace/<project-slug>/<task-id>/file
+        Возвращает <project-slug> или None если не валидный путь.
+        """
+        if not workspace_path:
+            return None
+        try:
+            parts = Path(workspace_path).parts
+            if "workspace" not in parts:
+                return None
+            idx = parts.index("workspace")
+            if idx + 1 < len(parts):
+                slug = parts[idx + 1]
+                # Санитизируем: slug должен быть валидным ([a-z0-9-]+)
+                if slug and all(c.isalnum() or c == "-" for c in slug) and not slug.startswith("-"):
+                    return slug
+        except (ValueError, IndexError):
+            pass
+        return None
+
+    def _get_artifacts_for_project(project_slug: str) -> list[dict[str, Any]]:
+        """Получить все артефакты для проекта."""
+        conn = db._connect(_db())
+        try:
+            rows = conn.execute(
+                "SELECT id, file_path, task_id, kind FROM task_artifacts WHERE file_path LIKE ?",
+                (f"%workspace/{project_slug}/%",),
+            ).fetchall()
+            artifacts = []
+            for r in rows:
+                artifacts.append({
+                    "id": r["id"],
+                    "file_path": r["file_path"],
+                    "task_id": r["task_id"],
+                    "kind": r["kind"],
+                })
+            return artifacts
+        finally:
+            conn.close()
+
+    def _compute_project_progress(tasks: list[dict[str, Any]]) -> dict[str, Any]:
+        """Вычислить progress для группы задач."""
+        statuses = {}
+        for task in tasks:
+            status = task.get("status", "todo")
+            statuses[status] = statuses.get(status, 0) + 1
+
+        done = statuses.get("done", 0)
+        in_review = statuses.get("needs_approval", 0) + statuses.get("review", 0)
+        in_progress = statuses.get("wip", 0)
+        todo = statuses.get("todo", 0)
+        blocked = statuses.get("blocked", 0)
+        total = len(tasks)
+
+        percentage = (done / total * 100) if total > 0 else 0.0
+
+        return {
+            "done": done,
+            "in_review": in_review,
+            "in_progress": in_progress,
+            "todo": todo,
+            "blocked": blocked,
+            "total": total,
+            "percentage": round(percentage, 1),
+        }
+
+    def _extract_action_items(tasks: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+        """Извлечь action items из задач."""
+        review_items = []
+        waiting_items = []
+        blocked_items = []
+
+        for task in tasks:
+            status = task.get("status", "todo")
+            item = {
+                "id": task["id"],
+                "title": task.get("title", ""),
+                "status": status,
+                "assignee": task.get("assignee"),
+                "department_id": task.get("department_id"),
+            }
+
+            if status in ("needs_approval", "review"):
+                review_items.append(item)
+            elif status == "todo":
+                waiting_items.append(item)
+            elif status == "blocked":
+                # Пытаемся найти причину блокировки в комментариях
+                item["blocking_reason"] = "Причина блокировки неизвестна"
+                blocked_items.append(item)
+
+        return {
+            "review": review_items[:10],  # Ограничиваем до 10 для display
+            "waiting_to_start": waiting_items[:10],
+            "blocked": blocked_items[:10],
+        }
+
+    def _group_tasks_by_project(all_tasks: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+        """Группировать задачи по project_slug."""
+        groups: dict[str, list[dict[str, Any]]] = {}
+        no_project_tasks: list[dict[str, Any]] = []
+
+        for task in all_tasks:
+            # Пытаемся инферировать project_slug из комментариев или description
+            # или используем default "[Без проекта]"
+            project_slug = "[Без проекта]"
+
+            # Первая эвристика: если есть явное project_slug в задаче (расширение БД в v2.1)
+            if "project_slug" in task and task["project_slug"]:
+                project_slug = task["project_slug"]
+            else:
+                # Вторая эвристика: если есть parent_id, может быть информация в иерархии
+                # Пока используем простой fallback на "[Без проекта]" для всех задач
+                no_project_tasks.append(task)
+                continue
+
+            if project_slug not in groups:
+                groups[project_slug] = []
+            groups[project_slug].append(task)
+
+        # Объединяем "Без проекта"
+        if no_project_tasks:
+            groups["[Без проекта]"] = no_project_tasks
+
+        return groups
+
+    @app.get("/api/projects")
+    def api_projects() -> Any:
+        """GET /api/projects — список проектов с progress и action items.
+
+        Параметры:
+          - include_archived: bool (default false) — включить завершённые проекты
+          - include_devboard: bool (default true) — включить "[Без проекта]"
+        """
+        include_archived = request.args.get("include_archived") in ("1", "true", "yes")
+        include_devboard = request.args.get("include_devboard") in ("true", "yes", None)  # default true
+        if include_devboard is None:
+            include_devboard = True
+
+        try:
+            # Получаем все задачи (независимо от статуса)
+            all_tasks = db.list_tasks(_db(), status=None, limit=10000, department_id=None)
+
+            # Группируем по проектам
+            project_groups = _group_tasks_by_project(all_tasks)
+
+            result_projects = []
+
+            for project_slug, tasks in sorted(project_groups.items()):
+                # Пропускаем "[Без проекта]" если не нужен devboard
+                if project_slug == "[Без проекта]" and not include_devboard:
+                    continue
+
+                progress = _compute_project_progress(tasks)
+
+                # Определяем статус проекта
+                if progress["total"] == 0:
+                    status = "empty"
+                elif progress["percentage"] == 100.0 and progress["blocked"] == 0:
+                    status = "completed"
+                elif progress["blocked"] > 0:
+                    status = "blocked"
+                else:
+                    status = "active"
+
+                # Получаем артефакты для проекта (только если не "[Без проекта]")
+                artifacts = []
+                workspace_path = ""
+                if project_slug != "[Без проекта]":
+                    artifacts = _get_artifacts_for_project(project_slug)
+                    # Инферируем workspace_path из первого артефакта или конструируем
+                    if artifacts:
+                        workspace_path = str(Path(artifacts[0]["file_path"]).parent.parent)
+                    else:
+                        workspace_path = str(_REPO_ROOT / "workspace" / project_slug)
+
+                # Последний update
+                last_updated_at = 0
+                if tasks:
+                    last_updated_at = max(t.get("updated_at", 0) or t.get("created_at", 0) for t in tasks)
+
+                # Берём title из первой задачи в проекте
+                title = project_slug.replace("-", " ").title()
+                if tasks:
+                    title = tasks[0].get("title", title)
+
+                action_items = _extract_action_items(tasks)
+
+                card = {
+                    "project_slug": project_slug,
+                    "title": title,
+                    "status": status,
+                    "progress": progress,
+                    "action_items": action_items,
+                    "artifacts": artifacts,
+                    "last_updated_at": last_updated_at,
+                    "workspace_path": workspace_path,
+                }
+                result_projects.append(card)
+
+            return jsonify({
+                "status": "ok",
+                "projects": result_projects,
+            })
+        except Exception as exc:
+            log.exception("Error in /api/projects: %s", exc)
+            return jsonify({
+                "status": "error",
+                "reason": str(exc),
+            }), 500
+
+    @app.get("/api/projects/<project_slug>")
+    def api_project_details(project_slug: str) -> Any:
+        """GET /api/projects/<slug> — детали проекта с чат-потоком."""
+        try:
+            all_tasks = db.list_tasks(_db(), status=None, limit=10000, department_id=None)
+            project_groups = _group_tasks_by_project(all_tasks)
+
+            if project_slug not in project_groups:
+                return jsonify({"status": "not_found"}), 404
+
+            tasks = project_groups[project_slug]
+            progress = _compute_project_progress(tasks)
+            artifacts = _get_artifacts_for_project(project_slug) if project_slug != "[Без проекта]" else []
+            workspace_path = ""
+            if project_slug != "[Без проекта]":
+                if artifacts:
+                    workspace_path = str(Path(artifacts[0]["file_path"]).parent.parent)
+                else:
+                    workspace_path = str(_REPO_ROOT / "workspace" / project_slug)
+
+            last_updated_at = 0
+            if tasks:
+                last_updated_at = max(t.get("updated_at", 0) or t.get("created_at", 0) for t in tasks)
+
+            title = project_slug.replace("-", " ").title()
+            if tasks:
+                title = tasks[0].get("title", title)
+
+            action_items = _extract_action_items(tasks)
+
+            status = "completed" if progress["percentage"] == 100.0 else "active"
+
+            project = {
+                "project_slug": project_slug,
+                "title": title,
+                "status": status,
+                "progress": progress,
+                "action_items": action_items,
+                "artifacts": artifacts,
+                "last_updated_at": last_updated_at,
+                "workspace_path": workspace_path,
+                "tasks": tasks,  # Полный список задач
+            }
+
+            # TODO: Добавить chat_thread из ADR-011 когда будет готов
+            chat_thread = {
+                "id": f"project-{project_slug}",
+                "title": title,
+                "kind": "planning",
+                "messages": [],
+                "status": "finished",
+                "decision_summary": "",
+            }
+
+            return jsonify({
+                "status": "ok",
+                "project": project,
+                "chat_thread": chat_thread,
+            })
+        except Exception as exc:
+            log.exception("Error in /api/projects/<slug>: %s", exc)
+            return jsonify({
+                "status": "error",
+                "reason": str(exc),
+            }), 500
+
+    @app.post("/api/projects/<project_slug>/accept-task")
+    def api_project_accept_task(project_slug: str) -> Any:
+        """POST /api/projects/<slug>/accept-task — принять (одобрить) задачу."""
+        data = request.get_json(silent=True) or {}
+        task_id = data.get("task_id", "").strip()
+        comment = data.get("comment", "").strip()
+
+        if not task_id:
+            return jsonify({"status": "error", "reason": "task_id required"}), 400
+
+        try:
+            # Переводим в done
+            updated = db.update_task(_db(), task_id, status="done")
+            if updated is None:
+                return jsonify({"status": "not_found"}), 404
+
+            # Добавляем комментарий
+            if comment:
+                db.add_comment(_db(), task_id, "пользователь", f"Принято (Owner): {comment}")
+
+            return jsonify({
+                "status": "ok",
+                "task_id": task_id,
+                "new_status": "done",
+            })
+        except Exception as exc:
+            log.exception("Error accepting task: %s", exc)
+            return jsonify({"status": "error", "reason": str(exc)}), 500
+
+    @app.post("/api/projects/<project_slug>/start-task")
+    def api_project_start_task(project_slug: str) -> Any:
+        """POST /api/projects/<slug>/start-task — запустить задачу (todo→wip)."""
+        data = request.get_json(silent=True) or {}
+        task_id = data.get("task_id", "").strip()
+        role = data.get("role", "").strip()
+
+        if not task_id:
+            return jsonify({"status": "error", "reason": "task_id required"}), 400
+
+        try:
+            # Переводим в wip с назначением роли если указана
+            update_dict = {"status": "wip"}
+            if role:
+                update_dict["assignee"] = role
+
+            updated = db.update_task(_db(), task_id, **update_dict)
+            if updated is None:
+                return jsonify({"status": "not_found"}), 404
+
+            now = int(time.time())
+            return jsonify({
+                "status": "ok",
+                "task_id": task_id,
+                "new_status": "wip",
+                "session_started_at": now,
+            })
+        except Exception as exc:
+            log.exception("Error starting task: %s", exc)
+            return jsonify({"status": "error", "reason": str(exc)}), 500
+
+    @app.post("/api/projects/<project_slug>/unblock")
+    def api_project_unblock(project_slug: str) -> Any:
+        """POST /api/projects/<slug>/unblock — разблокировать задачу."""
+        data = request.get_json(silent=True) or {}
+        task_id = data.get("task_id", "").strip()
+        reason = data.get("reason", "").strip()
+
+        if not task_id:
+            return jsonify({"status": "error", "reason": "task_id required"}), 400
+
+        try:
+            # Переводим в todo
+            updated = db.update_task(_db(), task_id, status="todo")
+            if updated is None:
+                return jsonify({"status": "not_found"}), 404
+
+            # Добавляем комментарий о разблокировке
+            msg = f"Разблокирована (Owner)"
+            if reason:
+                msg += f": {reason}"
+            db.add_comment(_db(), task_id, "пользователь", msg)
+
+            return jsonify({
+                "status": "ok",
+                "task_id": task_id,
+                "new_status": "todo",
+            })
+        except Exception as exc:
+            log.exception("Error unblocking task: %s", exc)
+            return jsonify({"status": "error", "reason": str(exc)}), 500
 
     @app.get("/api/usage")
     def api_usage() -> Any:

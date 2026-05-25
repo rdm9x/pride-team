@@ -25,19 +25,23 @@ import app as app_module  # noqa: E402
 
 @pytest.fixture()
 def reset_team_state():
-    """Сбрасывает глобальное состояние тимлида к чистому виду."""
-    saved = dict(app_module._team_state)
-    app_module._team_state["process"] = None
-    app_module._team_state["queue"] = Queue()
-    app_module._team_state["started_at"] = None
-    app_module._team_state["lock"] = Lock()
-    app_module._team_state["auto_mode"] = False
-    app_module._team_state["starts_history"] = []
-    app_module._team_state["auto_pause_reason"] = None
-    app_module._team_state["reader_thread"] = None
+    """Сбрасывает глобальное состояние всех ролей к чистому виду.
+
+    D38BCDDA9CF9: обновлено для работы с _team_states[role] вместо _team_state.
+    """
+    saved_states = dict(app_module._team_states)
+    saved_global = dict(app_module._global_state)
+
+    app_module._team_states.clear()
+    app_module._global_state["auto_mode"] = False
+    app_module._global_state["auto_pause_reason"] = None
+
     yield
-    for k, v in saved.items():
-        app_module._team_state[k] = v
+
+    app_module._team_states.clear()
+    app_module._team_states.update(saved_states)
+    app_module._global_state.clear()
+    app_module._global_state.update(saved_global)
 
 
 def _make_fake_proc():
@@ -135,15 +139,10 @@ def test_api_team_start_no_body_defaults_to_managing_director(
     monkeypatch.setattr(app_module, "_PID_FILE", tmp_path / "team.pid")
     monkeypatch.setattr(app_module, "_LIVE_LOG", tmp_path / "team.log")
 
-    # Сбрасываем состояние
-    app_module._team_state["process"] = None
-    app_module._team_state["queue"] = Queue()
-    app_module._team_state["started_at"] = None
-    app_module._team_state["lock"] = Lock()
-    app_module._team_state["auto_mode"] = False
-    app_module._team_state["starts_history"] = []
-    app_module._team_state["auto_pause_reason"] = None
-    app_module._team_state["reader_thread"] = None
+    # Сбрасываем состояние (D38BCDDA9CF9: новая структура)
+    app_module._team_states.clear()
+    app_module._global_state["auto_mode"] = False
+    app_module._global_state["auto_pause_reason"] = None
 
     fake_proc = _make_fake_proc()
 

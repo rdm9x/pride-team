@@ -50,15 +50,16 @@ def _setup_marketing(db_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_find_lead_dev_returns_timlid(tmp_path: Path) -> None:
-    """_find_lead_for_department(db_path, 'dev') возвращает 'тимлид' (legacy slug)."""
+def test_find_lead_dev_returns_dev_lead(tmp_path: Path) -> None:
+    """_find_lead_for_department(db_path, 'dev') возвращает 'dev-lead' (новая версия)."""
     from app import _find_lead_for_department  # type: ignore
 
     db_path = tmp_path / "tasks.db"
     _db.init_db(db_path)
 
     result = _find_lead_for_department(db_path, "dev")
-    assert result == "тимлид", f"ожидалось 'тимлид', получено {result!r}"
+    # D38BCDDA9CF9: миграция переименовала тимлид на dev-lead
+    assert result == "dev-lead", f"ожидалось 'dev-lead', получено {result!r}"
 
 
 def test_find_lead_marketing_returns_marketing_lead(tmp_path: Path) -> None:

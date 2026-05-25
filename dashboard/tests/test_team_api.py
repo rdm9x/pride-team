@@ -27,18 +27,20 @@ import app as app_module  # noqa: E402
 
 @pytest.fixture()
 def reset_state():
-    """Сбрасывает глобальное состояние тимлида (как в test_team_process)."""
-    saved = dict(app_module._team_state)
-    app_module._team_state["process"] = None
-    app_module._team_state["queue"] = Queue()
-    app_module._team_state["started_at"] = None
-    app_module._team_state["lock"] = Lock()
-    app_module._team_state["auto_mode"] = False
-    app_module._team_state["starts_history"] = []
-    app_module._team_state["auto_pause_reason"] = None
+    """Сбрасывает глобальное состояние тимлида (D38BCDDA9CF9: обновлено для _team_states)."""
+    saved_states = dict(app_module._team_states)
+    saved_global = dict(app_module._global_state)
+
+    app_module._team_states.clear()
+    app_module._global_state["auto_mode"] = False
+    app_module._global_state["auto_pause_reason"] = None
+
     yield
-    for k, v in saved.items():
-        app_module._team_state[k] = v
+
+    app_module._team_states.clear()
+    app_module._team_states.update(saved_states)
+    app_module._global_state.clear()
+    app_module._global_state.update(saved_global)
 
 
 # === /api/team/status ===
@@ -58,8 +60,10 @@ def test_api_team_status_running(client, reset_state) -> None:
     fake = MagicMock()
     fake.poll.return_value = None
     fake.pid = 5555
-    app_module._team_state["process"] = fake
-    app_module._team_state["started_at"] = 1700000000
+    # D38BCDDA9CF9: используем _get_team_state_for_role для default роли
+    team_state = app_module._get_team_state_for_role("managing-director")
+    team_state["process"] = fake
+    team_state["started_at"] = 1700000000
 
     r = client.get("/api/team/status")
     j = r.get_json()
@@ -74,7 +78,9 @@ def test_api_team_start_already_running(client, reset_state) -> None:
     fake = MagicMock()
     fake.poll.return_value = None
     fake.pid = 12345
-    app_module._team_state["process"] = fake
+    # D38BCDDA9CF9: используем _get_team_state_for_role
+    team_state = app_module._get_team_state_for_role("managing-director")
+    team_state["process"] = fake
     r = client.post("/api/team/start")
     assert r.status_code == 409
     assert r.get_json()["reason"] == "already_running"
@@ -137,16 +143,17 @@ def test_api_team_auto_enable(client, reset_state) -> None:
     assert r.status_code == 200
     j = r.get_json()
     assert j["auto_mode"] is True
-    assert app_module._team_state["auto_mode"] is True
+    # D38BCDDA9CF9: используем _global_state вместо _team_state
+    assert app_module._global_state["auto_mode"] is True
 
 
 def test_api_team_auto_disable_clears_pause_reason(client, reset_state) -> None:
-    app_module._team_state["auto_pause_reason"] = "something"
+    app_module._global_state["auto_pause_reason"] = "something"
     r = client.post("/api/team/auto", json={"enabled": False})
     assert r.status_code == 200
     j = r.get_json()
     assert j["auto_mode"] is False
-    assert app_module._team_state["auto_pause_reason"] is None
+    assert app_module._global_state["auto_pause_reason"] is None
 
 
 def test_api_team_auto_default_disabled(client, reset_state) -> None:

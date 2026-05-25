@@ -4961,11 +4961,16 @@
 
     if (!modal || !form) return;
 
-    function closeCompanyContextModal() {
+    function closeCompanyContextModal(markAsSkipped = false) {
       if (modal) modal.hidden = true;
       if (errorEl) {
         errorEl.hidden = true;
         errorEl.textContent = "";
+      }
+      // Если юзер закрыл модалку без сохранения — запомним в localStorage,
+      // чтобы не показывать каждую загрузку. Через Settings всегда можно открыть.
+      if (markAsSkipped) {
+        try { localStorage.setItem("company_context_skipped", "true"); } catch (_) {}
       }
     }
 
@@ -5033,6 +5038,8 @@
           }
           return;
         }
+        // После успешного save — сбрасываем флаг skipped (контекст теперь есть).
+        try { localStorage.removeItem("company_context_skipped"); } catch (_) {}
         closeCompanyContextModal();
       } catch (err) {
         console.error("Failed to save company context:", err);
@@ -5044,10 +5051,12 @@
     }
 
     form.addEventListener("submit", saveCompanyContext);
-    if (closeBtn) closeBtn.addEventListener("click", closeCompanyContextModal);
-    if (skipBtn) skipBtn.addEventListener("click", closeCompanyContextModal);
+    // Close/Skip — оба ставят флаг "skipped" чтобы не показывать каждую загрузку.
+    if (closeBtn) closeBtn.addEventListener("click", () => closeCompanyContextModal(true));
+    if (skipBtn) skipBtn.addEventListener("click", () => closeCompanyContextModal(true));
     if (settingsBtn) {
       settingsBtn.addEventListener("click", () => {
+        // Из Settings — открываем всегда, даже если skipped.
         openCompanyContextModal(true);
       });
     }
@@ -5058,6 +5067,9 @@
         if (!r.ok) throw new Error("HTTP " + r.status);
         const data = await r.json();
         if (data.exists) return;  // файл есть — ничего не показываем
+        // Юзер уже скипал модалку в этой сессии браузера → не показываем снова.
+        // Через Settings → «Контекст компании» можно открыть всегда.
+        if (localStorage.getItem("company_context_skipped") === "true") return;
         const firstRunDone = localStorage.getItem("first_run_done") === "true";
         if (firstRunDone) {
           // First-run wizard уже пройден → показываем onboarding сразу.

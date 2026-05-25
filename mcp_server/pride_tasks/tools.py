@@ -19,6 +19,30 @@ from pride_tasks.models import DEFAULT_DEPARTMENT_ID, PRIORITIES, ROLES, STATUSE
 logger = logging.getLogger(__name__)
 
 
+# Глобальные роли (всегда валидны), не привязанные к отделу.
+_GLOBAL_VALID_ROLES = frozenset({"hr", "owner", "пользователь", "user", "managing-director", "system"})
+
+
+def _is_valid_role(role: str, db_path: Path) -> bool:
+    """Динамическая валидация роли: проверяет глобальные + всех ролей из БД.
+
+    Ранее использовался статический кортеж ROLES — но он не включает marketing-роли,
+    dev-lead и другие отделы. ADR-009 требует динамической валидации.
+    """
+    if role in _GLOBAL_VALID_ROLES:
+        return True
+    # Также допускаем legacy `тимлид` для обратной совместимости — на случай если
+    # миграция тимлид→dev-lead ещё не запущена.
+    if role == "тимлид":
+        return True
+    try:
+        roles_in_db = {r["name"] for r in db.list_roles(db_path)}
+        return role in roles_in_db
+    except Exception:
+        # Fallback: статический список (backward compat).
+        return role in ROLES
+
+
 def _safety_net_done(task_id: str, title: str, db_path: Path) -> None:
     """Вставляет системный комментарий и постит алерт в чат.
 
@@ -130,9 +154,9 @@ def create_task(
         return {"статус": "error", "status": "error", "причина": f"неизвестный status: {status}", "reason": f"неизвестный status: {status}"}
     if priority not in PRIORITIES:
         return {"статус": "error", "status": "error", "причина": f"неизвестный priority: {priority}", "reason": f"неизвестный priority: {priority}"}
-    if assignee is not None and assignee not in ROLES:
-        return {"статус": "error", "status": "error", "причина": f"неизвестная роль assignee: {assignee}", "reason": f"неизвестная роль assignee: {assignee}"}
     path = _resolve_db_path(db_path)
+    if assignee is not None and not _is_valid_role(assignee, path):
+        return {"статус": "error", "status": "error", "причина": f"неизвестная роль assignee: {assignee}", "reason": f"неизвестная роль assignee: {assignee}"}
     if parent_id and db.get_task(path, parent_id) is None:
         return {"статус": "error", "status": "error", "причина": f"parent_id {parent_id} не существует", "reason": f"parent_id {parent_id} не существует"}
     task = db.insert_task(
@@ -183,7 +207,8 @@ def update_task(
         return {"статус": "error", "status": "error", "причина": f"неизвестный status: {status}", "reason": f"неизвестный status: {status}"}
     if priority is not None and priority not in PRIORITIES:
         return {"статус": "error", "status": "error", "причина": f"неизвестный priority: {priority}", "reason": f"неизвестный priority: {priority}"}
-    if assignee is not None and assignee not in ROLES:
+    _path_check = _resolve_db_path(db_path)
+    if assignee is not None and not _is_valid_role(assignee, _path_check):
         return {"статус": "error", "status": "error", "причина": f"неизвестная роль assignee: {assignee}", "reason": f"неизвестная роль assignee: {assignee}"}
 
     # --- Safety-net: MCP не может напрямую выставить done ---
@@ -243,9 +268,9 @@ def claim_task(
 
     if not task_id:
         return {"статус": "error", "status": "error", "причина": "task_id пустой", "reason": "task_id пустой"}
-    if assignee not in ROLES:
-        return {"статус": "error", "status": "error", "причина": f"неизвестная роль: {assignee}", "reason": f"неизвестная роль: {assignee}"}
     path = _resolve_db_path(db_path)
+    if not _is_valid_role(assignee, path):
+        return {"статус": "error", "status": "error", "причина": f"неизвестная роль: {assignee}", "reason": f"неизвестная роль: {assignee}"}
     result = db.claim_task(path, task_id, assignee)
     if not result["ok"]:
         return {
@@ -272,7 +297,8 @@ def add_comment(
 
     if not task_id:
         return {"статус": "error", "status": "error", "причина": "task_id пустой", "reason": "task_id пустой"}
-    if author not in ROLES:
+    _path = _resolve_db_path(db_path)
+    if not _is_valid_role(author, _path):
         return {"статус": "error", "status": "error", "причина": f"неизвестный author: {author}", "reason": f"неизвестный author: {author}"}
     if not text or not text.strip():
         return {"статус": "error", "status": "error", "причина": "text пустой", "reason": "text пустой"}

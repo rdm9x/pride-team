@@ -75,6 +75,41 @@
     color: var(--accent);
   }
 
+  .thread-item.hidden {
+    display: none;
+  }
+
+  #archive-toggle:hover {
+    background: var(--surface-2);
+  }
+
+  .archive-thread-item {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 8px;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease;
+    color: var(--text-3);
+    font-size: 12px;
+    text-align: left;
+    min-height: 0;
+    opacity: 0.7;
+  }
+
+  .archive-thread-item:hover {
+    background: var(--surface-3);
+    border-color: var(--border-2);
+    opacity: 1;
+  }
+
+  .archive-thread-item.active {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+    opacity: 1;
+  }
+
   /* ===== Center Column: Message Area (50%) ===== */
   .chat-center {
     background: var(--bg-1);
@@ -129,8 +164,10 @@
     display: flex;
     gap: 8px;
     min-height: 0;
+    align-items: flex-end;
   }
 
+  .chat-input-area textarea,
   .chat-input-area input {
     flex: 1;
     background: var(--surface);
@@ -140,8 +177,11 @@
     color: var(--text);
     font: inherit;
     font-size: 12px;
+    resize: none;
+    max-height: 100px;
   }
 
+  .chat-input-area textarea:focus,
   .chat-input-area input:focus {
     outline: none;
     border-color: var(--accent);
@@ -152,6 +192,102 @@
     padding: 8px 12px;
     font-size: 12px;
     min-width: 60px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s ease;
+  }
+
+  .chat-input-area button:hover:not(:disabled) {
+    background: var(--accent-hover);
+  }
+
+  .chat-input-area button:disabled {
+    background: var(--surface-3);
+    color: var(--text-3);
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  /* ===== Message Card ===== */
+  .message-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+    animation: fadeIn 0.2s ease-in-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .message-text h1,
+  .message-text h2,
+  .message-text h3 {
+    margin: 8px 0 4px 0;
+    font-size: 1.2em;
+    color: var(--text);
+  }
+
+  .message-text strong {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .message-text em {
+    font-style: italic;
+    color: var(--text-2);
+  }
+
+  .message-text code {
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 2px 4px;
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 11px;
+    color: var(--accent);
+  }
+
+  .message-text pre {
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px;
+    overflow-x: auto;
+    margin: 8px 0;
+  }
+
+  .message-text pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--text-2);
+    font-size: 11px;
+  }
+
+  .message-text ul {
+    margin: 8px 0;
+    padding-left: 20px;
+  }
+
+  .message-text li {
+    margin: 4px 0;
+    list-style: disc;
+  }
+
+  .message-text p {
+    margin: 4px 0;
   }
 
   /* ===== Right Column: 2 Blocks Split Vertically (30%) ===== */
@@ -451,13 +587,54 @@
 
   <!-- LEFT: Threads List (20%) -->
   <div class="chat-threads">
-    <div class="chat-threads-header">Threads</div>
-    <div class="chat-threads-list">
-      <div class="thread-item active">Thread 1</div>
-      <div class="thread-item">Thread 2</div>
-      <div class="thread-item">Thread 3</div>
-      <div class="thread-item">Thread 4</div>
-      <div class="thread-item">Thread 5</div>
+    <div class="chat-threads-header">💬 Threads</div>
+
+    <!-- Search Input -->
+    <div style="margin-bottom: 12px;">
+      <input
+        type="text"
+        id="threads-search"
+        placeholder="Search…"
+        style="
+          width: 100%;
+          padding: 6px 8px;
+          font-size: 12px;
+          border: 1px solid var(--border);
+          border-radius: 4px;
+          background: var(--surface);
+          color: var(--text);
+        "
+      >
+    </div>
+
+    <!-- Active Threads List -->
+    <div class="chat-threads-list" id="threads-active-list">
+      <div class="loading" style="font-size: 11px; color: var(--text-3); text-align: center; padding: 16px;">Loading…</div>
+    </div>
+
+    <!-- Archive Section (Collapsible) -->
+    <div style="margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px;">
+      <div
+        id="archive-toggle"
+        style="
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          cursor: pointer;
+          padding: 6px 4px;
+          border-radius: 4px;
+          transition: background 0.12s ease;
+          user-select: none;
+        "
+      >
+        <span id="archive-icon" style="font-size: 11px; color: var(--text-3);">▶</span>
+        <span style="font-size: 12px; color: var(--text-2); font-weight: 500;" data-i18n="chat.archive.title">📁 Archive</span>
+        <span id="archive-count" style="font-size: 11px; color: var(--text-3);">(0)</span>
+      </div>
+
+      <div id="threads-archive-list" style="display: none; margin-top: 8px;">
+        <!-- Archive threads will be inserted here -->
+      </div>
     </div>
   </div>
 
@@ -472,8 +649,14 @@
       <div class="message-placeholder">Message placeholder 3</div>
     </div>
     <div class="chat-input-area">
-      <input type="text" placeholder="Type your message…">
-      <button class="primary">Send</button>
+      <textarea
+        id="message-input"
+        placeholder="Type message… (Cmd/Ctrl+Enter to send)"
+        style="flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; color: var(--text); font: inherit; font-size: 12px; resize: none; max-height: 100px;"
+        data-i18n-attr="placeholder:chat.input_placeholder"
+      ></textarea>
+      <button id="btn-send-message" class="primary" data-i18n="chat.send_button" title="Send message (Cmd/Ctrl+Enter)">Send</button>
+      <button id="btn-start-session" class="secondary" style="min-width: 120px;" title="Start team session with this thread context" data-i18n="chat.start_session_button">🚀 Start Session</button>
     </div>
   </div>
 

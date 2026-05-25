@@ -693,6 +693,81 @@
       <pre id="live-body"></pre>
     </section>
   </main>
+
+  <!-- ===== Right panel (F4) ===== -->
+  <aside class="right-panel">
+    <!-- Upper block: Planning section (30%) -->
+    <section class="right-panel-block right-panel-planning">
+      <h3 class="right-panel-title" data-i18n="f4.planning.title">
+        <span class="ico">📋</span>
+        <span>Собрать планёрку</span>
+      </h3>
+
+      <form id="form-planning" class="planning-form">
+        <!-- Departments checkboxes -->
+        <div class="planning-field">
+          <label class="planning-label" data-i18n="f4.planning.departments">Отделы</label>
+          <div class="departments-checkboxes" id="planning-departments-list" role="group"
+               aria-label="Select departments"
+               data-i18n-attr="aria-label:f4.planning.departments">
+            <!-- Dynamically filled from /api/departments -->
+          </div>
+        </div>
+
+        <!-- Rounds dropdown -->
+        <div class="planning-field">
+          <label for="planning-rounds" class="planning-label" data-i18n="f4.planning.rounds">Раундов</label>
+          <select id="planning-rounds" class="planning-select" aria-label="Number of rounds"
+                  data-i18n-attr="aria-label:f4.planning.rounds">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3" selected>3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select>
+        </div>
+
+        <!-- Title input -->
+        <div class="planning-field">
+          <label for="planning-title" class="planning-label" data-i18n="f4.planning.title_input">Тема</label>
+          <input id="planning-title" type="text" class="planning-input" placeholder="Описание планёрки…"
+                 data-i18n-attr="placeholder:f4.planning.title_placeholder"
+                 aria-label="Planning topic"
+                 data-i18n-attr="aria-label:f4.planning.title_input">
+        </div>
+
+        <!-- Create button (disabled with Phase 3b tooltip) -->
+        <button type="button" id="btn-create-planning" class="planning-btn primary" disabled
+                title="Доступно в Фазе 3b"
+                data-i18n-attr="title:f4.planning.phase3b,aria-label:f4.planning.create_btn"
+                aria-label="Create planning session"
+                data-i18n="f4.planning.create_btn">
+          Создать планёрку
+        </button>
+      </form>
+    </section>
+
+    <!-- Lower block: Tasks section (70%) -->
+    <section class="right-panel-block right-panel-tasks">
+      <h3 class="right-panel-title" data-i18n="f4.tasks.title">
+        <span class="ico">📌</span>
+        <span>Задачи Управляющего</span>
+      </h3>
+
+      <div class="tasks-list" id="managing-director-tasks-list" role="region"
+           aria-label="Managing Director tasks"
+           data-i18n-attr="aria-label:f4.tasks.aria_label">
+        <!-- Dynamically filled from /api/tasks?assignee=managing-director&status=todo,wip -->
+      </div>
+
+      <button type="button" id="btn-add-managing-task" class="task-add-btn secondary"
+              aria-label="Add task"
+              data-i18n-attr="aria-label:f4.tasks.add_btn"
+              data-i18n="f4.tasks.add_btn">
+        + Добавить задачу
+      </button>
+    </section>
+  </aside>
 </div>
 
 <!-- ============== Универсальная модалка-prompt ============== -->

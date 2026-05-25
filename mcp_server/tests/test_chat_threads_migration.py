@@ -498,3 +498,125 @@ def test_migration_default_thread_participants_is_json_array(db_with_messages: P
         assert isinstance(participants, list), f"participants не JSON-array: {thread[0]}"
     finally:
         conn.close()
+
+
+def test_migration_chat_threads_has_all_fields_adr011(db_with_messages: Path) -> None:
+    """ADR-011 §2.3: chat_threads имеет все поля из спецификации."""
+    result = _run_migration(db_with_messages)
+    assert result.returncode == 0
+
+    conn = sqlite3.connect(db_with_messages)
+    try:
+        # Проверяем что все поля существуют.
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(chat_threads)")}
+        required_columns = {
+            "id", "title", "kind", "participants", "status",
+            "created_at", "updated_at", "finished_at",
+            "source_problem", "decision_summary", "decision_approved_at", "decision_created_tasks",
+            "rounds_planned"
+        }
+        missing = required_columns - columns
+        assert not missing, f"Отсутствуют колонки: {missing}"
+    finally:
+        conn.close()
+
+
+def test_migration_chat_threads_kind_check_constraint(db_with_messages: Path) -> None:
+    """chat_threads.kind имеет CHECK constraint ('direct' или 'planning')."""
+    result = _run_migration(db_with_messages)
+    assert result.returncode == 0
+
+    conn = sqlite3.connect(db_with_messages)
+    try:
+        # Попытка вставить невалидное значение должна упасть.
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute(
+                """
+                INSERT INTO chat_threads
+                (id, title, kind, participants, status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                ("test", "Test", "invalid_kind", "[]", "active", 1000, 1000),
+            )
+            conn.commit()
+    finally:
+        conn.close()
+
+
+def test_migration_chat_threads_status_check_constraint(db_with_messages: Path) -> None:
+    """chat_threads.status имеет CHECK constraint ('active', 'finished', 'archived', 'aborted')."""
+    result = _run_migration(db_with_messages)
+    assert result.returncode == 0
+
+    conn = sqlite3.connect(db_with_messages)
+    try:
+        # Попытка вставить невалидное значение должна упасть.
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute(
+                """
+                INSERT INTO chat_threads
+                (id, title, kind, participants, status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                ("test", "Test", "direct", "[]", "invalid_status", 1000, 1000),
+            )
+            conn.commit()
+    finally:
+        conn.close()
+
+
+def test_migration_default_thread_has_updated_at(db_with_messages: Path) -> None:
+    """Default-thread имеет updated_at равно created_at при создании."""
+    result = _run_migration(db_with_messages)
+    assert result.returncode == 0
+
+    conn = sqlite3.connect(db_with_messages)
+    conn.row_factory = sqlite3.Row
+    try:
+        thread = conn.execute(
+            "SELECT created_at, updated_at FROM chat_threads WHERE id='default'"
+        ).fetchone()
+        assert thread is not None
+        assert thread["created_at"] == thread["updated_at"], \
+            "Default-thread updated_at должен быть равен created_at"
+    finally:
+        conn.close()
+
+
+def test_migration_index_chat_threads_updated_exists(db_with_messages: Path) -> None:
+    """Индекс idx_chat_threads_updated создан для сортировки по updated_at DESC."""
+    result = _run_migration(db_with_messages)
+    assert result.returncode == 0
+
+    conn = sqlite3.connect(db_with_messages)
+    try:
+        assert _index_exists(conn, "idx_chat_threads_updated"), \
+            "Индекс idx_chat_threads_updated не создан"
+    finally:
+        conn.close()
+
+
+def test_migration_chat_threads_accepts_all_valid_statuses(db_with_messages: Path) -> None:
+    """chat_threads.status принимает все валидные значения: 'active', 'finished', 'archived', 'aborted'."""
+    result = _run_migration(db_with_messages)
+    assert result.returncode == 0
+
+    conn = sqlite3.connect(db_with_messages)
+    try:
+        # Все валидные статусы должны быть приняты.
+        for status in ["active", "finished", "archived", "aborted"]:
+            conn.execute(
+                """
+                INSERT INTO chat_threads
+                (id, title, kind, participants, status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (f"test_{status}", f"Test {status}", "direct", "[]", status, 1000, 1000),
+            )
+        conn.commit()
+
+        # Проверяем что все вставились.
+        count = conn.execute("SELECT COUNT(*) FROM chat_threads WHERE id LIKE 'test_%'").fetchone()[0]
+        assert count == 4, f"Не все статусы были вставлены: {count}"
+    finally:
+        conn.close()

@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Миграция Phase 3a (B1) — chat_threads + thread_id в chat_messages.
 
-DDL:
+DDL (per ADR-011 §2.3):
 - `chat_threads` таблица с fields: id, title, kind, participants, status,
-  created_at, finished_at, decision, rounds_planned, current_round
+  created_at, updated_at, finished_at, source_problem, decision_summary,
+  decision_approved_at, decision_created_tasks
 - ALTER TABLE chat_messages ADD COLUMN thread_id TEXT REFERENCES chat_threads(id)
 - CREATE INDEX idx_chat_thread_created ON chat_threads(created_at)
+- CREATE INDEX idx_chat_thread_status ON chat_threads(status) WHERE finished_at IS NULL
+- CREATE INDEX idx_chat_threads_updated ON chat_threads(updated_at DESC)
 - CREATE INDEX idx_chat_messages_thread ON chat_messages(thread_id)
 
 Backfill:
@@ -59,16 +62,19 @@ log = logging.getLogger("migrate_chat_threads")
 
 CHAT_THREADS_SQL = """
 CREATE TABLE IF NOT EXISTS chat_threads (
-  id              TEXT PRIMARY KEY,
-  title           TEXT NOT NULL,
-  kind            TEXT NOT NULL DEFAULT 'direct',
-  participants    TEXT NOT NULL DEFAULT '[]',
-  status          TEXT NOT NULL DEFAULT 'active',
-  created_at      INTEGER NOT NULL,
-  finished_at     INTEGER,
-  decision        TEXT,
-  rounds_planned  INTEGER,
-  current_round   INTEGER DEFAULT 0
+  id                      TEXT PRIMARY KEY,
+  title                   TEXT NOT NULL,
+  kind                    TEXT NOT NULL DEFAULT 'direct' CHECK (kind IN ('direct','planning')),
+  participants            TEXT NOT NULL DEFAULT '[]',
+  status                  TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','finished','archived','aborted')),
+  created_at              INTEGER NOT NULL,
+  updated_at              INTEGER NOT NULL,
+  finished_at             INTEGER,
+  source_problem          TEXT,
+  decision_summary        TEXT,
+  decision_approved_at    INTEGER,
+  decision_created_tasks  TEXT,
+  rounds_planned          INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_chat_thread_created
@@ -76,6 +82,9 @@ CREATE INDEX IF NOT EXISTS idx_chat_thread_created
 
 CREATE INDEX IF NOT EXISTS idx_chat_thread_status
   ON chat_threads(status) WHERE finished_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_chat_threads_updated
+  ON chat_threads(updated_at DESC);
 """
 
 # Добавляем thread_id в chat_messages (если уже нет).
@@ -94,6 +103,7 @@ _EXPECTED_OBJECTS: tuple[tuple[str, str], ...] = (
     ("table", "chat_threads"),
     ("index", "idx_chat_thread_created"),
     ("index", "idx_chat_thread_status"),
+    ("index", "idx_chat_threads_updated"),
     ("index", "idx_chat_messages_thread"),
 )
 
@@ -184,10 +194,10 @@ def migrate(db_path: Path) -> int:
         try:
             conn.execute(
                 """
-                INSERT INTO chat_threads (id, title, kind, participants, status, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO chat_threads (id, title, kind, participants, status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                ("default", "📌 General", "direct", json.dumps([]), "active", now),
+                ("default", "📌 General", "direct", json.dumps([]), "active", now, now),
             )
         except sqlite3.IntegrityError:
             # Default thread уже есть.

@@ -58,10 +58,16 @@ def pick(open_tasks: list[dict[str, Any]]) -> dict[str, Any]:
     n_trivial = 0
     has_destructive = False
 
-    # model_hint counters (ADR-006 S17.2): учитываем явный hint пользователя на задаче
-    _HINT_RANK = {"opus": 3, "sonnet": 2, "haiku": 1}
-    hint_max_rank = 0
-    hint_max_alias: str | None = None
+    # model_hint counters (ADR-006 S17.2 + Phase 1.7 fix):
+    # Раньше: брали максимальный hint по рангу (opus > sonnet > haiku) — это
+    # "забивало" свежий явный haiku-выбор пользователя старыми opus-задачами в
+    # очереди. Owner-feedback 2026-05-25: "создал задачу haiku — всё равно opus".
+    # Новое: берём hint САМОЙ СВЕЖЕЙ task (max created_at) — это отражает
+    # последний явный выбор пользователя. Безопасно: destructive label всё ещё
+    # форсит opus выше (см. has_destructive).
+    _HINT_VALID = {"opus", "sonnet", "haiku"}
+    hint_latest_alias: str | None = None
+    hint_latest_ts = -1
     n_hint_opus = 0
     n_hint_sonnet = 0
     n_hint_haiku = 0
@@ -74,18 +80,20 @@ def pick(open_tasks: list[dict[str, Any]]) -> dict[str, Any]:
             n_trivial += 1
         if "destructive" in labels:
             has_destructive = True
-        # model_hint — явный сигнал от пользователя; берём максимальный по рангу
         mh = (t.get("model_hint") or "").lower()
-        if mh in _HINT_RANK:
-            if _HINT_RANK[mh] > hint_max_rank:
-                hint_max_rank = _HINT_RANK[mh]
-                hint_max_alias = mh
+        if mh in _HINT_VALID:
+            ts = t.get("created_at") or 0
+            if ts > hint_latest_ts:
+                hint_latest_ts = ts
+                hint_latest_alias = mh
             if mh == "opus":
                 n_hint_opus += 1
             elif mh == "sonnet":
                 n_hint_sonnet += 1
             elif mh == "haiku":
                 n_hint_haiku += 1
+    # Совместимость со старыми expectation в коде ниже.
+    hint_max_alias = hint_latest_alias
 
     n_epics_filtered = len(open_tasks) - n_total
 
@@ -102,7 +110,7 @@ def pick(open_tasks: list[dict[str, Any]]) -> dict[str, Any]:
         # Исключение — только destructive (выше), т.к. это вопрос безопасности.
         choice = hint_max_alias
         reason = (
-            f"model_hint от пользователя: {hint_max_alias}"
+            f"model_hint от пользователя (latest): {hint_max_alias}"
             f" (opus×{n_hint_opus} sonnet×{n_hint_sonnet} haiku×{n_hint_haiku})"
         )
     elif n_archi > 0:

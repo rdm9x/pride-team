@@ -141,9 +141,10 @@ def test_pick_handles_missing_fields() -> None:
 # === model_hint (ADR-006 S17.2) ===
 
 
-def _th(title: str = "", model_hint: str | None = None, labels: list[str] | None = None) -> dict:
-    """Helper: task dict with model_hint field."""
-    return {"title": title, "labels": labels or [], "model_hint": model_hint}
+def _th(title: str = "", model_hint: str | None = None, labels: list[str] | None = None,
+        created_at: int = 1000) -> dict:
+    """Helper: task dict with model_hint field. created_at controls latest-wins order."""
+    return {"title": title, "labels": labels or [], "model_hint": model_hint, "created_at": created_at}
 
 
 def test_pick_model_hint_opus_overrides_sonnet_default() -> None:
@@ -166,15 +167,26 @@ def test_pick_model_hint_haiku_explicit() -> None:
     assert decision["counters"]["hint_haiku"] == 1
 
 
-def test_pick_model_hint_max_rank_wins() -> None:
-    # Среди haiku и opus — выбирает opus (старший ранг).
+def test_pick_model_hint_latest_wins() -> None:
+    # Phase 1.7 fix: hint САМОЙ СВЕЖЕЙ задачи wins (не max rank).
+    # Owner создаёт haiku-задачу позже opus-задачи → ожидает haiku.
     decision = router.pick([
-        _th(title="a", model_hint="haiku"),
-        _th(title="b", model_hint="opus"),
+        _th(title="old opus", model_hint="opus", created_at=1000),
+        _th(title="new haiku", model_hint="haiku", created_at=2000),  # свежее
     ])
-    assert decision["model_alias"] == "opus"
+    assert decision["model_alias"] == "haiku"
     assert decision["counters"]["hint_opus"] == 1
     assert decision["counters"]["hint_haiku"] == 1
+    assert "latest" in decision["reason"]
+
+
+def test_pick_model_hint_latest_opus_also_wins() -> None:
+    # И в обратную сторону: свежий opus побеждает старый haiku.
+    decision = router.pick([
+        _th(title="old haiku", model_hint="haiku", created_at=1000),
+        _th(title="new opus", model_hint="opus", created_at=2000),
+    ])
+    assert decision["model_alias"] == "opus"
 
 
 def test_pick_model_hint_does_not_override_destructive() -> None:

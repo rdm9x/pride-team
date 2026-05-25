@@ -44,7 +44,7 @@ logging.basicConfig(
     level=os.environ.get("DEVBOARD_DASHBOARD_LOG_LEVEL", "INFO"),
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
-log = logging.getLogger("pride_dashboard")
+log = logging.getLogger("devboard_dashboard")
 
 # === Пути ===
 
@@ -2060,6 +2060,23 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         if res["статус"] != "ok":
             return jsonify(res), 400
         return jsonify(res)
+
+    @app.get("/api/tasks/<task_id>/artifacts")
+    def api_task_artifacts(task_id: str) -> Any:
+        """Получить список артефактов задачи."""
+        try:
+            artifacts = db.list_artifacts(_db(), task_id)
+            return jsonify({
+                "статус": "ok",
+                "task_id": task_id,
+                "artifacts": artifacts,
+            })
+        except Exception as exc:  # noqa: BLE001
+            log.error("Ошибка при получении артефактов %s: %s", task_id, exc)
+            return jsonify({
+                "статус": "error",
+                "reason": str(exc),
+            }), 500
 
     @app.patch("/api/tasks/<task_id>")
     def api_update_task(task_id: str) -> Any:

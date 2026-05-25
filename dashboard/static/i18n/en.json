@@ -650,6 +650,7 @@
       "edit": "Editing",
       "deps": "Dependencies",
       "subtasks": "Subtasks ({n})",
+      "artifacts": "Artifacts",
       "result": "Team result",
       "history": "History"
     },
@@ -670,6 +671,14 @@
     },
     "result": {
       "none": "empty so far"
+    },
+    "artifacts": {
+      "none": "no artifacts",
+      "loading": "loading…"
+    },
+    "artifact": {
+      "open_btn": "📂 Open",
+      "open_tooltip": "Open file on your computer"
     },
     "history": {
       "quiet": "quiet so far…"

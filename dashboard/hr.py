@@ -39,7 +39,7 @@ if str(_MCP_DIR) not in sys.path:
 
 from devboard_tasks import db  # noqa: E402
 
-log = logging.getLogger("pride_dashboard.hr")
+log = logging.getLogger("devboard_dashboard.hr")
 
 # Корень репо (родитель dashboard/).
 _REPO_ROOT = Path(__file__).resolve().parent.parent

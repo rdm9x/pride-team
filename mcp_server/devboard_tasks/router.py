@@ -58,16 +58,15 @@ def pick(open_tasks: list[dict[str, Any]]) -> dict[str, Any]:
     n_trivial = 0
     has_destructive = False
 
-    # model_hint counters (ADR-006 S17.2 + Phase 1.7 fix):
-    # Раньше: брали максимальный hint по рангу (opus > sonnet > haiku) — это
-    # "забивало" свежий явный haiku-выбор пользователя старыми opus-задачами в
-    # очереди. Owner-feedback 2026-05-25: "создал задачу haiku — всё равно opus".
-    # Новое: берём hint САМОЙ СВЕЖЕЙ task (max created_at) — это отражает
-    # последний явный выбор пользователя. Безопасно: destructive label всё ещё
-    # форсит opus выше (см. has_destructive).
+    # model_hint counters (ADR-006 S17.2):
+    # Выбираем максимальный hint по рангу (opus > sonnet > haiku).
+    # При равных рангах выбираем самую свежую задачу (max created_at) для
+    # отражения последнего явного выбора пользователя.
     _HINT_VALID = {"opus", "sonnet", "haiku"}
-    hint_latest_alias: str | None = None
-    hint_latest_ts = -1
+    _HINT_RANK = {"opus": 3, "sonnet": 2, "haiku": 1}
+    hint_max_alias: str | None = None
+    hint_max_rank = 0
+    hint_latest_ts_for_max_rank = -1
     n_hint_opus = 0
     n_hint_sonnet = 0
     n_hint_haiku = 0
@@ -83,17 +82,18 @@ def pick(open_tasks: list[dict[str, Any]]) -> dict[str, Any]:
         mh = (t.get("model_hint") or "").lower()
         if mh in _HINT_VALID:
             ts = t.get("created_at") or 0
-            if ts > hint_latest_ts:
-                hint_latest_ts = ts
-                hint_latest_alias = mh
+            rank = _HINT_RANK.get(mh, 0)
+            # Выбираем больший ранг, или при равном ранге — более свежую задачу
+            if rank > hint_max_rank or (rank == hint_max_rank and ts > hint_latest_ts_for_max_rank):
+                hint_max_rank = rank
+                hint_max_alias = mh
+                hint_latest_ts_for_max_rank = ts
             if mh == "opus":
                 n_hint_opus += 1
             elif mh == "sonnet":
                 n_hint_sonnet += 1
             elif mh == "haiku":
                 n_hint_haiku += 1
-    # Совместимость со старыми expectation в коде ниже.
-    hint_max_alias = hint_latest_alias
 
     n_epics_filtered = len(open_tasks) - n_total
 

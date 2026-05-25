@@ -1863,6 +1863,65 @@ code, .md-inline {
 .deps-block .dep-form { display: flex; gap: 6px; margin-top: 5px; }
 .deps-block .dep-form input { flex: 1; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); }
 
+/* ============================================================ Artifacts block */
+
+.artifacts-block {
+  display: flex; flex-direction: column; gap: 8px;
+  font-size: 12px;
+}
+
+.artifact-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+}
+
+.artifact-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.artifact-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: break-all;
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.artifact-path {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  word-break: break-all;
+}
+
+.artifact-open {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.artifact-open:hover {
+  background: var(--primary-hover, #0056b3);
+}
+
+.artifact-open:active {
+  opacity: 0.8;
+}
+
 /* ============================================================ Create-department modal (S10.4) */
 
 .modal-create-department {

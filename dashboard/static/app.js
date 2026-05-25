@@ -1480,6 +1480,32 @@
     `;
   }
 
+  async function loadTaskArtifacts(taskId) {
+    try {
+      const r = await fetch("/api/tasks/" + taskId + "/artifacts");
+      if (!r.ok) return;
+      const data = await r.json();
+      const artifacts = data.artifacts || [];
+      const block = document.getElementById("artifacts-block-" + escapeAttr(taskId));
+      if (block) {
+        block.innerHTML = renderArtifacts(artifacts);
+        // Привязываем обработчики для кнопок открытия файлов на десктопе
+        block.querySelectorAll(".artifact-open").forEach((btn) => {
+          btn.addEventListener("click", (e) => {
+            e.preventDefault();
+            const path = btn.dataset.artifactPath;
+            if (path) {
+              // На десктопе открываем файл через file:// протокол
+              window.open("file:///" + encodeURIComponent(path).replace(/%20/g, " "), "_blank");
+            }
+          });
+        });
+      }
+    } catch (err) {
+      console.error("Ошибка при загрузке артефактов:", err);
+    }
+  }
+
   async function openTaskModal(id) {
     const r = await fetch("/api/tasks/" + id);
     if (!r.ok) return;
@@ -1501,6 +1527,10 @@
     bindTaskActions(t);
     bindReaderMode(serverParsed);
     bindReaderModeV2(t, clientParsed);
+
+    // Загружаем артефакты асинхронно
+    loadTaskArtifacts(id);
+
     $("#modal-task").hidden = false;
   }
 
@@ -1589,6 +1619,48 @@
     }
 
     return `<div class="task-modal-readermode">${parts.join("")}</div>`;
+  }
+
+  // Иконка по типу артефакта
+  function getArtifactIcon(kind) {
+    const icons = {
+      "log": "📋",
+      "result": "📊",
+      "screenshot": "🖼",
+      "report": "📑",
+      "code": "📄",
+      "file": "📁",
+      "archive": "📦",
+      "image": "🖼",
+      "video": "🎥",
+      "audio": "🎵",
+    };
+    return icons[kind] || "📎";
+  }
+
+  // Отобразить артефакты
+  function renderArtifacts(artifacts) {
+    if (!artifacts || artifacts.length === 0) {
+      return `<div style="color:var(--muted)">${i18n("task.artifacts.none")}</div>`;
+    }
+    return artifacts.map((a) => {
+      const fileName = a.file_path.split(/[\\/]/).pop();
+      const icon = getArtifactIcon(a.kind);
+      const isDesktop = !/(mobile|tablet|android|iphone|ipad)/i.test(navigator.userAgent);
+      if (isDesktop) {
+        return `<div class="artifact-item">
+          <span class="artifact-icon">${icon}</span>
+          <span class="artifact-name" title="${escapeAttr(a.file_path)}">${escapeHtml(fileName)}</span>
+          <button class="artifact-open" data-artifact-path="${escapeAttr(a.file_path)}" title="${i18n("task.artifact.open_tooltip")}">${i18n("task.artifact.open_btn")}</button>
+        </div>`;
+      } else {
+        return `<div class="artifact-item">
+          <span class="artifact-icon">${icon}</span>
+          <span class="artifact-name" title="${escapeAttr(a.file_path)}">${escapeHtml(fileName)}</span>
+          <span class="artifact-path" style="color:var(--muted);font-size:11px">${escapeHtml(a.file_path)}</span>
+        </div>`;
+      }
+    }).join("");
   }
 
   function renderTaskBody(t, parsed, clientParsed) {
@@ -1690,6 +1762,9 @@
 
       <h3>${i18n("task.section.subtasks").replace("{n}", String((t.subtasks || []).length))}</h3>
       <div class="subtasks">${subtasks}</div>
+
+      <h3><span class="ico">📎</span> ${i18n("task.section.artifacts")}</h3>
+      <div class="artifacts-block" id="artifacts-block-${escapeAttr(t.id)}">${i18n("task.artifacts.loading")}</div>
 
       <h3>${i18n("task.section.result")}</h3>
       ${result}

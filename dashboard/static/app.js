@@ -197,12 +197,14 @@
   const CHAT_CHANNEL_KEY = "devboard-current-chat-channel";
   const CHAT_CHANNEL_GLOBAL = "__global__";
 
+  // F3 (1.6): fallback — общий чат с Управляющим (ADR-009 §2.7.2).
+  // По умолчанию owner общается с Управляющим; переключение в dept-чат — через клик на отдел.
   function currentChatChannel() {
     try {
       const v = localStorage.getItem(CHAT_CHANNEL_KEY);
       if (v) return v;
     } catch (_) {}
-    return currentDepartment();
+    return CHAT_CHANNEL_GLOBAL;
   }
 
   function _updateChatHeaderLabel() {

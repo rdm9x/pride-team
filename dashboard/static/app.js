@@ -1121,6 +1121,15 @@
   function pickModelForTask(t) {
     const labels = new Set(t.labels || []);
     if (labels.has("epic")) return null;
+    // Phase 1.7 fix: явный model_hint пользователя — ВЫСШИЙ приоритет, выше
+    // чем destructive/design/etc labels и выше чем модель роли. Соответствует
+    // backend-логике router.pick() где hint переопределяет всё кроме destructive.
+    const hint = (t.model_hint || "").toLowerCase();
+    if (hint === "haiku" || hint === "sonnet" || hint === "opus") {
+      // Destructive — единственное исключение: безопасность важнее экономии.
+      if (labels.has("destructive")) return "opus";
+      return hint;
+    }
     // Сильные label-сигналы перебивают модель роли.
     if (labels.has("destructive")) return "opus";
     if (labels.has("design") || labels.has("architecture") || labels.has("adr")) return "opus";

@@ -1076,8 +1076,8 @@ code, .md-inline {
     45deg,
     var(--surface),
     var(--surface) 8px,
-    rgba(128,128,128,0.07) 8px,
-    rgba(128,128,128,0.07) 16px
+    var(--border) 8px,
+    var(--border) 16px
   );
 }
 .task-enable {

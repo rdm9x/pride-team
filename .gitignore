@@ -212,3 +212,7 @@ MARKETING_PLAN.md
 # E2E test artifacts
 !/workspace/roofing-company/
 !/workspace/roofing-company/landing.html
+
+# Stray test artifacts
+.devboard.tasks.db
+.devboard.tasks.db.lock

@@ -1995,8 +1995,34 @@
   }
 
   // ===================== New-task modal =====================
+  // F1 (ADR-009 Phase 1.7): загрузка ролей текущего отдела для assignee dropdown.
+  async function loadAssigneeOptions() {
+    const sel = $("#new-task-assignee");
+    if (!sel) return;
+    const dept = currentDepartment();
+    sel.innerHTML = '<option value="" disabled selected>загрузка…</option>';
+    try {
+      const r = await fetch(`/api/departments/${encodeURIComponent(dept)}/roles`);
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const data = await r.json();
+      const opts = [];
+      if (data.lead && data.lead.name) {
+        opts.push(`<option value="${escapeHtml(data.lead.name)}" selected>${escapeHtml(displayRole(data.lead.name))} (lead)</option>`);
+      }
+      (data.specialists || []).forEach((r) => {
+        opts.push(`<option value="${escapeHtml(r.name)}">${escapeHtml(displayRole(r.name))}</option>`);
+      });
+      opts.push(`<option value="">${i18n("common.none_dash") || "— нет —"}</option>`);
+      sel.innerHTML = opts.join("");
+    } catch (e) {
+      console.error("loadAssigneeOptions:", e);
+      sel.innerHTML = '<option value="" disabled>ошибка загрузки ролей</option>';
+    }
+  }
+
   function openNewTaskModal() {
     $("#form-new-task").reset();
+    loadAssigneeOptions();
     $("#modal-new").hidden = false;
   }
   $("#form-new-task").addEventListener("submit", async (e) => {
@@ -2006,12 +2032,14 @@
     // Используем существующую функцию currentDepartment() (читает ключ
     // 'devboard-current-department', не как в ADR-003 с двоеточием).
     const currentDept = currentDepartment();
+    const modelHintVal = form.model_hint ? form.model_hint.value : "auto";
     const body = {
       title: form.title.value.trim(),
       description: form.description.value,
       priority: form.priority.value,
       assignee: form.assignee.value || null,
       requires_approval: form.requires_approval.checked,
+      model_hint: modelHintVal === "auto" ? null : modelHintVal,
       department_id: currentDept,
     };
     const r = await fetch("/api/tasks", {
@@ -5024,20 +5052,37 @@
       });
     }
 
-    function checkCompanyContextOnLoad() {
-      fetch("/api/onboarding/company-context")
-        .then((r) => r.json())
-        .then((data) => {
-          const firstRunDone = localStorage.getItem("first_run_done") === "true";
-          if (!data.exists && !firstRunDone) {
-            const onWizardDone = () => {
-              setTimeout(() => openCompanyContextModal(false), 300);
-              window.removeEventListener("wizard:done", onWizardDone);
-            };
-            window.addEventListener("wizard:done", onWizardDone);
-          }
-        })
-        .catch((e) => console.error("Failed to check company context:", e));
+    async function checkCompanyContextOnLoad(retryCount = 0) {
+      try {
+        const r = await fetch("/api/onboarding/company-context");
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        const data = await r.json();
+        if (data.exists) return;  // файл есть — ничего не показываем
+        const firstRunDone = localStorage.getItem("first_run_done") === "true";
+        if (firstRunDone) {
+          // First-run wizard уже пройден → показываем onboarding сразу.
+          setTimeout(() => openCompanyContextModal(false), 300);
+        } else {
+          // First-run wizard ещё идёт → дождаться его завершения.
+          // Backup: если wizard:done не диспатчится в 10 сек — показать всё равно.
+          let fired = false;
+          const fire = () => {
+            if (fired) return;
+            fired = true;
+            setTimeout(() => openCompanyContextModal(false), 300);
+            window.removeEventListener("wizard:done", fire);
+          };
+          window.addEventListener("wizard:done", fire);
+          setTimeout(fire, 10000);
+        }
+      } catch (e) {
+        // Retry до 3 раз — backend мог не успеть стартовать.
+        if (retryCount < 3) {
+          setTimeout(() => checkCompanyContextOnLoad(retryCount + 1), 1500);
+        } else {
+          console.error("Failed to check company context after 3 retries:", e);
+        }
+      }
     }
 
     window.openCompanyContextModal = openCompanyContextModal;

@@ -366,6 +366,26 @@
       </div>
       <div class="settings-page">
 
+        <!-- Section 0: Company Context (F2 ADR-009 Phase 1.7) -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <span class="settings-section-icon">🏢</span>
+            <h2 class="settings-section-title" data-i18n="settings.company.title">Контекст компании</h2>
+          </div>
+          <div class="settings-section-body">
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span data-i18n="settings.company.label">Описание компании для агентов</span>
+                <span class="settings-row-hint" data-i18n="settings.company.hint">Название, ниша, brand voice — подгружается в каждую роль</span>
+              </div>
+              <div class="settings-row-control">
+                <button type="button" id="btn-settings-company-context" class="secondary"
+                        data-i18n="settings.company.edit">Изменить контекст</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Section 1: Language -->
         <div class="settings-section">
           <div class="settings-section-header">
@@ -796,18 +816,21 @@
           </select>
         </label>
         <label><span data-i18n="modal.new.field.assignee">Назначить</span>
-          <select name="assignee">
-            <option value="dev-lead" selected data-i18n="modal.assignee.teamlead">Лид отдела</option>
-            <option value="бэкенд" data-i18n="modal.assignee.backend">бэкенд</option>
-            <option value="qa">qa</option>
-            <option value="архитектор" data-i18n="modal.assignee.architect">архитектор</option>
-            <option value="frontend">frontend</option>
-            <option value="devops">devops</option>
-            <option value="техписатель" data-i18n="modal.assignee.tech_writer">техписатель</option>
-            <option value="" data-i18n="common.none_dash">— нет —</option>
+          <select name="assignee" id="new-task-assignee">
+            <!-- Опции загружаются динамически из /api/departments/<current>/roles
+                 при открытии модалки (F1 ADR-009 Phase 1.7). -->
           </select>
         </label>
         <label class="check"><input type="checkbox" name="requires_approval"> Approval</label>
+        <label>
+          <span data-i18n="task.model_hint">Модель (подсказка)</span>
+          <select id="new-task-model-hint" name="model_hint">
+            <option value="auto" selected data-i18n="common.auto">авто</option>
+            <option value="haiku">haiku</option>
+            <option value="sonnet">sonnet</option>
+            <option value="opus">opus</option>
+          </select>
+        </label>
       </div>
       <div class="actions">
         <button type="button" data-close="modal-new" data-i18n="common.cancel">Отмена</button>

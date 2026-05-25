@@ -808,13 +808,11 @@ def _is_lead_role_slug(role_slug: str, requester_dept_id: str) -> bool:
 
 
 def _find_lead_for_department(db_path: Path, dept_id: str) -> Optional[str]:
-    """Ищет slug Lead-роли указанного отдела (для проставления assignee inter-task'у).
+    """Ищет slug Lead-роли указанного отдела.
 
     Возвращает name роли, у которой department_id=dept_id и name заканчивается на '-lead'.
-    Для legacy 'dev' — возвращает 'тимлид'. None если не нашли.
+    Для dev отдела — это dev-lead (после Phase 1.8 rename тимлид → dev-lead).
     """
-    if dept_id == "dev":
-        return "тимлид"
     conn = db._connect(db_path)
     try:
         row = conn.execute(
@@ -823,6 +821,13 @@ def _find_lead_for_department(db_path: Path, dept_id: str) -> Optional[str]:
         ).fetchone()
         if row is not None:
             return row["name"]
+        # Legacy fallback: для dev отдела если миграция не запущена — старое имя.
+        if dept_id == "dev":
+            row = conn.execute(
+                "SELECT name FROM roles WHERE department_id = 'dev' AND name = 'тимлид' LIMIT 1"
+            ).fetchone()
+            if row is not None:
+                return "тимлид"
         return None
     finally:
         conn.close()

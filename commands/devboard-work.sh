@@ -121,10 +121,10 @@ fi
 # === Авто-роутер моделей ===
 # Перед стартом тимлида решаем какую модель использовать на этой сессии.
 # Алгоритмический (без LLM, без расходов). Подробности — в router.py.
-# Override: PRIDE_TEAM_MODEL=opus|sonnet|haiku force-выбор.
-if [[ -n "${PRIDE_TEAM_MODEL:-}" ]]; then
-    MODEL_ALIAS="$PRIDE_TEAM_MODEL"
-    echo "🤖 роутер: модель навязана через PRIDE_TEAM_MODEL=$MODEL_ALIAS"
+# Override: DEVBOARD_TEAM_MODEL=opus|sonnet|haiku force-выбор.
+if [[ -n "${DEVBOARD_TEAM_MODEL:-}" ]]; then
+    MODEL_ALIAS="$DEVBOARD_TEAM_MODEL"
+    echo "🤖 роутер: модель навязана через DEVBOARD_TEAM_MODEL=$MODEL_ALIAS"
 else
     MODEL_ALIAS=$(
       PYTHONPATH="$REPO_ROOT/mcp_server" \

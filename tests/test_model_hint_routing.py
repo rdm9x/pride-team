@@ -2,8 +2,8 @@
 
 Покрывает:
   1. pick_model_for_role() — корректный выбор модели по hint-задачам роли в БД.
-  2. build_claude_command() — PRIDE_TEAM_MODEL env-var содержит нужный alias.
-  3. _start_team_process() — subprocess получает PRIDE_TEAM_MODEL из env (интеграция).
+  2. build_claude_command() — DEVBOARD_TEAM_MODEL env-var содержит нужный alias.
+  3. _start_team_process() — subprocess получает DEVBOARD_TEAM_MODEL из env (интеграция).
   4. Правило ранга: haiku + пустые → haiku wins; opus beat sonnet beat haiku.
   5. Пустая очередь → haiku (дефолт роутера).
   6. Смешанная очередь: haiku + без hint → haiku wins (hint beats default).
@@ -181,11 +181,11 @@ def test_pick_model_for_role_ignores_non_todo_status(tmp_path: Path) -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 2. build_claude_command() — PRIDE_TEAM_MODEL в env
+# 2. build_claude_command() — DEVBOARD_TEAM_MODEL в env
 # ─────────────────────────────────────────────────────────────────────────────
 
 def test_build_claude_command_haiku_env(tmp_path: Path) -> None:
-    """build_claude_command() должен вернуть PRIDE_TEAM_MODEL=haiku для роли с haiku-задачей."""
+    """build_claude_command() должен вернуть DEVBOARD_TEAM_MODEL=haiku для роли с haiku-задачей."""
     if sys.platform == "win32":
         pytest.skip("Unix-only path test")
 
@@ -202,15 +202,15 @@ def test_build_claude_command_haiku_env(tmp_path: Path) -> None:
         commands_dir=tmp_path,
     )
 
-    assert extra_env["PRIDE_TEAM_MODEL"] == "haiku", (
-        f"ожидали PRIDE_TEAM_MODEL=haiku, получили {extra_env['PRIDE_TEAM_MODEL']!r}"
+    assert extra_env["DEVBOARD_TEAM_MODEL"] == "haiku", (
+        f"ожидали DEVBOARD_TEAM_MODEL=haiku, получили {extra_env['DEVBOARD_TEAM_MODEL']!r}"
     )
     assert "--role" in cmd
     assert "dev-lead" in cmd
 
 
 def test_build_claude_command_opus_env(tmp_path: Path) -> None:
-    """build_claude_command() должен вернуть PRIDE_TEAM_MODEL=opus когда есть opus-задача."""
+    """build_claude_command() должен вернуть DEVBOARD_TEAM_MODEL=opus когда есть opus-задача."""
     if sys.platform == "win32":
         pytest.skip("Unix-only path test")
 
@@ -226,11 +226,11 @@ def test_build_claude_command_opus_env(tmp_path: Path) -> None:
         commands_dir=tmp_path,
     )
 
-    assert extra_env["PRIDE_TEAM_MODEL"] == "opus"
+    assert extra_env["DEVBOARD_TEAM_MODEL"] == "opus"
 
 
 def test_build_claude_command_managing_director(tmp_path: Path) -> None:
-    """managing-director → devboard-managing.sh + PRIDE_TEAM_MODEL в env."""
+    """managing-director → devboard-managing.sh + DEVBOARD_TEAM_MODEL в env."""
     if sys.platform == "win32":
         pytest.skip("Unix-only path test")
 
@@ -247,17 +247,17 @@ def test_build_claude_command_managing_director(tmp_path: Path) -> None:
 
     assert str(managing_script) in cmd
     assert "--role" not in cmd
-    assert "PRIDE_TEAM_MODEL" in extra_env
+    assert "DEVBOARD_TEAM_MODEL" in extra_env
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 3. _start_team_process() — subprocess получает PRIDE_TEAM_MODEL через env
+# 3. _start_team_process() — subprocess получает DEVBOARD_TEAM_MODEL через env
 # ─────────────────────────────────────────────────────────────────────────────
 
 def test_start_team_process_env_contains_model_hint(
     reset_team_state, monkeypatch, tmp_path: Path
 ) -> None:
-    """_start_team_process() инжектирует PRIDE_TEAM_MODEL=haiku в env subprocess."""
+    """_start_team_process() инжектирует DEVBOARD_TEAM_MODEL=haiku в env subprocess."""
     if sys.platform == "win32":
         pytest.skip("Unix-only path test")
 
@@ -280,16 +280,16 @@ def test_start_team_process_env_contains_model_hint(
     assert res["ok"] is True
 
     called_env = popen_mock.call_args[1]["env"]
-    assert "PRIDE_TEAM_MODEL" in called_env, "PRIDE_TEAM_MODEL должен быть в env subprocess"
-    assert called_env["PRIDE_TEAM_MODEL"] == "haiku", (
-        f"ожидали PRIDE_TEAM_MODEL=haiku, получили {called_env['PRIDE_TEAM_MODEL']!r}"
+    assert "DEVBOARD_TEAM_MODEL" in called_env, "DEVBOARD_TEAM_MODEL должен быть в env subprocess"
+    assert called_env["DEVBOARD_TEAM_MODEL"] == "haiku", (
+        f"ожидали DEVBOARD_TEAM_MODEL=haiku, получили {called_env['DEVBOARD_TEAM_MODEL']!r}"
     )
 
 
 def test_start_team_process_env_model_empty_queue(
     reset_team_state, monkeypatch, tmp_path: Path
 ) -> None:
-    """Пустая очередь → PRIDE_TEAM_MODEL=haiku (router default для пустой очереди)."""
+    """Пустая очередь → DEVBOARD_TEAM_MODEL=haiku (router default для пустой очереди)."""
     if sys.platform == "win32":
         pytest.skip("Unix-only path test")
 
@@ -311,4 +311,4 @@ def test_start_team_process_env_model_empty_queue(
     assert res["ok"] is True
 
     called_env = popen_mock.call_args[1]["env"]
-    assert called_env["PRIDE_TEAM_MODEL"] == "haiku"
+    assert called_env["DEVBOARD_TEAM_MODEL"] == "haiku"

@@ -70,9 +70,9 @@ else
 fi
 
 # === Авто-роутер моделей ===
-if [[ -n "${PRIDE_TEAM_MODEL:-}" ]]; then
-    MODEL_ALIAS="$PRIDE_TEAM_MODEL"
-    echo "🤖 роутер: модель навязана через PRIDE_TEAM_MODEL=$MODEL_ALIAS"
+if [[ -n "${DEVBOARD_TEAM_MODEL:-}" ]]; then
+    MODEL_ALIAS="$DEVBOARD_TEAM_MODEL"
+    echo "🤖 роутер: модель навязана через DEVBOARD_TEAM_MODEL=$MODEL_ALIAS"
 else
     MODEL_ALIAS=$(
       PYTHONPATH="$REPO_ROOT/mcp_server" \

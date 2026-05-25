@@ -606,7 +606,7 @@ def build_claude_command(
     """Построить (cmd, extra_env) для запуска subprocess тимлида.
 
     B5 (1.6): Определяет модель через pick_model_for_role() и записывает
-    PRIDE_TEAM_MODEL в extra_env — devboard-work.sh подхватит её и пропустит
+    DEVBOARD_TEAM_MODEL в extra_env — devboard-work.sh подхватит её и пропустит
     внутренний роутер, запустив claude с нужной --model.
 
     Returns:
@@ -646,14 +646,14 @@ def build_claude_command(
             cmd = ["/bin/bash", str(work_script), "--role", role]
 
     # B5 (1.6): Определяем модель по hint-очереди роли и форсируем через env-var.
-    # devboard-work.sh (строки 125-128) читает PRIDE_TEAM_MODEL и пропускает
+    # devboard-work.sh (строки 125-128) читает DEVBOARD_TEAM_MODEL и пропускает
     # встроенный роутер — claude получает --model с нужным значением.
     model_alias = pick_model_for_role(role, db_path=db_path)
     extra_env: dict[str, str] = {
         "PRIDE_TASKS_DB": str(db_path or DB_PATH),
         "PYTHONIOENCODING": "utf-8",
         "PYTHONUTF8": "1",
-        "PRIDE_TEAM_MODEL": model_alias,
+        "DEVBOARD_TEAM_MODEL": model_alias,
     }
 
     return cmd, extra_env, work_script
@@ -670,7 +670,7 @@ def _start_team_process(triggered_by: str = "user", role: str = "managing-direct
     на macOS/Linux — .sh через bash.
 
     B5 (1.6): модель определяется через build_claude_command() / pick_model_for_role()
-    по model_hint задач в очереди роли и инжектируется через PRIDE_TEAM_MODEL env-var.
+    по model_hint задач в очереди роли и инжектируется через DEVBOARD_TEAM_MODEL env-var.
     """
 
     with _team_state["lock"]:

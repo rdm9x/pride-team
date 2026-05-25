@@ -107,10 +107,10 @@ if ($OutputLocale -eq "en") {
 }
 
 # === Авто-роутер моделей: алгоритмический, без LLM. ===
-# Override через env PRIDE_TEAM_MODEL=opus|sonnet|haiku.
-if ($env:PRIDE_TEAM_MODEL) {
-    $Model = $env:PRIDE_TEAM_MODEL
-    Write-Host "🤖 роутер: модель навязана через PRIDE_TEAM_MODEL=$Model"
+# Override через env DEVBOARD_TEAM_MODEL=opus|sonnet|haiku.
+if ($env:DEVBOARD_TEAM_MODEL) {
+    $Model = $env:DEVBOARD_TEAM_MODEL
+    Write-Host "🤖 роутер: модель навязана через DEVBOARD_TEAM_MODEL=$Model"
 } else {
     $env:PYTHONPATH = Join-Path $REPO_ROOT "mcp_server"
     $Python = Join-Path $REPO_ROOT "mcp_server\.venv\Scripts\python.exe"

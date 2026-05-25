@@ -1344,6 +1344,16 @@ code, .md-inline {
   justify-content: space-between;
   align-items: center;
 }
+.chat-description {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-3);
+  flex: 1;
+  margin: 0 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .chat-collapse-btn {
   background: transparent;
   border: none;
@@ -2294,6 +2304,84 @@ input[type="checkbox"] {
   padding: 4px 10px;
   font-size: 12px;
   border-radius: 5px;
+}
+
+/* ============================================================ F2(1.5): Roles — collapsible department sections */
+
+.roles-section {
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.roles-section--active > .roles-section-header {
+  border-left: 3px solid var(--accent, #007aff);
+}
+
+.roles-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+  transition: background 0.15s;
+}
+
+.roles-section-header:hover {
+  background: var(--surface-3);
+}
+
+.roles-section-header:focus-visible {
+  outline: 2px solid var(--accent, #007aff);
+  outline-offset: -2px;
+}
+
+.roles-section-icon {
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.roles-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  flex: 1;
+}
+
+.roles-section-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  background: var(--bg-2, var(--surface-3));
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1px 7px;
+  min-width: 22px;
+  text-align: center;
+}
+
+.roles-section-chevron {
+  font-size: 13px;
+  color: var(--text-3);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.roles-section--collapsed .roles-section-chevron {
+  transform: rotate(-90deg);
+}
+
+.roles-section-body {
+  overflow: hidden;
+}
+
+.roles-section--collapsed .roles-section-body {
+  display: none;
 }
 
 /* ============================================================ Role modal */

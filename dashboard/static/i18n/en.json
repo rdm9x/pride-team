@@ -489,6 +489,10 @@
     "expand_title": "Expand chat",
     "rail_label": "Chat",
     "placeholder": "Ask the team-lead…",
+    "placeholder_managing_director": "Write to Managing Director…",
+    "placeholder_lead": "Write to {leadName}…",
+    "description_managing_director": "Managing Director — coordinates all departments",
+    "description_lead": "{deptName}-lead — coordinates the {deptName} department",
     "empty": "nothing yet. Drop a message — the team-lead will see it on the next run.",
     "send_failed": "Could not send: ",
     "scroll_to_bottom": "Scroll to bottom"
@@ -546,6 +550,11 @@
     }
   },
   "roles": {
+    "section": {
+      "global": "Global",
+      "dev": "Development",
+      "marketing": "Marketing"
+    },
     "names": {
       "teamlead": "Team Lead",
       "backend": "Backend",

@@ -176,6 +176,8 @@
         if (currentView === "roles") loadRoles();
         // stats — глобальные (см. S9.2), не зависят от отдела.
       } catch (_) {}
+      // F1-1.5: мгновенный перерендер списка агентов при смене отдела.
+      try { loadSidebarAgents(); } catch (_) {}
     }
   }
 
@@ -320,6 +322,103 @@
       renderDepartments(data.departments || []);
     } catch (e) {
       console.error("loadDepartments failed", e);
+    }
+  }
+
+  // ===================== Sidebar agents list (F1-1.5) =====================
+  // Показывает роли текущего отдела + глобальные (Управляющий, HR).
+  // Данные берём из /api/roles?department=<id>:
+  //   backend возвращает роли с department_id=<id> ИЛИ department_id IS NULL.
+  // Глобальные роли (department_id=null) подтягиваются автоматически.
+
+  // Иконки ролей — расширенная карта на базе AUTHOR_ICON.
+  const _AGENT_ICON = {
+    // Dev roles
+    "бэкенд":           "🔧",
+    "backend":          "🔧",
+    "frontend":         "🎨",
+    "qa":               "✓",
+    "архитектор":       "🏗",
+    "architect":        "🏗",
+    "devops":           "🚀",
+    "техписатель":      "📝",
+    "techwriter":       "📝",
+    "тимлид":           "🧭",
+    "teamlead":         "🧭",
+    "dev-lead":         "🧭",
+    // Marketing roles
+    "copywriter":       "✍",
+    "brand-manager":    "🎯",
+    "seo-specialist":   "🔍",
+    "marketing-analyst":"📊",
+    "marketing-lead":   "📣",
+    // Global roles
+    "Управляющий":      "🏛",
+    "managing-director":"🏛",
+    "hr":               "🧑‍💼",
+    // Fallback
+    "пользователь":     "👤",
+    "user":             "👤",
+  };
+
+  function _agentIcon(name) {
+    return _AGENT_ICON[name] || "🤖";
+  }
+
+  // Локализованное имя агента — использует ROLE_DISPLAY и display_name_* из API.
+  function _agentDisplayName(role) {
+    const locale = (typeof window.getLocale === "function") ? window.getLocale() : "ru";
+    // 1. display_name из API (добавляется бэкендом в поле display_name_en/ru)
+    if (locale === "en" && role.display_name_en) return role.display_name_en;
+    if (locale !== "en" && role.display_name_ru) return role.display_name_ru;
+    // 2. ROLE_DISPLAY (существующий словарь)
+    const rd = ROLE_DISPLAY[role.name];
+    if (rd) return locale === "en" ? rd.en : rd.ru;
+    // 3. name_ru / name_en из метаданных если бэкенд добавит их позже
+    if (locale !== "en" && role.name_ru) return role.name_ru;
+    if (locale === "en" && role.name_en) return role.name_en;
+    // 4. Сам slug
+    return role.name;
+  }
+
+  function renderSidebarAgents(roles) {
+    const wrap = document.getElementById("sidebar-agents");
+    if (!wrap) return;
+    if (!roles || roles.length === 0) {
+      wrap.innerHTML = "";
+      return;
+    }
+
+    const locale = (typeof window.getLocale === "function") ? window.getLocale() : "ru";
+    const teamLabel = (typeof window.t === "function")
+      ? window.t("sidebar.team")
+      : (locale === "en" ? "Team" : "Команда");
+
+    let html = `<div class="muted">${escapeHtml(teamLabel)}</div>`;
+    roles.forEach((role) => {
+      const ico = _agentIcon(role.name);
+      const label = escapeHtml(_agentDisplayName(role));
+      const deptId = role.department_id || null;
+      const deptTitle = deptId
+        ? escapeHtml(deptId)
+        : (locale === "en" ? "Global role" : "Глобальная роль");
+      html += `<div role="listitem" title="${label} — ${deptTitle}">${ico} <span>${label}</span></div>`;
+    });
+    wrap.innerHTML = html;
+  }
+
+  async function loadSidebarAgents() {
+    try {
+      const dept = currentDepartment();
+      const r = await fetch("/api/roles?department=" + encodeURIComponent(dept));
+      if (!r.ok) return;
+      const data = await r.json();
+      const raw = data.роли || [];
+      // Фильтруем пользователя (не агент — это сам owner)
+      const agents = raw.filter((role) => role.name !== "пользователь" && role.name !== "user");
+      renderSidebarAgents(agents);
+    } catch (e) {
+      console.error("loadSidebarAgents failed", e);
     }
   }
 
@@ -3841,9 +3940,38 @@
       return (i18nVal !== i18nKey) ? i18nVal : deptId;
     };
 
+    // F2(1.5): resolve section label for a department id
+    const _resolveSectionLabel = (deptId) => {
+      if (!deptId) return i18n("roles.section.global");
+      const sectionKey = "roles.section." + deptId;
+      const sectionVal = i18n(sectionKey);
+      if (sectionVal !== sectionKey) return sectionVal;
+      // fallback to dept display name
+      return _resolveDeptLabel(deptId);
+    };
+
+    // F2(1.5): section icons per known department id
+    const _sectionIcon = (deptId) => {
+      if (!deptId) return "🏛";
+      if (deptId === "dev") return "💻";
+      if (deptId === "marketing") return "📣";
+      return "🏢";
+    };
+
     const activeDept = currentDepartment();
 
-    const rows = roles.map((r) => {
+    const _cyrillicSlugMap = {
+      "тимлид": "teamlead",
+      "бэкенд": "backend",
+      "qa": "qa",
+      "архитектор": "architect",
+      "frontend": "frontend",
+      "devops": "devops",
+      "техписатель": "techwriter",
+      "пользователь": "user",
+    };
+
+    const _renderRow = (r) => {
       const llm = r.llm || "—";
       const model = escapeHtml(r.model || "—");
       const desc = escapeHtml(r.description || "—");
@@ -3854,16 +3982,6 @@
       //    тимлид→teamlead, бэкенд→backend, архитектор→architect, техписатель→techwriter,
       //    пользователь→user
       // 3. fallback — slug
-      const _cyrillicSlugMap = {
-        "тимлид": "teamlead",
-        "бэкенд": "backend",
-        "qa": "qa",
-        "архитектор": "architect",
-        "frontend": "frontend",
-        "devops": "devops",
-        "техписатель": "techwriter",
-        "пользователь": "user",
-      };
       let displayName;
       if (locale === "en" && r.display_name_en) {
         displayName = r.display_name_en;
@@ -3875,23 +3993,9 @@
         const i18nVal = i18n(i18nKey);
         displayName = (i18nVal !== i18nKey) ? i18nVal : r.name;
       }
-      // S9.2: department-cell — бейдж с локализованным именем или "Global".
-      const deptId = r.department_id || null;
-      const deptLabel = _resolveDeptLabel(deptId);
-      const isActiveDept = deptId && deptId === activeDept;
-      const isGlobal = !deptId;
-      const deptCellCls =
-        "role-dept-cell" +
-        (isGlobal ? " is-global" : "") +
-        (isActiveDept ? " is-active" : "");
-      const deptBadgeCls =
-        "role-dept-badge" +
-        (isGlobal ? " role-dept-badge--global" : "") +
-        (isActiveDept ? " role-dept-badge--active" : "");
       return `<tr data-role-name="${escapeAttr(r.name)}">
         <td class="role-name-cell"><span class="role-display-name">${escapeHtml(displayName)}</span></td>
         <td class="role-desc-cell">${desc}</td>
-        <td class="${deptCellCls}"><span class="${deptBadgeCls}">${escapeHtml(deptLabel)}</span></td>
         <td class="role-llm-cell">${escapeHtml(llm)}</td>
         <td class="role-model-cell">${model}</td>
         <td class="role-actions-cell">
@@ -3901,23 +4005,93 @@
                   title="${i18n("roles.btn.delete")}" aria-label="${i18n("roles.btn.delete")} ${escapeAttr(r.name)}">🗑</button>
         </td>
       </tr>`;
-    }).join("");
+    };
 
-    body.innerHTML = `
-      <table class="roles-table">
-        <thead>
-          <tr>
-            <th>${i18n("roles.col.name")}</th>
-            <th>${i18n("roles.col.description")}</th>
-            <th>${i18n("roles.col.department")}</th>
-            <th>${i18n("roles.col.llm")}</th>
-            <th>${i18n("roles.col.model")}</th>
-            <th>${i18n("roles.col.actions")}</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    `;
+    // F2(1.5): group roles by department_id (null → "global" bucket)
+    // Order: global first, then known depts (dev, marketing), then rest alphabetically
+    const _groups = new Map();
+    roles.forEach((r) => {
+      const key = r.department_id || null;
+      if (!_groups.has(key)) _groups.set(key, []);
+      _groups.get(key).push(r);
+    });
+
+    // Sort groups: null first, then by id
+    const _sortedKeys = Array.from(_groups.keys()).sort((a, b) => {
+      if (a === null) return -1;
+      if (b === null) return 1;
+      const order = ["dev", "marketing"];
+      const ai = order.indexOf(a), bi = order.indexOf(b);
+      if (ai !== -1 && bi !== -1) return ai - bi;
+      if (ai !== -1) return -1;
+      if (bi !== -1) return 1;
+      return a.localeCompare(b);
+    });
+
+    // F2(1.5): restore collapsed state from sessionStorage
+    const _collapseKey = (deptId) => "roles-section-collapsed:" + (deptId || "global");
+    const _isCollapsed = (deptId) => sessionStorage.getItem(_collapseKey(deptId)) === "1";
+
+    const tableHead = `
+      <thead>
+        <tr>
+          <th>${i18n("roles.col.name")}</th>
+          <th>${i18n("roles.col.description")}</th>
+          <th>${i18n("roles.col.llm")}</th>
+          <th>${i18n("roles.col.model")}</th>
+          <th>${i18n("roles.col.actions")}</th>
+        </tr>
+      </thead>`;
+
+    let html = "";
+    _sortedKeys.forEach((deptId) => {
+      const sectionRoles = _groups.get(deptId);
+      const sectionId = "roles-section-" + (deptId || "global");
+      const collapsed = _isCollapsed(deptId);
+      const icon = _sectionIcon(deptId);
+      const label = _resolveSectionLabel(deptId);
+      const count = sectionRoles.length;
+      const isActive = deptId && deptId === activeDept;
+
+      html += `
+        <div class="roles-section${collapsed ? " roles-section--collapsed" : ""}${isActive ? " roles-section--active" : ""}"
+             data-section-dept="${escapeAttr(deptId || "global")}">
+          <div class="roles-section-header"
+               role="button" tabindex="0"
+               aria-expanded="${collapsed ? "false" : "true"}"
+               aria-controls="${sectionId}">
+            <span class="roles-section-icon">${icon}</span>
+            <span class="roles-section-title">${escapeHtml(label)}</span>
+            <span class="roles-section-count">${count}</span>
+            <span class="roles-section-chevron" aria-hidden="true">▾</span>
+          </div>
+          <div class="roles-section-body" id="${sectionId}">
+            <table class="roles-table">
+              ${tableHead}
+              <tbody>${sectionRoles.map(_renderRow).join("")}</tbody>
+            </table>
+          </div>
+        </div>`;
+    });
+
+    body.innerHTML = html;
+
+    // F2(1.5): bind collapsible toggle
+    body.querySelectorAll(".roles-section-header").forEach((hdr) => {
+      const section = hdr.closest(".roles-section");
+      const deptId = section.dataset.sectionDept === "global" ? null : section.dataset.sectionDept;
+
+      const _toggle = () => {
+        const nowCollapsed = section.classList.toggle("roles-section--collapsed");
+        hdr.setAttribute("aria-expanded", nowCollapsed ? "false" : "true");
+        sessionStorage.setItem(_collapseKey(deptId), nowCollapsed ? "1" : "0");
+      };
+
+      hdr.addEventListener("click", _toggle);
+      hdr.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); _toggle(); }
+      });
+    });
 
     // Bind edit / delete buttons
     body.querySelectorAll("[data-role-edit]").forEach((btn) => {

@@ -489,6 +489,10 @@
     "expand_title": "Развернуть чат",
     "rail_label": "Чат",
     "placeholder": "Спроси тимлида…",
+    "placeholder_managing_director": "Напиши Управляющему…",
+    "placeholder_lead": "Напиши {leadName}…",
+    "description_managing_director": "Управляющий — координирует все отделы",
+    "description_lead": "{deptName}-lead — координирует {deptName}-отдел",
     "empty": "пока ничего. Напиши тимлиду — увидит при следующем запуске команды.",
     "send_failed": "Не отправилось: ",
     "scroll_to_bottom": "Прокрутить вниз"
@@ -546,6 +550,11 @@
     }
   },
   "roles": {
+    "section": {
+      "global": "Глобальные",
+      "dev": "Разработка",
+      "marketing": "Маркетинг"
+    },
     "names": {
       "teamlead": "Тимлид",
       "backend": "Бэкенд",

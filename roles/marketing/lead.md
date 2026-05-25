@@ -39,7 +39,7 @@ is_lead: true
 
 | Инструмент | Использование |
 |---|---|
-| MCP `pride-tasks` (read + comment + submit_result + claim_task + create_task) | твой основной workflow внутри отдела |
+| MCP `devboard-tasks` (read + comment + submit_result + claim_task + create_task) | твой основной workflow внутри отдела |
 | Task tool (subagent_type=general-purpose) | делегирование подзадач специалистам. Параллельно в одном message |
 | Read, Write, Edit | чтение брифов, правка планов, финальная сборка summary. Код не трогаешь |
 | Glob, Grep | поиск существующих материалов в `docs/`, прошлых кампаний |

@@ -35,10 +35,10 @@ if [[ -f "$PID_FILE" ]]; then
     rm -f "$PID_FILE"
 fi
 
-export PRIDE_TASKS_DB="${PRIDE_TASKS_DB:-$DATA_DIR/tasks.db}"
+export DEVBOARD_TASKS_DB="${DEVBOARD_TASKS_DB:-$DATA_DIR/tasks.db}"
 # Порт 5000 на macOS Sonoma+ занят AirPlay Receiver → используем 4999.
-export PRIDE_DASHBOARD_PORT="${PRIDE_DASHBOARD_PORT:-4999}"
-export PRIDE_DASHBOARD_HOST="${PRIDE_DASHBOARD_HOST:-127.0.0.1}"
+export DEVBOARD_DASHBOARD_PORT="${DEVBOARD_DASHBOARD_PORT:-4999}"
+export DEVBOARD_DASHBOARD_HOST="${DEVBOARD_DASHBOARD_HOST:-127.0.0.1}"
 
 cd "$DASH_DIR"
 nohup "$DASH_DIR/.venv/bin/python" app.py >> "$LOG_FILE" 2>&1 &
@@ -47,9 +47,9 @@ sleep 1
 PID="$(cat "$PID_FILE")"
 
 if kill -0 "$PID" 2>/dev/null; then
-    echo "✓ Дашборд запущен (pid=$PID). http://$PRIDE_DASHBOARD_HOST:$PRIDE_DASHBOARD_PORT"
+    echo "✓ Дашборд запущен (pid=$PID). http://$DEVBOARD_DASHBOARD_HOST:$DEVBOARD_DASHBOARD_PORT"
     echo "  Логи: $LOG_FILE"
-    echo "  БД:   $PRIDE_TASKS_DB"
+    echo "  БД:   $DEVBOARD_TASKS_DB"
     echo "  Стоп: $REPO_ROOT/commands/devboard-stop.sh"
 else
     echo "✗ Не удалось запустить дашборд. См. $LOG_FILE"

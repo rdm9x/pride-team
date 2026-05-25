@@ -255,7 +255,7 @@ def test_pick_from_db_filters_epics(db_path: Path) -> None:
 
 
 def test_main_pick_outputs_json(db_path: Path, monkeypatch) -> None:
-    monkeypatch.setenv("PRIDE_TASKS_DB", str(db_path))
+    monkeypatch.setenv("DEVBOARD_TASKS_DB", str(db_path))
     monkeypatch.setattr(sys, "argv", ["router", "pick"])
     buf = io.StringIO()
     with redirect_stdout(buf):
@@ -269,7 +269,7 @@ def test_main_pick_outputs_json(db_path: Path, monkeypatch) -> None:
 
 
 def test_main_model_only_outputs_alias(db_path: Path, monkeypatch) -> None:
-    monkeypatch.setenv("PRIDE_TASKS_DB", str(db_path))
+    monkeypatch.setenv("DEVBOARD_TASKS_DB", str(db_path))
     monkeypatch.setattr(sys, "argv", ["router", "model-only"])
     buf = io.StringIO()
     with redirect_stdout(buf):

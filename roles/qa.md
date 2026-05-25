@@ -29,7 +29,7 @@ max_tokens: 16000
 
 | Инструмент | Использование |
 |---|---|
-| MCP `pride-tasks` (read + comment + submit_result + create_task) | задачи, заводить новые подзадачи бэкенду на баги |
+| MCP `devboard-tasks` (read + comment + submit_result + create_task) | задачи, заводить новые подзадачи бэкенду на баги |
 | Read, Grep | читать код бэкенда + тесты, искать что упустили |
 | Bash | pytest, smoke-вызовы на реальных данных или mock'ах |
 

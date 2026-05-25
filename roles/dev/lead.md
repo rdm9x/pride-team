@@ -49,7 +49,7 @@ max_tokens: 16000
 
 | Инструмент | Использование |
 |---|---|
-| MCP `pride-tasks` (8 функций) | основной workflow: list_tasks, get_task, create_task, update_task, claim_task, add_comment, submit_result, list_roles |
+| MCP `devboard-tasks` (8 функций) | основной workflow: list_tasks, get_task, create_task, update_task, claim_task, add_comment, submit_result, list_roles |
 | Task tool (subagent) | делегирование подзадач бэкенду или QA. Внутри одной сессии параллельно |
 | Read, Write, Edit | чтение/правка файлов в `devboard/` и подпроектах. Минимально — обычно подчинённые |
 | Bash | для проверки состояния (pytest, git log, ls). Сам коды не пишешь часто |

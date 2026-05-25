@@ -37,7 +37,7 @@ max_tokens: 16000
 
 | Инструмент | Использование |
 |---|---|
-| MCP `pride-tasks` (read + comment + submit_result) | твоя задача |
+| MCP `devboard-tasks` (read + comment + submit_result) | твоя задача |
 | Read, Write, Edit | HTML/CSS/JS файлы дашборда |
 | Glob, Grep | поиск селекторов, текстовых строк для i18n |
 | Bash | запуск тестов и smoke-curl'ы для проверки API |

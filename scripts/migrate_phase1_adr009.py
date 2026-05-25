@@ -12,7 +12,7 @@
     python scripts/migrate_phase1_adr009.py --db PATH    # явный путь к БД
 
 ENV:
-    PRIDE_TASKS_DB — переопределяет путь к tasks.db (как у других скриптов).
+    DEVBOARD_TASKS_DB — переопределяет путь к tasks.db (как у других скриптов).
 
 Идемпотентно: все CREATE — через IF NOT EXISTS, безопасно запускать многократно.
 Pre-flight backup: создаёт ``tasks.db.bak.<timestamp>`` перед изменениями
@@ -140,8 +140,8 @@ _EXPECTED_OBJECTS: tuple[tuple[str, str], ...] = (
 
 
 def _get_db_path() -> Path:
-    """Путь к БД: --db > PRIDE_TASKS_DB > default."""
-    env = os.environ.get("PRIDE_TASKS_DB")
+    """Путь к БД: --db > DEVBOARD_TASKS_DB > default."""
+    env = os.environ.get("DEVBOARD_TASKS_DB")
     if env:
         return Path(env)
     return default_db_path()
@@ -275,7 +275,7 @@ def main() -> None:
         "--db",
         type=Path,
         default=None,
-        help="Путь к tasks.db (по умолчанию — из PRIDE_TASKS_DB или data/tasks.db)",
+        help="Путь к tasks.db (по умолчанию — из DEVBOARD_TASKS_DB или data/tasks.db)",
     )
     parser.add_argument(
         "--check",

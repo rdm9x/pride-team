@@ -45,7 +45,7 @@ _GLOBAL_ROLES = ("hr", "owner", "пользователь", "user")
 def _get_db_path() -> Path:
     """Возвращает путь к tasks.db из переменной окружения или дефолтный."""
     import os
-    env = os.environ.get("PRIDE_TASKS_DB")
+    env = os.environ.get("DEVBOARD_TASKS_DB")
     if env:
         return Path(env)
     return default_db_path()
@@ -262,7 +262,7 @@ def main() -> None:
         "--db",
         type=Path,
         default=None,
-        help="Путь к tasks.db (по умолчанию — из PRIDE_TASKS_DB или data/tasks.db)",
+        help="Путь к tasks.db (по умолчанию — из DEVBOARD_TASKS_DB или data/tasks.db)",
     )
     parser.add_argument(
         "--rollback",

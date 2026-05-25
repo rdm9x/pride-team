@@ -11,7 +11,7 @@ from devboard_tasks import db
 
 @pytest.fixture()
 def db_path(tmp_path: Path) -> Path:
-    """Чистая БД для каждого теста. Изоляция через PRIDE_TASKS_DB → tmp_path."""
+    """Чистая БД для каждого теста. Изоляция через DEVBOARD_TASKS_DB → tmp_path."""
 
     path = tmp_path / "tasks.db"
     db.init_db(path)

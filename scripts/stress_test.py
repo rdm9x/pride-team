@@ -1,6 +1,6 @@
 """E8.5: Стресс-тест канбана devboard-tasks на 1000 задач + SLA latency.
 
-Создаёт ВРЕМЕННУЮ БД (через tempfile.mkdtemp + PRIDE_TASKS_DB), наполняет её
+Создаёт ВРЕМЕННУЮ БД (через tempfile.mkdtemp + DEVBOARD_TASKS_DB), наполняет её
 200 родительскими задачами + по 4 подзадачи каждой = 1000 задач, плюс 5000
 чат-сообщений. Затем замеряет latency трёх hot-операций по 100 итераций:
 
@@ -18,7 +18,7 @@
     python scripts/stress_test.py
 
 Никакие dev-зависимости не нужны — только stdlib (statistics.quantiles).
-Пользовательскую БД data/tasks.db скрипт НЕ трогает (PRIDE_TASKS_DB
+Пользовательскую БД data/tasks.db скрипт НЕ трогает (DEVBOARD_TASKS_DB
 указывает на временный файл, который удаляется в конце).
 """
 
@@ -225,9 +225,9 @@ def main() -> int:
     # ВРЕМЕННАЯ БД — не трогаем data/tasks.db пользователя.
     tmpdir = Path(tempfile.mkdtemp(prefix="pride_stress_"))
     db_path = tmpdir / "tasks.db"
-    # PRIDE_TASKS_DB не обязателен (мы явно передаём db_path), но выставим — чтобы
+    # DEVBOARD_TASKS_DB не обязателен (мы явно передаём db_path), но выставим — чтобы
     # любая невидимая обёртка тоже знала, что не надо лезть в data/tasks.db.
-    os.environ["PRIDE_TASKS_DB"] = str(db_path)
+    os.environ["DEVBOARD_TASKS_DB"] = str(db_path)
     print(f"Temp DB:      {db_path}")
 
     try:

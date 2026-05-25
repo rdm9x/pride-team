@@ -655,8 +655,8 @@ def test_build_claude_cmd_flags():
 
 
 def test_build_claude_cmd_override(monkeypatch):
-    """PRIDE_HR_CLAUDE_CMD override проставляется перед флагами."""
-    monkeypatch.setenv("PRIDE_HR_CLAUDE_CMD", "python fake_claude.py")
+    """DEVBOARD_HR_CLAUDE_CMD override проставляется перед флагами."""
+    monkeypatch.setenv("DEVBOARD_HR_CLAUDE_CMD", "python fake_claude.py")
     cmd = hr_runner._build_claude_cmd("p", "/mcp.json", "msg")
     assert cmd[:3] == ["python", "fake_claude.py", "--append-system-prompt"]
     assert "--mcp-config" in cmd

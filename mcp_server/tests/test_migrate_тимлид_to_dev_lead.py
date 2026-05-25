@@ -44,7 +44,7 @@ _EXPECTED_DEV_ROLES = {
 def _run_migration(db_path: Path, *extra_args: str) -> subprocess.CompletedProcess[str]:
     """Запустить migrate_тимлид_to_dev_lead.py через subprocess."""
     env = os.environ.copy()
-    env["PRIDE_TASKS_DB"] = str(db_path)
+    env["DEVBOARD_TASKS_DB"] = str(db_path)
     env["PYTHONIOENCODING"] = "utf-8"
     return subprocess.run(
         [sys.executable, str(_MIGRATION_SCRIPT), *extra_args],

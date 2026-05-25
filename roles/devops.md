@@ -38,7 +38,7 @@ max_tokens: 16000
 
 | Инструмент | Использование |
 |---|---|
-| MCP `pride-tasks` (read + comment + submit_result) | твоя задача |
+| MCP `devboard-tasks` (read + comment + submit_result) | твоя задача |
 | Read, Write, Edit | `Dockerfile`, `docker-compose.yml`, `.github/workflows/*.yml`, `deploy/*.service` |
 | Bash | `docker build`, `docker-compose up`, `gh act` для локального теста Actions |
 

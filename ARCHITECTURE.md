@@ -27,7 +27,7 @@ There are **two** long-running processes plus one short-lived per session:
 
 ```text
 ┌──────────────────┐      ┌──────────────────┐      ┌──────────────────┐
-│ Flask dashboard  │      │  claude CLI      │      │ MCP pride-tasks  │
+│ Flask dashboard  │      │  claude CLI      │      │ MCP devboard-tasks  │
 │  app.py (5000)   │─────▶│  (per session)   │─────▶│  stdio server    │
 │  + SSE /stream   │ spawn│  Team Lead role  │ stdio│  14 tools        │
 └────────┬─────────┘      └────────┬─────────┘      └────────┬─────────┘
@@ -79,7 +79,7 @@ graph LR
         SubOpt[Architect / Frontend /<br/>DevOps / Tech Writer<br/>роли/*.md]
     end
 
-    subgraph MCP["MCP server pride-tasks (stdio)"]
+    subgraph MCP["MCP server devboard-tasks (stdio)"]
         Tools[14 tools<br/>list/get/create/update_task<br/>claim_task add_comment<br/>submit_result chat_* deps_*<br/>notify_user list_roles]
         Router[router.py<br/>haiku/sonnet/opus picker]
     end
@@ -277,7 +277,7 @@ sequenceDiagram
     participant R as router.py
     participant C as claude CLI
     participant L as Team Lead<br/>(claude session)
-    participant M as MCP pride-tasks
+    participant M as MCP devboard-tasks
     participant DB as SQLite
     participant SE as SSE /api/team/stream
 
@@ -335,7 +335,7 @@ Goal: a subagent wants to do something risky (`git push`, `ssh`, `systemctl rest
 ```mermaid
 sequenceDiagram
     participant S as Subagent (Backend)
-    participant M as MCP pride-tasks
+    participant M as MCP devboard-tasks
     participant DB as SQLite
     participant UI as Kanban UI
     actor U as user

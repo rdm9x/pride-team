@@ -5,7 +5,7 @@
     или через .mcp.json в корне devboard
 
 Переменные окружения:
-    PRIDE_TASKS_DB — путь к SQLite (по умолчанию devboard/data/tasks.db).
+    DEVBOARD_TASKS_DB — путь к SQLite (по умолчанию devboard/data/tasks.db).
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from mcp.server.fastmcp import FastMCP  # noqa: E402
 from devboard_tasks import alerts, db, tools  # noqa: E402
 
 logging.basicConfig(
-    level=os.environ.get("PRIDE_TASKS_LOG_LEVEL", "INFO"),
+    level=os.environ.get("DEVBOARD_TASKS_LOG_LEVEL", "INFO"),
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 log = logging.getLogger("devboard_tasks.server")

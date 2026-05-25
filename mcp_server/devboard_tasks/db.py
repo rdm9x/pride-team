@@ -65,9 +65,9 @@ _DEFAULT_DB_PATH = Path(__file__).resolve().parents[2] / "data" / "tasks.db"
 
 
 def default_db_path() -> Path:
-    """Путь к БД канбана. PRIDE_TASKS_DB переопределяет (для тестов)."""
+    """Путь к БД канбана. DEVBOARD_TASKS_DB переопределяет (для тестов)."""
 
-    env = os.environ.get("PRIDE_TASKS_DB")
+    env = os.environ.get("DEVBOARD_TASKS_DB")
     if env:
         return Path(env)
     return _DEFAULT_DB_PATH

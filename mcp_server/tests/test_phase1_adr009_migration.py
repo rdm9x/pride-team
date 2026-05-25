@@ -37,7 +37,7 @@ _LIVE_DB = _REPO_ROOT / "data" / "tasks.db"
 def _run_migration(db_path: Path, *extra_args: str) -> subprocess.CompletedProcess[str]:
     """Запустить migrate_phase1_adr009.py через subprocess, изолированно от живой БД."""
     env = os.environ.copy()
-    env["PRIDE_TASKS_DB"] = str(db_path)
+    env["DEVBOARD_TASKS_DB"] = str(db_path)
     env["PYTHONIOENCODING"] = "utf-8"
     return subprocess.run(
         [sys.executable, str(_MIGRATION_SCRIPT), *extra_args],

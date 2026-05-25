@@ -140,10 +140,10 @@ Each role lives as a system prompt in [`роли/`](роли/):
 
 | File | Role | Tools |
 |---|---|---|
-| `roles/dev/lead.md` | Dev Lead — plans, decomposes, reviews, escalates | MCP `pride-tasks` + Task (subagents) + Read / Bash / Edit |
-| `роли/бэкенд.md` | Backend — writes code, unit tests | Read / Write / Edit, Bash, MCP `pride-tasks` (read + comment + submit) |
-| `роли/qa.md` | QA — runs tests, finds regressions, writes new tests | Read, Bash, MCP `pride-tasks` |
-| `роли/архитектор.md` | Architect (optional) | Read, MCP `pride-tasks` |
+| `roles/dev/lead.md` | Dev Lead — plans, decomposes, reviews, escalates | MCP `devboard-tasks` + Task (subagents) + Read / Bash / Edit |
+| `роли/бэкенд.md` | Backend — writes code, unit tests | Read / Write / Edit, Bash, MCP `devboard-tasks` (read + comment + submit) |
+| `роли/qa.md` | QA — runs tests, finds regressions, writes new tests | Read, Bash, MCP `devboard-tasks` |
+| `роли/архитектор.md` | Architect (optional) | Read, MCP `devboard-tasks` |
 | `роли/frontend.md` | Frontend (optional) | Read / Write / Edit, Bash |
 | `роли/devops.md` | DevOps (optional) | Read, Bash, approval-gated shell |
 | `роли/техписатель.md` | Tech Writer (optional) | Read / Write / Edit on docs only |
@@ -168,7 +168,7 @@ For lower-level setup, set these in `.env` or your shell before launching.
 ## Architecture at a glance
 
 ```text
-You ── kanban form ──► Flask dashboard ── SQLite (tasks.db) ◄── MCP `pride-tasks`
+You ── kanban form ──► Flask dashboard ── SQLite (tasks.db) ◄── MCP `devboard-tasks`
                                               ▲
                                               │ live log (SSE)
                                               │
@@ -184,7 +184,7 @@ You ── kanban form ──► Flask dashboard ── SQLite (tasks.db) ◄─
 
 ## Roadmap
 
-- **E1** — MCP server `pride-tasks` (done)
+- **E1** — MCP server `devboard-tasks` (done)
 - **E2** — Flask dashboard + live log (done)
 - **E3** — Approval-gate workflow (done)
 - **E4** — Documentation pass (in progress — this README is **E4.1**)

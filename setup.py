@@ -126,7 +126,7 @@ def write_mcp_json() -> None:
                 "command": str(python_path),
                 "args": ["-m", "devboard_tasks"],
                 "env": {
-                    "PRIDE_TASKS_DB": str(ROOT / "data" / "tasks.db"),
+                    "DEVBOARD_TASKS_DB": str(ROOT / "data" / "tasks.db"),
                     "PYTHONPATH": str(ROOT / "mcp_server"),
                 },
             }

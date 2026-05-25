@@ -70,6 +70,7 @@
   },
   "nav": {
     "brand": "Devboard",
+    "chat": "Чат",
     "inbox": "На столе",
     "board": "Доска",
     "archive": "Архив",
@@ -520,6 +521,16 @@
     "load_error": "Не удалось загрузить детали планёрки.",
     "replies_count": "{n} реплик",
     "switch_session": "Планёрка {idx} из {total}",
+    "create": {
+      "title": "Собрать планёрку",
+      "departments_label": "Отделы",
+      "rounds_label": "Раундов",
+      "topic_label": "Тема",
+      "topic_placeholder": "Введи тему планёрки…",
+      "button": "Создать планёрку",
+      "button_disabled_hint": "Функционал в Phase 3b",
+      "select_departments": "Выбери отделы"
+    },
     "phase": {
       "gathering": "сбор",
       "discussion": "обсуждение",
@@ -527,6 +538,13 @@
       "distribution": "распределение",
       "done": "готово"
     }
+  },
+  "managing_director_tasks": {
+    "title": "Задачи Управляющего",
+    "empty": "Нет активных задач",
+    "add_button": "+ Добавить задачу",
+    "loading": "Загрузка…",
+    "error": "Не удалось загрузить задачи"
   },
   "modal": {
     "confirm": {

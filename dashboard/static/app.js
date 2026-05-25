@@ -112,19 +112,38 @@
     b.addEventListener("click", () => applyTheme(b.dataset.themeSet))
   );
 
-  // ===================== Chat collapse =====================
-  function applyChatCollapsed(collapsed) {
-    document.querySelector(".app").classList.toggle("chat-collapsed", collapsed);
-    document.getElementById("chat").classList.toggle("collapsed", collapsed);
-    localStorage.setItem("devboard-chat-collapsed", collapsed ? "1" : "0");
+  // F5: Chat panel moved to /chat route — handlers removed
+  // ===================== Chat collapse (DISABLED) =====================
+  // function applyChatCollapsed(collapsed) {
+  //   document.querySelector(".app").classList.toggle("chat-collapsed", collapsed);
+  //   document.getElementById("chat").classList.toggle("collapsed", collapsed);
+  //   localStorage.setItem("devboard-chat-collapsed", collapsed ? "1" : "0");
+  // }
+  // applyChatCollapsed(localStorage.getItem("devboard-chat-collapsed") === "1");
+  // document.getElementById("chat-collapse").addEventListener("click", () => applyChatCollapsed(true));
+  // document.getElementById("chat-expand-rail").addEventListener("click", () => {
+  //   applyChatCollapsed(false);
+  //   markChatRead();
+  //   scrollToBottom(false);
+  // });
+
+  // ===================== Chat button in sidebar (F5) =====================
+  const btnNavChat = document.getElementById("btn-nav-chat");
+  if (btnNavChat) {
+    btnNavChat.addEventListener("click", () => {
+      // Check if this is the first time clicking Chat button (onboarding)
+      const chatVisitedKey = "f5-chat-visited";
+      const chatVisited = localStorage.getItem(chatVisitedKey);
+
+      if (!chatVisited) {
+        localStorage.setItem(chatVisitedKey, "1");
+        // Show onboarding tooltip
+        showChatOnboardingTooltip();
+      }
+
+      window.location.href = "/chat";
+    });
   }
-  applyChatCollapsed(localStorage.getItem("devboard-chat-collapsed") === "1");
-  document.getElementById("chat-collapse").addEventListener("click", () => applyChatCollapsed(true));
-  document.getElementById("chat-expand-rail").addEventListener("click", () => {
-    applyChatCollapsed(false);
-    markChatRead();
-    scrollToBottom(false);
-  });
 
   // ===================== Views & navigation =====================
 
@@ -207,46 +226,47 @@
     return CHAT_CHANNEL_GLOBAL;
   }
 
-  function _updateChatHeaderLabel() {
-    const lbl = document.getElementById("chat-title-label");
-    const desc = document.getElementById("chat-description");
-    const input = document.getElementById("chat-input");
-    const ch = currentChatChannel();
-    if (ch === CHAT_CHANNEL_GLOBAL) {
-      // «Чат с Управляющим» — основной собеседник owner-а в общем чате.
-      if (lbl) {
-        const v = i18n("chat.title_managing_director");
-        lbl.textContent = (v && v !== "chat.title_managing_director")
-          ? v : "Чат с Управляющим";
-      }
-      if (input) {
-        const ph = i18n("chat.placeholder_managing_director");
-        input.placeholder = (ph && ph !== "chat.placeholder_managing_director")
-          ? ph : "Напиши Управляющему…";
-      }
-      if (desc) {
-        const d = i18n("chat.description_managing_director");
-        desc.textContent = (d && d !== "chat.description_managing_director")
-          ? d : "Управляющий — координирует все отделы";
-      }
-    } else {
-      // Чат отдела — собеседник lead. Используем существующий ключ chat.title.
-      if (lbl) {
-        const v = i18n("chat.title");
-        lbl.textContent = (v && v !== "chat.title") ? v : "Чат с тимлидом";
-      }
-      if (input) {
-        const ph = i18n("chat.placeholder_lead", { leadName: ch + "-lead" });
-        input.placeholder = (ph && ph !== "chat.placeholder_lead")
-          ? ph : ch + "-lead…";
-      }
-      if (desc) {
-        const d = i18n("chat.description_lead", { deptName: ch });
-        desc.textContent = (d && d !== "chat.description_lead")
-          ? d : ch + "-lead — координирует " + ch + "-отдел";
-      }
-    }
-  }
+  // F5: Chat panel moved to /chat route — function kept for reference but disabled
+  // function _updateChatHeaderLabel() {
+  //   const lbl = document.getElementById("chat-title-label");
+  //   const desc = document.getElementById("chat-description");
+  //   const input = document.getElementById("chat-input");
+  //   const ch = currentChatChannel();
+  //   if (ch === CHAT_CHANNEL_GLOBAL) {
+  //     // «Чат с Управляющим» — основной собеседник owner-а в общем чате.
+  //     if (lbl) {
+  //       const v = i18n("chat.title_managing_director");
+  //       lbl.textContent = (v && v !== "chat.title_managing_director")
+  //         ? v : "Чат с Управляющим";
+  //     }
+  //     if (input) {
+  //       const ph = i18n("chat.placeholder_managing_director");
+  //       input.placeholder = (ph && ph !== "chat.placeholder_managing_director")
+  //         ? ph : "Напиши Управляющему…";
+  //     }
+  //     if (desc) {
+  //       const d = i18n("chat.description_managing_director");
+  //       desc.textContent = (d && d !== "chat.description_managing_director")
+  //         ? d : "Управляющий — координирует все отделы";
+  //     }
+  //   } else {
+  //     // Чат отдела — собеседник lead. Используем существующий ключ chat.title.
+  //     if (lbl) {
+  //       const v = i18n("chat.title");
+  //       lbl.textContent = (v && v !== "chat.title") ? v : "Чат с тимлидом";
+  //     }
+  //     if (input) {
+  //       const ph = i18n("chat.placeholder_lead", { leadName: ch + "-lead" });
+  //       input.placeholder = (ph && ph !== "chat.placeholder_lead")
+  //         ? ph : ch + "-lead…";
+  //     }
+  //     if (desc) {
+  //       const d = i18n("chat.description_lead", { deptName: ch });
+  //       desc.textContent = (d && d !== "chat.description_lead")
+  //         ? d : ch + "-lead — координирует " + ch + "-отдел";
+  //     }
+  //   }
+  // }
 
   function _updateManagingDirectorActive() {
     const btn = document.getElementById("btn-managing-director");
@@ -264,9 +284,11 @@
     const prev = currentChatChannel();
     try { localStorage.setItem(CHAT_CHANNEL_KEY, channel); } catch (_) {}
     _updateManagingDirectorActive();
-    _updateChatHeaderLabel();
+    // F5: Chat panel moved to /chat route
+    // _updateChatHeaderLabel();
     if (prev !== channel) {
-      try { refreshChat(); } catch (_) {}
+      // F5: Chat panel moved to /chat route
+      // try { refreshChat(); } catch (_) {}
     }
   }
 
@@ -472,16 +494,18 @@
     btn.addEventListener("click", () => setCurrentChatChannel(CHAT_CHANNEL_GLOBAL));
     // Применить начальное состояние подсветки + заголовка чата.
     _updateManagingDirectorActive();
-    _updateChatHeaderLabel();
+    // F5: Chat panel moved to /chat route
+    // _updateChatHeaderLabel();
   })();
 
+  // F5: Chat panel moved to /chat route — handler disabled
   // При смене локали — обновить динамический label заголовка чата
   // (data-i18n="chat.title" обрабатывается i18n.js автоматически, но мы
   // переопределяем textContent через setCurrentChatChannel — поэтому при
   // localechange надо повторно подставить актуальный ключ).
-  window.addEventListener("localechange", () => {
-    try { _updateChatHeaderLabel(); } catch (_) {}
-  });
+  // window.addEventListener("localechange", () => {
+  //   try { _updateChatHeaderLabel(); } catch (_) {}
+  // });
 
   // ===================== Create-department modal (S10.4) =====================
   // Открывает модалку с 2 шагами: form → HR-chat-loop.
@@ -4015,31 +4039,32 @@
     };
   })();
 
-  $("#chat-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const input = $("#chat-input");
-    const text = input.value.trim();
-    if (!text) return;
-    input.value = "";
-    // S9.1 + ADR-009 §2.7.2: пишем в активный канал чата.
-    //   currentChatChannel() === "__global__" → общий чат (Управляющий).
-    //   иначе → чат конкретного отдела (lead).
-    const r = await fetch(
-      "/api/chat?department=" + encodeURIComponent(currentChatChannel()),
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ author: "пользователь", text }),
-      }
-    );
-    if (!r.ok) {
-      const err = await r.json().catch(() => ({}));
-      alert(i18n("chat.send_failed") + (err.причина || err.reason || r.status));
-      input.value = text;
-      return;
-    }
-    await refreshChat();
-  });
+  // F5: Chat panel moved to /chat route — handler disabled
+  // $("#chat-form").addEventListener("submit", async (e) => {
+  //   e.preventDefault();
+  //   const input = $("#chat-input");
+  //   const text = input.value.trim();
+  //   if (!text) return;
+  //   input.value = "";
+  //   // S9.1 + ADR-009 §2.7.2: пишем в активный канал чата.
+  //   //   currentChatChannel() === "__global__" → общий чат (Управляющий).
+  //   //   иначе → чат конкретного отдела (lead).
+  //   const r = await fetch(
+  //     "/api/chat?department=" + encodeURIComponent(currentChatChannel()),
+  //     {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({ author: "пользователь", text }),
+  //     }
+  //   );
+  //   if (!r.ok) {
+  //     const err = await r.json().catch(() => ({}));
+  //     alert(i18n("chat.send_failed") + (err.причина || err.reason || r.status));
+  //     input.value = text;
+  //     return;
+  //   }
+  //   await refreshChat();
+  // });
 
   // ===================== Roles =====================
 
@@ -5229,6 +5254,57 @@
     window.closeCompanyContextModal = closeCompanyContextModal;
     setTimeout(checkCompanyContextOnLoad, 100);
   })();
+
+  // ===================== F5: Chat onboarding tooltip =====================
+  function showChatOnboardingTooltip() {
+    const btnNavChat = document.getElementById("btn-nav-chat");
+    if (!btnNavChat) return;
+
+    // Create tooltip element
+    const tooltip = document.createElement("div");
+    tooltip.className = "chat-onboarding-tooltip";
+    tooltip.role = "tooltip";
+    tooltip.textContent = "Это новое место для общения с Управляющим. Правая панель переехала сюда.";
+
+    // Style the tooltip
+    const style = document.createElement("style");
+    style.textContent = `
+      .chat-onboarding-tooltip {
+        position: fixed;
+        background: var(--text);
+        color: var(--surface);
+        padding: 10px 14px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        z-index: 1000;
+        max-width: 240px;
+        line-height: 1.4;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        animation: chatTooltipFadeIn 0.22s ease;
+      }
+      @keyframes chatTooltipFadeIn {
+        from { opacity: 0; transform: translateY(-8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+    `;
+    document.head.appendChild(style);
+    document.body.appendChild(tooltip);
+
+    // Position tooltip below the button
+    const rect = btnNavChat.getBoundingClientRect();
+    tooltip.style.left = (rect.left + rect.width / 2 - 120) + "px";
+    tooltip.style.top = (rect.bottom + 10) + "px";
+
+    // Auto-hide after 4 seconds
+    setTimeout(() => {
+      tooltip.style.animation = "chatTooltipFadeIn 0.22s ease reverse";
+      setTimeout(() => {
+        tooltip.remove();
+        style.remove();
+      }, 220);
+    }, 4000);
+  }
 
   refresh();
   setInterval(refresh, REFRESH_MS);

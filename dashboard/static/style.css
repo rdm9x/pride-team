@@ -1416,7 +1416,8 @@ code, .md-inline {
 
 /* ============================================================ Chat */
 
-.chat {
+/* F5: Chat panel moved to /chat route — removed from kanban.html */
+/* .chat {
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
@@ -1425,8 +1426,9 @@ code, .md-inline {
   flex-direction: column;
   min-height: 0;
   box-shadow: var(--glass-inset);
-}
-.chat header {
+} */
+/* F5: Chat panel moved to /chat route */
+/* .chat header {
   padding: 12px 16px;
   border-bottom: 1px solid var(--divider);
   flex-shrink: 0;
@@ -1437,8 +1439,9 @@ code, .md-inline {
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
-.chat-description {
+} */
+/* F5: Chat panel moved to /chat route */
+/* .chat-description {
   font-size: 11px;
   font-weight: 400;
   color: var(--text-3);
@@ -1458,10 +1461,11 @@ code, .md-inline {
   cursor: pointer;
   box-shadow: none;
 }
-.chat-collapse-btn:hover { background: var(--divider); color: var(--text); }
+.chat-collapse-btn:hover { background: var(--divider); color: var(--text); } */
 
+/* F5: Chat panel moved to /chat route */
 /* Свёрнутый чат — узкая кликабельная полоска */
-.chat-expand-rail {
+/* .chat-expand-rail {
   display: none;
   width: 100%;
   height: 100%;
@@ -1514,15 +1518,16 @@ code, .md-inline {
 }
 
 /* Когда чат свёрнут: показываем только rail, всё остальное прячем */
-.chat.collapsed > header,
+/* .chat.collapsed > header,
 .chat.collapsed > .chat-body,
 .chat.collapsed > .chat-form { display: none; }
 .chat.collapsed > .chat-expand-rail { display: flex; }
 .chat.collapsed {
   /* Меньше padding, компактнее */
-  padding: 0;
-}
-.chat-body {
+  /* padding: 0;
+} */
+/* F5: Chat panel moved to /chat route */
+/* .chat-body {
   flex: 1 1 0;
   min-height: 0;
   overflow-y: auto;
@@ -1555,7 +1560,7 @@ code, .md-inline {
 }
 .chat-scroll-btn:hover { opacity: 0.85; }
 /* badge via data-badge */
-.chat-scroll-btn[data-badge]::after {
+/* .chat-scroll-btn[data-badge]::after {
   content: attr(data-badge);
   position: absolute;
   top: -4px;
@@ -1567,7 +1572,7 @@ code, .md-inline {
   border-radius: 8px;
   min-width: 16px;
   text-align: center;
-}
+} */
 
 .chat-message {
   background: var(--surface);
@@ -1652,7 +1657,8 @@ code, .md-inline {
 }
 .task-ref:hover { background: var(--accent-soft); border-color: var(--accent); }
 
-.chat-form {
+/* F5: Chat panel moved to /chat route */
+/* .chat-form {
   flex-shrink: 0;
   display: flex;
   gap: 8px;
@@ -1685,7 +1691,7 @@ code, .md-inline {
   padding: 8px 14px;
   font-weight: 600;
 }
-.chat-form button:hover { background: var(--accent-hover); }
+.chat-form button:hover { background: var(--accent-hover); } */
 
 /* ============================================================ Modals */
 
@@ -4040,10 +4046,11 @@ input[type="checkbox"] {
 }
 
 /* ===================== Planning banner + panel (ADR-009 §2.7.3) =====================
+   F5: Chat panel moved to /chat route — styles commented out
    Индикатор активной планёрки в шапке чата: кликабельный баннер раскрывает
    панель с discussion_log. Полностью построен на CSS-variables — корректно
    работает в обеих темах. */
-.planning-banner {
+/* .planning-banner {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -4235,8 +4242,8 @@ input[type="checkbox"] {
 }
 
 /* Свёрнутый чат — баннер/панель прячем заодно с body/form */
-.chat.collapsed > .planning-banner,
-.chat.collapsed > .planning-panel { display: none; }
+/* .chat.collapsed > .planning-banner,
+.chat.collapsed > .planning-panel { display: none; } */
 
 /* ===== ADR-009 §2.7.1 — Модалка «+ Department» (F1) ===== */
 .modal-content.modal-add-department {

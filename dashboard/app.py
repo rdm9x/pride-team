@@ -1001,6 +1001,10 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
     def index() -> str:
         return render_template("kanban.html")
 
+    @app.get("/chat")
+    def chat() -> str:
+        return render_template("chat.html")
+
     @app.get("/docs/<path:filename>")
     def serve_docs(filename: str) -> Any:
         """Serve markdown documentation files from /docs directory."""
@@ -2976,6 +2980,97 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         except ValueError as exc:
             return jsonify({"статус": "error", "status": "error", "причина": str(exc), "reason": str(exc)}), 400
         return jsonify({"статус": "ok", "сообщение": msg}), 201
+
+    # === Chat Threads (Phase 3a B2) — REST endpoints для планёрок ===
+
+    @app.get("/api/threads")
+    def api_list_threads() -> Any:
+        """GET /api/threads?status=active|archived — список threads, отсортировано по updated_at DESC."""
+        status = request.args.get("status")
+        threads = db.list_chat_threads(_db(), status=status)
+        return jsonify({"threads": threads})
+
+    @app.post("/api/threads")
+    def api_create_thread() -> Any:
+        """POST /api/threads {title, kind, participants} — создать новый thread."""
+        data = request.get_json(silent=True) or {}
+        title = data.get("title", "").strip()
+        kind = data.get("kind", "direct")
+        participants = data.get("participants")
+
+        if not title:
+            return jsonify({"статус": "error", "status": "error", "причина": "title обязателен"}), 400
+
+        try:
+            thread = db.create_chat_thread(_db(), title, kind=kind, participants=participants)
+            return jsonify({"статус": "ok", "thread": thread}), 201
+        except Exception as exc:  # noqa: BLE001
+            return jsonify({"статус": "error", "status": "error", "причина": str(exc)}), 400
+
+    @app.get("/api/threads/<thread_id>")
+    def api_get_thread(thread_id: str) -> Any:
+        """GET /api/threads/<id> — детали thread'а."""
+        thread = db.get_chat_thread(_db(), thread_id)
+        if thread is None:
+            return jsonify({"статус": "not_found", "status": "not_found"}), 404
+        return jsonify({"thread": thread})
+
+    @app.get("/api/threads/<thread_id>/messages")
+    def api_get_thread_messages(thread_id: str) -> Any:
+        """GET /api/threads/<id>/messages?viewer=owner|managing-director
+        — сообщения thread'а с фильтром viewer.
+
+        Если viewer=owner: исключает сообщения от тимлид-ролей.
+        """
+        viewer = request.args.get("viewer")
+        messages = db.get_thread_messages(_db(), thread_id, viewer=viewer)
+        return jsonify({"messages": messages})
+
+    @app.post("/api/threads/<thread_id>/messages")
+    def api_add_message_to_thread(thread_id: str) -> Any:
+        """POST /api/threads/<id>/messages {author, text} — добавить сообщение."""
+        data = request.get_json(silent=True) or {}
+        author = data.get("author", "").strip()
+        text = data.get("text", "").strip()
+
+        if not author:
+            return jsonify({"статус": "error", "status": "error", "причина": "author обязателен"}), 400
+        if not text:
+            return jsonify({"статус": "error", "status": "error", "причина": "text обязателен"}), 400
+
+        try:
+            msg = db.add_chat_message_to_thread(_db(), thread_id, author, text)
+            return jsonify({"статус": "ok", "message": msg}), 201
+        except ValueError as exc:
+            return jsonify({"статус": "error", "status": "error", "причина": str(exc)}), 400
+        except Exception as exc:  # noqa: BLE001
+            return jsonify({"статус": "error", "status": "error", "причина": str(exc)}), 400
+
+    @app.patch("/api/threads/<thread_id>")
+    def api_update_thread_status(thread_id: str) -> Any:
+        """PATCH /api/threads/<id> {status: 'archived'|'aborted'} — изменить статус."""
+        data = request.get_json(silent=True) or {}
+        new_status = data.get("status")
+
+        if not new_status:
+            return jsonify({"статус": "error", "status": "error", "причина": "status обязателен"}), 400
+
+        try:
+            updated = db.update_chat_thread_status(_db(), thread_id, new_status)
+            if updated is None:
+                return jsonify({"статус": "not_found", "status": "not_found"}), 404
+            return jsonify({"статус": "ok", "thread": updated})
+        except ValueError as exc:
+            return jsonify({"статус": "error", "status": "error", "причина": str(exc)}), 400
+        except Exception as exc:  # noqa: BLE001
+            return jsonify({"статус": "error", "status": "error", "причина": str(exc)}), 400
+
+    @app.post("/api/threads/<thread_id>/stop")
+    def api_stop_thread(thread_id: str) -> Any:
+        """POST /api/threads/<id>/stop — остановить планёрку (Phase 3b later).
+        Заглушка для будущих этапов.
+        """
+        return jsonify({"статус": "not_implemented", "status": "not_implemented", "причина": "Phase 3b"}), 501
 
     # === Planning sessions (ADR-009 §2.4 / §2.7.3) ===
     # Read-only HTTP-проекция planning_sessions для UI-индикатора в общем чате.

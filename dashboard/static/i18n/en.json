@@ -70,6 +70,7 @@
   },
   "nav": {
     "brand": "Devboard",
+    "chat": "Chat",
     "inbox": "Inbox",
     "board": "Board",
     "archive": "Archive",
@@ -520,6 +521,16 @@
     "load_error": "Failed to load planning details.",
     "replies_count": "{n} replies",
     "switch_session": "Planning {idx} of {total}",
+    "create": {
+      "title": "Create Planning Session",
+      "departments_label": "Departments",
+      "rounds_label": "Rounds",
+      "topic_label": "Topic",
+      "topic_placeholder": "Enter planning topic…",
+      "button": "Create Planning Session",
+      "button_disabled_hint": "Functionality in Phase 3b",
+      "select_departments": "Select departments"
+    },
     "phase": {
       "gathering": "gathering",
       "discussion": "discussion",
@@ -527,6 +538,13 @@
       "distribution": "distribution",
       "done": "done"
     }
+  },
+  "managing_director_tasks": {
+    "title": "Managing Director Tasks",
+    "empty": "No active tasks",
+    "add_button": "+ Add Task",
+    "loading": "Loading…",
+    "error": "Failed to load tasks"
   },
   "modal": {
     "confirm": {

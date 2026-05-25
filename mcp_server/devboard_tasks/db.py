@@ -975,11 +975,330 @@ def list_chat_messages(
                 "text": r["text"],
                 "created_at": r["created_at"],
                 "department_id": r["department_id"],
+                "thread_id": r.get("thread_id"),
             }
             for r in cur.fetchall()
         ]
     finally:
         conn.close()
+
+
+# === Chat Threads (Phase 3a B2) ===
+
+
+def create_chat_thread(
+    db_path: Path,
+    title: str,
+    kind: str = "direct",
+    participants: Optional[list[str]] = None,
+) -> dict[str, Any]:
+    """Создать новый thread для планёрки.
+
+    Args:
+        title: название потока (строка).
+        kind: тип ('direct' по умолчанию).
+        participants: список участников (опционально, по умолчанию пустой array).
+
+    Returns:
+        dict с полями: id, title, kind, participants, status, created_at.
+    """
+    thread_id = str(uuid.uuid4())
+    now = int(time.time())
+    if participants is None:
+        participants = []
+
+    with write_lock(db_path):
+        conn = _connect(db_path)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute(
+                """
+                INSERT INTO chat_threads (id, title, kind, participants, status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (thread_id, title, kind, json.dumps(participants), "active", now),
+            )
+            conn.commit()
+
+            row = conn.execute(
+                "SELECT * FROM chat_threads WHERE id = ?",
+                (thread_id,),
+            ).fetchone()
+            return {
+                "id": row["id"],
+                "title": row["title"],
+                "kind": row["kind"],
+                "participants": json.loads(row["participants"]),
+                "status": row["status"],
+                "created_at": row["created_at"],
+            }
+        finally:
+            conn.close()
+
+
+def list_chat_threads(
+    db_path: Path,
+    status: Optional[str] = None,
+) -> list[dict[str, Any]]:
+    """Получить список threads.
+
+    Args:
+        status: фильтр по статусу ('active' или 'archived'). None → все.
+
+    Returns:
+        list[dict] с полями: id, title, kind, participants, status, created_at, finished_at,
+                  отсортировано по updated_at DESC.
+    """
+    conn = _connect(db_path)
+    try:
+        if status is None:
+            cur = conn.execute(
+                """
+                SELECT * FROM chat_threads
+                ORDER BY updated_at DESC
+                """
+            )
+        else:
+            cur = conn.execute(
+                """
+                SELECT * FROM chat_threads
+                WHERE status = ?
+                ORDER BY updated_at DESC
+                """,
+                (status,),
+            )
+
+        result = []
+        for row in cur.fetchall():
+            participants_str = row["participants"]
+            finished_at = row["finished_at"]
+            result.append({
+                "id": row["id"],
+                "title": row["title"],
+                "kind": row["kind"],
+                "participants": json.loads(participants_str or "[]"),
+                "status": row["status"],
+                "created_at": row["created_at"],
+                "finished_at": finished_at,
+            })
+        return result
+    finally:
+        conn.close()
+
+
+def get_chat_thread(db_path: Path, thread_id: str) -> Optional[dict[str, Any]]:
+    """Получить thread по ID."""
+    conn = _connect(db_path)
+    try:
+        row = conn.execute(
+            "SELECT * FROM chat_threads WHERE id = ?",
+            (thread_id,),
+        ).fetchone()
+        if row is None:
+            return None
+
+        participants_str = row["participants"]
+        finished_at = row["finished_at"]
+        return {
+            "id": row["id"],
+            "title": row["title"],
+            "kind": row["kind"],
+            "participants": json.loads(participants_str or "[]"),
+            "status": row["status"],
+            "created_at": row["created_at"],
+            "finished_at": finished_at,
+        }
+    finally:
+        conn.close()
+
+
+def add_chat_message_to_thread(
+    db_path: Path,
+    thread_id: str,
+    author: str,
+    text: str,
+) -> dict[str, Any]:
+    """Добавить сообщение в thread.
+
+    Args:
+        thread_id: ID потока (должен существовать).
+        author: автор (роль).
+        text: текст сообщения.
+
+    Returns:
+        dict с полями: id, author, text, created_at, thread_id.
+
+    Raises:
+        ValueError: если thread не существует или author неизвестен.
+    """
+    # Базовый набор ролей + любая роль из БД
+    _base_allowed = {
+        "пользователь", "тимлид", "бэкенд", "qa",
+        "архитектор", "frontend", "devops", "техписатель",
+        "system", "managing-director",
+    }
+
+    # Загружаем все роли из БД
+    _db_roles = set()
+    try:
+        conn_roles = _connect(db_path)
+        try:
+            rows = conn_roles.execute("SELECT name FROM roles").fetchall()
+            _db_roles = {row["name"] for row in rows}
+        finally:
+            conn_roles.close()
+    except Exception:  # noqa: BLE001
+        pass  # Если ошибка — используем только базовый набор
+
+    _allowed = _base_allowed | _db_roles
+    if author not in _allowed:
+        raise ValueError(f"неизвестный author: {author}")
+    if not text or not text.strip():
+        raise ValueError("text пустой")
+
+    # Проверяем что thread существует.
+    thread = get_chat_thread(db_path, thread_id)
+    if thread is None:
+        raise ValueError(f"thread {thread_id!r} не найден")
+
+    now = int(time.time())
+    with write_lock(db_path):
+        conn = _connect(db_path)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            cur = conn.execute(
+                "INSERT INTO chat_messages (author, text, created_at, thread_id) VALUES (?, ?, ?, ?)",
+                (author, text.strip(), now, thread_id),
+            )
+            msg_id = cur.lastrowid
+            conn.commit()
+
+            row = conn.execute(
+                "SELECT * FROM chat_messages WHERE id = ?",
+                (msg_id,),
+            ).fetchone()
+            return {
+                "id": row["id"],
+                "author": row["author"],
+                "text": row["text"],
+                "created_at": row["created_at"],
+                "thread_id": row["thread_id"],
+            }
+        finally:
+            conn.close()
+
+
+def get_thread_messages(
+    db_path: Path,
+    thread_id: str,
+    viewer: Optional[str] = None,
+) -> list[dict[str, Any]]:
+    """Получить сообщения thread'а.
+
+    Args:
+        thread_id: ID потока.
+        viewer: 'owner' или 'managing-director' или None.
+                Если 'owner': исключает сообщения от тимлид-ролей
+                (тимлид, лид-ов специалистов и других лидов).
+
+    Returns:
+        list[dict] с полями: id, author, text, created_at, thread_id.
+    """
+    # Определяем лид-роли: роли заканчивающиеся на '-lead'
+    lead_roles = set()
+    if viewer == "owner":
+        conn_roles = _connect(db_path)
+        try:
+            rows = conn_roles.execute("SELECT name FROM roles WHERE name LIKE '%lead'").fetchall()
+            lead_roles = {row["name"] for row in rows}
+            # Добавляем 'тимлид' как лид-роль
+            lead_roles.add("тимлид")
+        finally:
+            conn_roles.close()
+
+    conn = _connect(db_path)
+    try:
+        if viewer == "owner":
+            # Исключаем лид-роли
+            cur = conn.execute(
+                """
+                SELECT * FROM chat_messages
+                WHERE thread_id = ? AND author NOT IN ({})
+                ORDER BY created_at ASC
+                """.format(",".join("?" * len(lead_roles))),
+                [thread_id] + list(lead_roles),
+            )
+        else:
+            cur = conn.execute(
+                "SELECT * FROM chat_messages WHERE thread_id = ? ORDER BY created_at ASC",
+                (thread_id,),
+            )
+
+        return [
+            {
+                "id": r["id"],
+                "author": r["author"],
+                "text": r["text"],
+                "created_at": r["created_at"],
+                "thread_id": r["thread_id"],
+            }
+            for r in cur.fetchall()
+        ]
+    finally:
+        conn.close()
+
+
+def update_chat_thread_status(
+    db_path: Path,
+    thread_id: str,
+    status: str,
+) -> Optional[dict[str, Any]]:
+    """Обновить статус thread'а.
+
+    Args:
+        thread_id: ID потока.
+        status: 'active', 'archived', или 'aborted'.
+
+    Returns:
+        dict с обновленными данными thread'а или None если не найден.
+    """
+    allowed_statuses = {"active", "archived", "aborted"}
+    if status not in allowed_statuses:
+        raise ValueError(f"неизвестный статус: {status}")
+
+    now = int(time.time())
+    finished_at = now if status in ("archived", "aborted") else None
+
+    with write_lock(db_path):
+        conn = _connect(db_path)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute(
+                "UPDATE chat_threads SET status = ?, finished_at = ? WHERE id = ?",
+                (status, finished_at, thread_id),
+            )
+            conn.commit()
+
+            row = conn.execute(
+                "SELECT * FROM chat_threads WHERE id = ?",
+                (thread_id,),
+            ).fetchone()
+            if row is None:
+                return None
+
+            participants_str = row["participants"]
+            finished_at = row["finished_at"]
+            return {
+                "id": row["id"],
+                "title": row["title"],
+                "kind": row["kind"],
+                "participants": json.loads(participants_str or "[]"),
+                "status": row["status"],
+                "created_at": row["created_at"],
+                "finished_at": finished_at,
+            }
+        finally:
+            conn.close()
 
 
 # === Departments helpers ===

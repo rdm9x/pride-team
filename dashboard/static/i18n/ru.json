@@ -71,6 +71,7 @@
   },
   "nav": {
     "brand": "Devboard",
+    "dashboard": "Owner Dashboard",
     "chat": "Чат",
     "inbox": "На столе",
     "board": "Доска",
@@ -81,6 +82,19 @@
     "stats": "Статистика",
     "learn": "Обучение",
     "learn_title": "Обучение — Tutorial"
+  },
+  "dashboard": {
+    "title": "Owner Dashboard",
+    "total": {
+      "hint": "Проекты с прогрессом и действиями"
+    },
+    "empty": "Проекты не найдены"
+  },
+  "error": {
+    "load_projects": "Ошибка при загрузке проектов"
+  },
+  "common": {
+    "loading": "Загрузка…"
   },
   "learn": {
     "toc": {

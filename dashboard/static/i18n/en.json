@@ -71,6 +71,7 @@
   },
   "nav": {
     "brand": "Devboard",
+    "dashboard": "Owner Dashboard",
     "chat": "Chat",
     "inbox": "Inbox",
     "board": "Board",
@@ -81,6 +82,19 @@
     "stats": "Statistics",
     "learn": "Learn",
     "learn_title": "Learn — Tutorial"
+  },
+  "dashboard": {
+    "title": "Owner Dashboard",
+    "total": {
+      "hint": "Projects with progress and actions"
+    },
+    "empty": "No projects found"
+  },
+  "error": {
+    "load_projects": "Error loading projects"
+  },
+  "common": {
+    "loading": "Loading…"
   },
   "learn": {
     "toc": {

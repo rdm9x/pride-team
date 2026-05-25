@@ -12,7 +12,7 @@ $env:PYTHONUTF8           = "1"
 try { chcp 65001 > $null } catch {}
 
 $REPO_ROOT = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$ROLE_FILE = Join-Path $REPO_ROOT "roles\тимлид.md"
+$ROLE_FILE = Join-Path $REPO_ROOT "roles\dev\lead.md"
 
 if (-not (Test-Path $ROLE_FILE)) {
     Write-Error "Не найден файл роли: $ROLE_FILE"

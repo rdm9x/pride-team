@@ -5,7 +5,7 @@
 # «Запустить команду». stdout стримится в SSE /api/team/stream.
 #
 # Используется `claude --print` (non-interactive) с:
-#  - системным промтом тимлида (roles/тимлид.md);
+#  - системным промтом тимлида (roles/dev/lead.md);
 #  - MCP pride-tasks через .mcp.json в корне devboard;
 #  - permission-mode=bypassPermissions (нужно для авто-выполнения tool-ов
 #    в headless-режиме без человека-оператора). Approval-gate'ы реализованы
@@ -23,12 +23,12 @@ export ANTHROPIC_PROMPT_CACHING_ENABLED=1
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-if [[ ! -f "$REPO_ROOT/roles/тимлид.md" ]]; then
-    echo "Не найден roles/тимлид.md в $REPO_ROOT" >&2
+if [[ ! -f "$REPO_ROOT/roles/dev/lead.md" ]]; then
+    echo "Не найден roles/dev/lead.md в $REPO_ROOT" >&2
     exit 1
 fi
 
-TEAMLEAD_PROMPT="$(cat "$REPO_ROOT/roles/тимлид.md")"
+TEAMLEAD_PROMPT="$(cat "$REPO_ROOT/roles/dev/lead.md")"
 
 TASK_PROMPT='Старт сессии тимлида.
 

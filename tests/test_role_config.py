@@ -23,7 +23,7 @@ ROLES_DIR = REPO_ROOT / "roles"
 
 # Исчерпывающий список 7 файлов ролей с ожидаемыми slug-именами.
 ROLE_FILES = [
-    ("тимлид.md", "teamlead"),
+    ("dev/lead.md", "dev-lead"),
     ("бэкенд.md", "backend"),
     ("qa.md", "qa"),
     ("архитектор.md", "architect"),

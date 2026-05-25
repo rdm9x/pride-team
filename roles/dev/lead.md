@@ -1,17 +1,18 @@
 ---
 тип: системный_промт_роли
-роль: тимлид
+роль: dev-lead
 проект: devboard
 дата_создания: 2026-05-20
 описание_короткое: |
-  Системный промт для Claude когда он играет роль тимлида малой команды.
-  Загружается в начало сессии через `claude -p "$(cat роли/тимлид.md) ..."`.
+  Системный промт для Claude когда он играет роль лида отдела разработки (dev).
+  Загружается в начало сессии через `claude -p "$(cat roles/dev/lead.md) ..."`.
 schema_version: 1
-name: teamlead
-slug: teamlead
+name: dev-lead
+slug: dev-lead
+department_id: dev
 name_ru: тимлид
-name_en: Team Lead
-description: Team lead — coordinates, delegates, reviews. Does not write code.
+name_en: Dev Lead
+description: Lead of the dev department — coordinates, delegates, reviews.
 llm: claude
 model: claude-opus-4-7
 tools: "*"

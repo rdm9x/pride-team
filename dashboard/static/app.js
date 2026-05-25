@@ -15,12 +15,18 @@
     "devops":      { slug: "devops",     en: "DevOps",      ru: "devops" },
     "техписатель": { slug: "techwriter", en: "Tech Writer", ru: "техписатель" },
     "пользователь":{ slug: "user",       en: "User",        ru: "пользователь" },
+    "Управляющий": { slug: "managing-director", en: "Managing Director", ru: "Управляющий" },
     // Slug aliases (for chat authors and any slug-based references)
-    "teamlead":  { slug: "teamlead",   en: "Team Lead",   ru: "тимлид" },
-    "backend":   { slug: "backend",    en: "Backend",     ru: "бэкенд" },
-    "architect": { slug: "architect",  en: "Architect",   ru: "архитектор" },
-    "techwriter":{ slug: "techwriter", en: "Tech Writer", ru: "техписатель" },
-    "user":      { slug: "user",       en: "User",        ru: "пользователь" },
+    "teamlead":   { slug: "teamlead",   en: "Team Lead",   ru: "тимлид" },
+    "backend":    { slug: "backend",    en: "Backend",     ru: "бэкенд" },
+    "architect":  { slug: "architect",  en: "Architect",   ru: "архитектор" },
+    "techwriter": { slug: "techwriter", en: "Tech Writer", ru: "техписатель" },
+    "user":       { slug: "user",       en: "User",        ru: "пользователь" },
+    // ADR-009: новые slug'и для иерархии (Управляющий + lead отдела).
+    // dev-lead — переименованный 'teamlead' (см. roles/dev/lead.md); старый
+    // 'тимлид'/'teamlead' оставлены выше для backward-compat сообщений в БД.
+    "managing-director": { slug: "managing-director", en: "Managing Director", ru: "Управляющий" },
+    "dev-lead":          { slug: "dev-lead",          en: "Dev Lead",          ru: "Лид разработки" },
   };
 
   function displayRole(name) {
@@ -158,6 +164,8 @@
       b.classList.toggle("active", active);
       b.setAttribute("aria-pressed", active ? "true" : "false");
     });
+    // Переключение отдела через sidebar — фокус чата уходит на dept-чат.
+    setCurrentChatChannel(id);
     if (prev !== id) {
       // S9.2: Полный refresh всех views (board/inbox/chat/...)
       try { refresh(); } catch (_) {}
@@ -168,6 +176,61 @@
         if (currentView === "roles") loadRoles();
         // stats — глобальные (см. S9.2), не зависят от отдела.
       } catch (_) {}
+    }
+  }
+
+  // ===================== Chat channel (ADR-009 §2.7.2) =====================
+  // Активный канал чата независим от выбранного отдела для board/inbox.
+  // Значения:
+  //   "__global__"  → общий чат (department_id IS NULL); собеседник = Управляющий.
+  //   "<dept_id>"   → чат отдела; собеседник = lead отдела (dev-lead и т.п.).
+  // Backward-compat: первый запуск — fallback на текущий отдел.
+  const CHAT_CHANNEL_KEY = "devboard-current-chat-channel";
+  const CHAT_CHANNEL_GLOBAL = "__global__";
+
+  function currentChatChannel() {
+    try {
+      const v = localStorage.getItem(CHAT_CHANNEL_KEY);
+      if (v) return v;
+    } catch (_) {}
+    return currentDepartment();
+  }
+
+  function _updateChatHeaderLabel() {
+    const lbl = document.getElementById("chat-title-label");
+    if (!lbl) return;
+    const ch = currentChatChannel();
+    if (ch === CHAT_CHANNEL_GLOBAL) {
+      // «Чат с Управляющим» — основной собеседник owner-а в общем чате.
+      const v = i18n("chat.title_managing_director");
+      lbl.textContent = (v && v !== "chat.title_managing_director")
+        ? v : "Чат с Управляющим";
+    } else {
+      // Чат отдела — собеседник lead. Используем существующий ключ chat.title.
+      const v = i18n("chat.title");
+      lbl.textContent = (v && v !== "chat.title") ? v : "Чат с тимлидом";
+    }
+  }
+
+  function _updateManagingDirectorActive() {
+    const btn = document.getElementById("btn-managing-director");
+    if (!btn) return;
+    const active = currentChatChannel() === CHAT_CHANNEL_GLOBAL;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-pressed", active ? "true" : "false");
+    // Если активен общий чат — убираем подсветку с dept-item'ов (только в плане чата),
+    // но active-класс самого отдела (board/inbox) остаётся согласованным со state'ом.
+    // Стили дептов и MD-row — независимы; ничего больше не трогаем.
+  }
+
+  function setCurrentChatChannel(channel) {
+    if (!channel) return;
+    const prev = currentChatChannel();
+    try { localStorage.setItem(CHAT_CHANNEL_KEY, channel); } catch (_) {}
+    _updateManagingDirectorActive();
+    _updateChatHeaderLabel();
+    if (prev !== channel) {
+      try { refreshChat(); } catch (_) {}
     }
   }
 
@@ -259,6 +322,27 @@
       console.error("loadDepartments failed", e);
     }
   }
+
+  // ===================== Managing Director button (ADR-009 §2.7.2) =====================
+  // Глобальная строчка «🏛 Управляющий» над списком отделов.
+  // Клик → переключает только чат-канал на общий (department_id IS NULL).
+  // Board / Inbox / counters остаются в контексте ранее выбранного отдела.
+  (function initManagingDirectorButton() {
+    const btn = document.getElementById("btn-managing-director");
+    if (!btn) return;
+    btn.addEventListener("click", () => setCurrentChatChannel(CHAT_CHANNEL_GLOBAL));
+    // Применить начальное состояние подсветки + заголовка чата.
+    _updateManagingDirectorActive();
+    _updateChatHeaderLabel();
+  })();
+
+  // При смене локали — обновить динамический label заголовка чата
+  // (data-i18n="chat.title" обрабатывается i18n.js автоматически, но мы
+  // переопределяем textContent через setCurrentChatChannel — поэтому при
+  // localechange надо повторно подставить актуальный ключ).
+  window.addEventListener("localechange", () => {
+    try { _updateChatHeaderLabel(); } catch (_) {}
+  });
 
   // ===================== Create-department modal (S10.4) =====================
   // Открывает модалку с 2 шагами: form → HR-chat-loop.
@@ -2803,9 +2887,12 @@
   if (chatScrollBtn) chatScrollBtn.addEventListener('click', () => scrollToBottom(true));
 
   async function refreshChat() {
-    // S9.1: per-department chat (backend поддерживает ?department=<id>).
+    // S9.1 + ADR-009 §2.7.2:
+    //   - currentChatChannel() === "__global__" → общий чат (department_id IS NULL),
+    //     собеседник Управляющий. Backend принимает ?department=__global__.
+    //   - иначе → чат конкретного отдела, собеседник dev-lead/<dept>-lead.
     const r = await fetch(
-      "/api/chat?limit=200&department=" + encodeURIComponent(currentDepartment())
+      "/api/chat?limit=200&department=" + encodeURIComponent(currentChatChannel())
     );
     if (!r.ok) return;
     const data = await r.json();
@@ -2918,6 +3005,10 @@
     "architect": "🏗",
     "techwriter":"📝",
     "user":      "👤",
+    // ADR-009: Управляющий + dev-lead (см. ROLE_DISPLAY выше)
+    "Управляющий":       "🏛",
+    "managing-director": "🏛",
+    "dev-lead":          "🧭",
   };
 
   function renderChat(messages) {
@@ -3037,15 +3128,330 @@
     return out.join("");
   }
 
+  // ===================== Planning sessions indicator (ADR-009 §2.7.3) =====================
+  // Поведение:
+  //   - GET /api/planning/active раз в REFRESH_MS — пока есть активные → баннер виден.
+  //   - Клик на баннер → раскрывается панель с discussion_log.
+  //   - Пока панель открыта — отдельно polling /api/planning/<id> раз в 5 сек.
+  //   - phase='done' (или сессия исчезла из active) → панель/баннер прячутся.
+  //   - Баннер виден только в общем чате (где разговаривает Управляющий) — там же,
+  //     где может появиться приглашение на планёрку. В чатах отделов не показываем.
+  const PLANNING_DETAIL_POLL_MS = 5000;
+  const planningState = {
+    active: [],                 // последний снапшот /api/planning/active
+    selectedId: null,           // какая сессия раскрыта в панели
+    panelOpen: false,
+    detailTimer: null,          // setInterval handle для detail-polling
+  };
+
+  function _planningPhaseNum(phase) {
+    return ({ gathering: 1, discussion: 2, consolidation: 3, distribution: 4, done: 5 }[phase] || 0);
+  }
+  function _planningPhaseName(phase) {
+    const key = "planning.phase." + (phase || "gathering");
+    const v = i18n(key);
+    return (v && v !== key) ? v : (phase || "");
+  }
+  function _planningDeptName(deptId) {
+    if (!deptId) return "";
+    if (Array.isArray(_departmentsCache)) {
+      const d = _departmentsCache.find((x) => x.id === deptId);
+      if (d) return deptDisplayName(d);
+    }
+    // fallback на i18n ключ dept.<id> или сам id
+    const key = "dept." + deptId;
+    const t = (typeof window.t === "function") ? window.t(key) : key;
+    return (t && t !== key) ? t : deptId;
+  }
+  function _planningDeptsText(deptIds) {
+    if (!Array.isArray(deptIds) || deptIds.length === 0) return "—";
+    return deptIds.map(_planningDeptName).join(", ");
+  }
+
+  function _renderPlanningBanner() {
+    const banner = document.getElementById("planning-banner");
+    const txt = document.getElementById("planning-banner-text");
+    if (!banner || !txt) return;
+
+    // Баннер показываем только в общем чате (собеседник = Управляющий).
+    const inGlobalChat = (currentChatChannel() === CHAT_CHANNEL_GLOBAL);
+    const active = planningState.active;
+
+    if (!inGlobalChat || active.length === 0) {
+      banner.hidden = true;
+      // Если панель была открыта — закрываем (источник пропал).
+      if (planningState.panelOpen) _closePlanningPanel();
+      return;
+    }
+
+    banner.hidden = false;
+    // Если выбранная сессия исчезла из active — переключиться на первую.
+    if (planningState.selectedId &&
+        !active.some((s) => s.id === planningState.selectedId)) {
+      planningState.selectedId = active[0].id;
+    }
+    if (!planningState.selectedId) {
+      planningState.selectedId = active[0].id;
+    }
+
+    const sess = active.find((s) => s.id === planningState.selectedId) || active[0];
+    const phaseNum = _planningPhaseNum(sess.phase);
+    const phaseName = _planningPhaseName(sess.phase);
+    const repliesLabel = i18n("planning.replies_count", { n: sess.replies_count || 0 });
+
+    if (active.length > 1) {
+      // Если несколько одновременно — даём короткую форму + детали по клику.
+      txt.textContent = i18n("planning.banner_multi", { n: active.length });
+    } else {
+      txt.textContent = i18n("planning.banner", {
+        depts: _planningDeptsText(sess.departments_involved),
+        phase_num: phaseNum,
+        phase_name: phaseName,
+        replies: repliesLabel,
+      });
+    }
+  }
+
+  function _renderPlanningPanel(detail) {
+    const meta = document.getElementById("planning-panel-meta");
+    const log = document.getElementById("planning-panel-log");
+    const title = document.getElementById("planning-panel-title");
+    if (!meta || !log) return;
+
+    if (title) {
+      const t1 = i18n("planning.panel_title");
+      // Если активных несколько — добавим переключатель в conteh title.
+      const active = planningState.active;
+      if (active.length > 1 && detail) {
+        const idx = active.findIndex((s) => s.id === detail.id);
+        const total = active.length;
+        title.innerHTML = "";
+        const lab = document.createElement("span");
+        lab.textContent = t1;
+        title.appendChild(lab);
+        const sw = document.createElement("span");
+        sw.className = "planning-panel-switcher";
+        const prev = document.createElement("button");
+        prev.type = "button";
+        prev.textContent = "‹";
+        prev.disabled = idx <= 0;
+        prev.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (idx > 0) _selectPlanningSession(active[idx - 1].id);
+        });
+        const lblIdx = document.createElement("span");
+        lblIdx.className = "switch-label";
+        lblIdx.textContent = i18n("planning.switch_session", { idx: idx + 1, total });
+        const next = document.createElement("button");
+        next.type = "button";
+        next.textContent = "›";
+        next.disabled = idx >= total - 1;
+        next.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (idx < total - 1) _selectPlanningSession(active[idx + 1].id);
+        });
+        sw.appendChild(prev); sw.appendChild(lblIdx); sw.appendChild(next);
+        title.appendChild(sw);
+      } else {
+        title.textContent = t1;
+      }
+    }
+
+    if (!detail) {
+      meta.innerHTML = `<span class="planning-empty">${escapeHtml(i18n("planning.loading"))}</span>`;
+      log.innerHTML = "";
+      return;
+    }
+
+    const phaseNum = _planningPhaseNum(detail.phase);
+    const phaseName = _planningPhaseName(detail.phase);
+    const deptsText = _planningDeptsText(detail.departments_involved);
+    meta.innerHTML =
+      `<span><span class="meta-key">${escapeHtml(i18n("planning.phase_label"))}:</span>` +
+        `<span class="meta-val is-phase">${phaseNum} — ${escapeHtml(phaseName)}</span></span>` +
+      `<span><span class="meta-key">${escapeHtml(i18n("planning.departments"))}:</span>` +
+        `<span class="meta-val">${escapeHtml(deptsText)}</span></span>`;
+
+    const replies = Array.isArray(detail.discussion_log) ? detail.discussion_log : [];
+    if (replies.length === 0) {
+      log.innerHTML = `<div class="planning-empty">${escapeHtml(i18n("planning.log_empty"))}</div>`;
+      return;
+    }
+    // Сортируем по ts/timestamp на всякий случай (если backend не отсортировал).
+    const sorted = replies.slice().sort((a, b) => {
+      const ta = (a && (a.ts || a.timestamp)) || 0;
+      const tb = (b && (b.ts || b.timestamp)) || 0;
+      return ta - tb;
+    });
+    log.innerHTML = sorted.map((r) => {
+      const ts = (r && (r.ts || r.timestamp)) || 0;
+      const time = ts
+        ? new Date(ts * 1000).toLocaleTimeString(dtLocale(), { hour: "2-digit", minute: "2-digit" })
+        : "";
+      const author = escapeHtml(displayRole(r.author || ""));
+      const role = r.role ? `<span class="reply-role">· ${escapeHtml(r.role)}</span>` : "";
+      const dept = r.dept ? `<span class="reply-dept">${escapeHtml(_planningDeptName(r.dept))}</span>` : "";
+      const text = escapeHtml(r.text || "");
+      return `<div class="planning-reply">
+        <div class="reply-head">
+          <span class="reply-author">${author}</span>
+          ${role}
+          ${dept}
+          <span class="reply-time">${time}</span>
+        </div>
+        <div class="reply-text">${text}</div>
+      </div>`;
+    }).join("");
+  }
+
+  async function _fetchPlanningDetail(sessionId) {
+    if (!sessionId) return null;
+    try {
+      const r = await fetch("/api/planning/" + encodeURIComponent(sessionId));
+      if (!r.ok) return null;
+      return await r.json();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function _stopPlanningDetailPolling() {
+    if (planningState.detailTimer) {
+      clearInterval(planningState.detailTimer);
+      planningState.detailTimer = null;
+    }
+  }
+
+  async function _refreshPlanningDetail() {
+    if (!planningState.panelOpen || !planningState.selectedId) return;
+    const detail = await _fetchPlanningDetail(planningState.selectedId);
+    if (!planningState.panelOpen) return;  // могли закрыть пока ждали
+    if (!detail) {
+      const log = document.getElementById("planning-panel-log");
+      if (log) log.innerHTML = `<div class="planning-empty">${escapeHtml(i18n("planning.load_error"))}</div>`;
+      return;
+    }
+    // Если phase=done — закрываем панель и убираем из active.
+    if (detail.phase === "done") {
+      _closePlanningPanel();
+      // Локально удаляем сессию из active (active-polling её тоже не вернёт).
+      planningState.active = planningState.active.filter((s) => s.id !== detail.id);
+      _renderPlanningBanner();
+      return;
+    }
+    _renderPlanningPanel(detail);
+  }
+
+  function _startPlanningDetailPolling() {
+    _stopPlanningDetailPolling();
+    planningState.detailTimer = setInterval(_refreshPlanningDetail, PLANNING_DETAIL_POLL_MS);
+  }
+
+  async function _openPlanningPanel() {
+    const panel = document.getElementById("planning-panel");
+    const banner = document.getElementById("planning-banner");
+    if (!panel || !banner) return;
+    if (!planningState.selectedId && planningState.active.length > 0) {
+      planningState.selectedId = planningState.active[0].id;
+    }
+    if (!planningState.selectedId) return;
+    planningState.panelOpen = true;
+    panel.hidden = false;
+    banner.setAttribute("aria-expanded", "true");
+    _renderPlanningPanel(null);  // показать "loading"
+    await _refreshPlanningDetail();
+    _startPlanningDetailPolling();
+  }
+
+  function _closePlanningPanel() {
+    const panel = document.getElementById("planning-panel");
+    const banner = document.getElementById("planning-banner");
+    planningState.panelOpen = false;
+    if (panel) panel.hidden = true;
+    if (banner) banner.setAttribute("aria-expanded", "false");
+    _stopPlanningDetailPolling();
+  }
+
+  async function _selectPlanningSession(sessionId) {
+    if (!sessionId) return;
+    planningState.selectedId = sessionId;
+    if (planningState.panelOpen) {
+      _renderPlanningPanel(null);
+      await _refreshPlanningDetail();
+    }
+    _renderPlanningBanner();
+  }
+
+  async function refreshPlanningActive() {
+    try {
+      const r = await fetch("/api/planning/active");
+      if (!r.ok) {
+        // 404 / 500 — тихо не показываем баннер.
+        planningState.active = [];
+      } else {
+        const data = await r.json();
+        planningState.active = Array.isArray(data.sessions) ? data.sessions : [];
+      }
+    } catch (_) {
+      planningState.active = [];
+    }
+    _renderPlanningBanner();
+    // Если панель открыта и наша сессия пропала из active — закрыть.
+    if (planningState.panelOpen && planningState.selectedId &&
+        !planningState.active.some((s) => s.id === planningState.selectedId)) {
+      _closePlanningPanel();
+    }
+  }
+
+  // Wire-up: клик на баннер → toggle панели; крестик → close.
+  (function initPlanningBannerControls() {
+    const banner = document.getElementById("planning-banner");
+    const closeBtn = document.getElementById("planning-panel-close");
+    if (banner) {
+      banner.addEventListener("click", () => {
+        if (planningState.panelOpen) _closePlanningPanel();
+        else _openPlanningPanel();
+      });
+    }
+    if (closeBtn) {
+      closeBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        _closePlanningPanel();
+      });
+    }
+  })();
+
+  // Перерисовать баннер при смене канала чата (мог уйти из общего → спрятать).
+  window.addEventListener("localechange", () => {
+    try { _renderPlanningBanner(); } catch (_) {}
+    if (planningState.panelOpen) _refreshPlanningDetail();
+  });
+
+  // При focus окна — обновить состояние планёрок (полезно если был в фоне).
+  window.addEventListener("focus", () => {
+    try { refreshPlanningActive(); } catch (_) {}
+  });
+
+  // Хук в существующий setCurrentChatChannel чтобы баннер реагировал на переключение.
+  (function hookChatChannelChange() {
+    const orig = setCurrentChatChannel;
+    setCurrentChatChannel = function (channel) {
+      orig(channel);
+      try { _renderPlanningBanner(); } catch (_) {}
+    };
+  })();
+
   $("#chat-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const input = $("#chat-input");
     const text = input.value.trim();
     if (!text) return;
     input.value = "";
-    // S9.1: сообщение пишется в чат текущего отдела.
+    // S9.1 + ADR-009 §2.7.2: пишем в активный канал чата.
+    //   currentChatChannel() === "__global__" → общий чат (Управляющий).
+    //   иначе → чат конкретного отдела (lead).
     const r = await fetch(
-      "/api/chat?department=" + encodeURIComponent(currentDepartment()),
+      "/api/chat?department=" + encodeURIComponent(currentChatChannel()),
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -3591,6 +3997,9 @@
       await refreshRouter();
       await refreshSilence();
       await refreshChat();
+      // ADR-009 §2.7.3: индикатор активных планёрок в шапке общего чата.
+      // Не критично если упадёт — refreshPlanningActive ловит сетевые ошибки сам.
+      try { await refreshPlanningActive(); } catch (_) {}
     } catch (e) {
       console.error(e);
     } finally {

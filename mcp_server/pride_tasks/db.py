@@ -189,6 +189,76 @@ CREATE TABLE IF NOT EXISTS hr_sessions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_hr_sessions_state ON hr_sessions(state);
+
+-- B1 (ADR-009 §2.4): планёрки руководителей отделов.
+-- Хранят состояние «совещаний» инициированных Управляющим: фазы, лог обсуждения,
+-- консолидированное предложение, вопросы к owner-у, созданные cross-task'и.
+CREATE TABLE IF NOT EXISTS planning_sessions (
+  id                    TEXT PRIMARY KEY,
+  owner_request         TEXT NOT NULL,
+  phase                 TEXT NOT NULL,           -- 'gathering' | 'discussion' | 'consolidation' | 'distribution' | 'done'
+  departments_involved  TEXT NOT NULL,           -- JSON array of dept ids
+  discussion_log        TEXT,                    -- JSON: [{author, role, text, timestamp}, ...]
+  consolidated_proposal TEXT,
+  questions_for_owner   TEXT,
+  owner_answer          TEXT,
+  created_tasks         TEXT,                    -- JSON: [{dept, task_id}, ...]
+  started_at            INTEGER NOT NULL,
+  finished_at           INTEGER
+);
+
+-- Активные планёрки — самый частый запрос Управляющего при старте сессии.
+CREATE INDEX IF NOT EXISTS idx_planning_phase
+  ON planning_sessions(phase) WHERE finished_at IS NULL;
+
+-- B1 (ADR-007 §2.1): долгосрочная память Управляющего — chunks + FTS5.
+-- Хранит structured-факты, recall-выводы, итоги планёрок. Доступ только у роли
+-- managing-director через MCP-tools manager_memory_*.
+CREATE TABLE IF NOT EXISTS manager_chunks (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id      TEXT NOT NULL DEFAULT 'owner',
+  source       TEXT NOT NULL,                  -- 'conversation' | 'note' | 'recall' | 'planning' | 'import'
+  path         TEXT,                           -- chat#1234, adr/0009, planning_session#abc, ...
+  start_line   INTEGER,
+  end_line     INTEGER,
+  text         TEXT NOT NULL,
+  embedding    BLOB,                           -- nullable: vector search в Фазе 2
+  tags         TEXT NOT NULL DEFAULT '[]',     -- JSON array
+  created_at   INTEGER NOT NULL,
+  updated_at   INTEGER NOT NULL,
+  archived_at  INTEGER                         -- soft-delete
+);
+
+-- Полнотекстовый поиск (FTS5) по тексту чанков.
+CREATE VIRTUAL TABLE IF NOT EXISTS manager_fts USING fts5(
+  text,
+  content='manager_chunks',
+  content_rowid='id',
+  tokenize='unicode61 remove_diacritics 1'
+);
+
+-- Синхронизация FTS-индекса с основной таблицей.
+CREATE TRIGGER IF NOT EXISTS manager_chunks_ai
+AFTER INSERT ON manager_chunks BEGIN
+  INSERT INTO manager_fts(rowid, text) VALUES (new.id, new.text);
+END;
+
+CREATE TRIGGER IF NOT EXISTS manager_chunks_ad
+AFTER DELETE ON manager_chunks BEGIN
+  INSERT INTO manager_fts(manager_fts, rowid, text) VALUES('delete', old.id, old.text);
+END;
+
+CREATE TRIGGER IF NOT EXISTS manager_chunks_au
+AFTER UPDATE ON manager_chunks BEGIN
+  INSERT INTO manager_fts(manager_fts, rowid, text) VALUES('delete', old.id, old.text);
+  INSERT INTO manager_fts(rowid, text) VALUES (new.id, new.text);
+END;
+
+CREATE INDEX IF NOT EXISTS idx_manager_chunks_user_source
+  ON manager_chunks(user_id, source) WHERE archived_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_manager_chunks_updated
+  ON manager_chunks(updated_at DESC) WHERE archived_at IS NULL;
 """
 
 # Базовый набор ролей. Загружается при init_db, если ролей в таблице ещё нет.
@@ -776,6 +846,8 @@ def post_chat_message(
         "пользователь", "тимлид", "бэкенд", "qa",
         "архитектор", "frontend", "devops", "техписатель",
         "system",
+        # ADR-009 §2.6: Управляющий — глобальная роль, постит в чаты отделов
+        "managing-director",
     }
     if author not in _allowed:
         raise ValueError(f"неизвестный author: {author}")
@@ -1437,3 +1509,419 @@ def atomic_modify(
             return _row_to_task(cur.fetchone())
         finally:
             conn.close()
+
+
+# === Manager Memory (B2, ADR-007 §2.1–§2.2) ===
+#
+# Долгосрочная память Управляющего. Чанки в `manager_chunks` + FTS5 в
+# `manager_fts` синхронизируются триггерами (см. SCHEMA_SQL выше). Доступ к
+# этим функциям предоставляется только роли `managing-director` через
+# role-gate в tools.py (а не на уровне БД — БД-слой остаётся «глупым»).
+#
+# Все функции иммутабельны по дизайну: update нет; новый факт = новый чанк.
+# Soft-delete через колонку `archived_at`.
+
+_MANAGER_VALID_SOURCES: tuple[str, ...] = (
+    "conversation",
+    "note",
+    "recall",
+    "planning",
+    "import",
+)
+
+
+def _row_to_manager_chunk(row: sqlite3.Row, *, score: Optional[float] = None) -> dict[str, Any]:
+    """sqlite3.Row → dict для manager_chunks. score опционален (для FTS-search)."""
+    try:
+        tags = json.loads(row["tags"] or "[]")
+    except (json.JSONDecodeError, TypeError):
+        tags = []
+    chunk = {
+        "id":          row["id"],
+        "user_id":     row["user_id"],
+        "source":      row["source"],
+        "path":        row["path"],
+        "start_line":  row["start_line"],
+        "end_line":    row["end_line"],
+        "text":        row["text"],
+        "tags":        tags,
+        "created_at":  row["created_at"],
+        "updated_at":  row["updated_at"],
+        "archived_at": row["archived_at"],
+    }
+    if score is not None:
+        chunk["score"] = score
+    return chunk
+
+
+def manager_chunk_insert(
+    db_path: Path,
+    *,
+    text: str,
+    source: str,
+    path: Optional[str] = None,
+    tags: Optional[list[str]] = None,
+    user_id: str = "owner",
+    start_line: Optional[int] = None,
+    end_line: Optional[int] = None,
+) -> dict[str, Any]:
+    """Создаёт новый чанк памяти. FTS-индексация выполнится триггером AFTER INSERT.
+
+    Возвращает dict как `_row_to_manager_chunk` (без score).
+    """
+    if not text or not text.strip():
+        raise ValueError("text пустой")
+    if source not in _MANAGER_VALID_SOURCES:
+        raise ValueError(
+            f"неизвестный source: {source!r} (ожидается один из {_MANAGER_VALID_SOURCES})"
+        )
+    tags_json = json.dumps(tags or [], ensure_ascii=False)
+    now = int(time.time())
+    with write_lock(db_path):
+        conn = _connect(db_path)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            cur = conn.execute(
+                """
+                INSERT INTO manager_chunks (
+                  user_id, source, path, start_line, end_line, text,
+                  embedding, tags, created_at, updated_at, archived_at
+                ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, NULL)
+                """,
+                (
+                    user_id,
+                    source,
+                    path,
+                    start_line,
+                    end_line,
+                    text,
+                    tags_json,
+                    now,
+                    now,
+                ),
+            )
+            chunk_id = cur.lastrowid
+            conn.execute("COMMIT")
+            cur = conn.execute(
+                "SELECT * FROM manager_chunks WHERE id = ?", (chunk_id,)
+            )
+            return _row_to_manager_chunk(cur.fetchone())
+        finally:
+            conn.close()
+
+
+def manager_chunk_get(db_path: Path, chunk_id: int) -> Optional[dict[str, Any]]:
+    """Прочитать чанк по id. None если не существует."""
+    conn = _connect(db_path)
+    try:
+        cur = conn.execute("SELECT * FROM manager_chunks WHERE id = ?", (chunk_id,))
+        row = cur.fetchone()
+        if row is None:
+            return None
+        return _row_to_manager_chunk(row)
+    finally:
+        conn.close()
+
+
+def manager_chunk_search(
+    db_path: Path,
+    *,
+    query: str,
+    source: Optional[str] = None,
+    limit: int = 10,
+    user_id: str = "owner",
+) -> list[dict[str, Any]]:
+    """FTS5-поиск чанков. Возвращает список с полем `score` (= bm25, меньше = релевантнее).
+
+    Пустой query → пустой список (FTS5 не любит пустую строку).
+    Игнорирует архивные чанки. Может фильтровать по source.
+    """
+    if not query or not query.strip():
+        return []
+    if source is not None and source not in _MANAGER_VALID_SOURCES:
+        raise ValueError(f"неизвестный source: {source!r}")
+    limit = max(1, min(int(limit), 100))
+
+    # bm25(<fts-table>) даёт ranking-score: меньше = лучше. Мы возвращаем
+    # его как есть; tools-слой может перевернуть знак при необходимости.
+    sql = (
+        "SELECT c.*, bm25(manager_fts) AS bm25_score "
+        "FROM manager_fts "
+        "JOIN manager_chunks c ON c.id = manager_fts.rowid "
+        "WHERE manager_fts MATCH ? "
+        "AND c.archived_at IS NULL "
+        "AND c.user_id = ?"
+    )
+    args: list[Any] = [query, user_id]
+    if source is not None:
+        sql += " AND c.source = ?"
+        args.append(source)
+    sql += " ORDER BY bm25(manager_fts) ASC LIMIT ?"
+    args.append(limit)
+
+    conn = _connect(db_path)
+    try:
+        try:
+            cur = conn.execute(sql, args)
+            rows = cur.fetchall()
+        except sqlite3.OperationalError:
+            # Невалидный FTS5-запрос (например спецсимволы) — возвращаем пусто
+            # вместо exception. tools-слой может сообщить ошибку при желании.
+            return []
+        return [_row_to_manager_chunk(r, score=float(r["bm25_score"])) for r in rows]
+    finally:
+        conn.close()
+
+
+def manager_chunk_recent(
+    db_path: Path,
+    *,
+    source: Optional[str] = None,
+    limit: int = 20,
+    user_id: str = "owner",
+) -> list[dict[str, Any]]:
+    """Последние N не-архивных чанков, отсортированные по updated_at DESC."""
+    if source is not None and source not in _MANAGER_VALID_SOURCES:
+        raise ValueError(f"неизвестный source: {source!r}")
+    limit = max(1, min(int(limit), 200))
+
+    sql = (
+        "SELECT * FROM manager_chunks "
+        "WHERE archived_at IS NULL AND user_id = ?"
+    )
+    args: list[Any] = [user_id]
+    if source is not None:
+        sql += " AND source = ?"
+        args.append(source)
+    sql += " ORDER BY updated_at DESC, id DESC LIMIT ?"
+    args.append(limit)
+
+    conn = _connect(db_path)
+    try:
+        cur = conn.execute(sql, args)
+        return [_row_to_manager_chunk(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+def manager_chunk_archive(db_path: Path, chunk_id: int) -> bool:
+    """Soft-delete: проставляет archived_at = now(). Возвращает True если запись была изменена.
+
+    False — если чанка нет или он уже архивирован (idempotent semantics).
+    """
+    now = int(time.time())
+    with write_lock(db_path):
+        conn = _connect(db_path)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            cur = conn.execute(
+                "UPDATE manager_chunks SET archived_at = ?, updated_at = ? "
+                "WHERE id = ? AND archived_at IS NULL",
+                (now, now, chunk_id),
+            )
+            changed = cur.rowcount > 0
+            conn.execute("COMMIT")
+            return changed
+        finally:
+            conn.close()
+
+
+# === Planning sessions (B3, ADR-009 §2.4) ===
+#
+# Хранят состояние «совещаний» Управляющего: phase, лог обсуждения,
+# консолидированный proposal, вопросы owner-у, итоговые cross-task'и.
+# Доступ через MCP-tools planning_* — gate на role.name='managing-director'.
+
+_PLANNING_VALID_PHASES: tuple[str, ...] = (
+    "gathering",
+    "discussion",
+    "consolidation",
+    "distribution",
+    "done",
+)
+
+
+def _row_to_planning_session(row: sqlite3.Row) -> dict[str, Any]:
+    """sqlite3.Row → dict для planning_sessions."""
+    def _maybe_load(raw: Optional[str]) -> Any:
+        if raw is None or raw == "":
+            return None
+        try:
+            return json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            return None
+
+    return {
+        "id":                    row["id"],
+        "owner_request":         row["owner_request"],
+        "phase":                 row["phase"],
+        "departments_involved":  _maybe_load(row["departments_involved"]) or [],
+        "discussion_log":        _maybe_load(row["discussion_log"]) or [],
+        "consolidated_proposal": row["consolidated_proposal"],
+        "questions_for_owner":   row["questions_for_owner"],
+        "owner_answer":          row["owner_answer"],
+        "created_tasks":         _maybe_load(row["created_tasks"]) or [],
+        "started_at":            row["started_at"],
+        "finished_at":           row["finished_at"],
+    }
+
+
+def planning_session_create(
+    db_path: Path,
+    *,
+    owner_request: str,
+    departments: list[str],
+    phase: str = "gathering",
+) -> dict[str, Any]:
+    """Создать запись planning_sessions. id = uuid4 hex[:12]."""
+    if not owner_request or not owner_request.strip():
+        raise ValueError("owner_request пустой")
+    if not isinstance(departments, list) or len(departments) == 0:
+        raise ValueError("departments должен быть непустым списком")
+    if phase not in _PLANNING_VALID_PHASES:
+        raise ValueError(f"невалидная phase: {phase!r}")
+
+    session_id = uuid.uuid4().hex[:12]
+    now = int(time.time())
+    with write_lock(db_path):
+        conn = _connect(db_path)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute(
+                """
+                INSERT INTO planning_sessions (
+                  id, owner_request, phase, departments_involved,
+                  discussion_log, consolidated_proposal, questions_for_owner,
+                  owner_answer, created_tasks, started_at, finished_at
+                ) VALUES (?, ?, ?, ?, '[]', NULL, NULL, NULL, '[]', ?, NULL)
+                """,
+                (
+                    session_id,
+                    owner_request.strip(),
+                    phase,
+                    json.dumps(departments, ensure_ascii=False),
+                    now,
+                ),
+            )
+            conn.execute("COMMIT")
+            cur = conn.execute(
+                "SELECT * FROM planning_sessions WHERE id = ?", (session_id,)
+            )
+            return _row_to_planning_session(cur.fetchone())
+        finally:
+            conn.close()
+
+
+def planning_session_get(
+    db_path: Path, session_id: str
+) -> Optional[dict[str, Any]]:
+    """Прочитать planning_session по id. None если не найдена."""
+    conn = _connect(db_path)
+    try:
+        cur = conn.execute(
+            "SELECT * FROM planning_sessions WHERE id = ?", (session_id,)
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        return _row_to_planning_session(row)
+    finally:
+        conn.close()
+
+
+_PLANNING_ALLOWED_UPDATE_FIELDS = {
+    "phase",
+    "discussion_log",
+    "consolidated_proposal",
+    "questions_for_owner",
+    "owner_answer",
+    "created_tasks",
+    "finished_at",
+}
+
+
+def planning_session_update(
+    db_path: Path, session_id: str, **fields: Any
+) -> Optional[dict[str, Any]]:
+    """Обновить поля planning_session. JSON-поля сериализуются автоматически."""
+    if not fields:
+        return planning_session_get(db_path, session_id)
+
+    bad = set(fields) - _PLANNING_ALLOWED_UPDATE_FIELDS
+    if bad:
+        raise ValueError(f"Недопустимые поля planning_session: {sorted(bad)}")
+
+    if "phase" in fields and fields["phase"] not in _PLANNING_VALID_PHASES:
+        raise ValueError(f"невалидная phase: {fields['phase']!r}")
+
+    sets: list[str] = []
+    args: list[Any] = []
+    for key, value in fields.items():
+        if key in ("discussion_log", "created_tasks"):
+            sets.append(f"{key} = ?")
+            args.append(json.dumps(value if value is not None else [], ensure_ascii=False))
+        else:
+            sets.append(f"{key} = ?")
+            args.append(value)
+    args.append(session_id)
+
+    with write_lock(db_path):
+        conn = _connect(db_path)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            cur = conn.execute(
+                f"UPDATE planning_sessions SET {', '.join(sets)} WHERE id = ?",
+                args,
+            )
+            if cur.rowcount == 0:
+                conn.execute("ROLLBACK")
+                return None
+            conn.execute("COMMIT")
+            cur = conn.execute(
+                "SELECT * FROM planning_sessions WHERE id = ?", (session_id,)
+            )
+            return _row_to_planning_session(cur.fetchone())
+        finally:
+            conn.close()
+
+
+def inbox_summary(db_path: Path) -> list[dict[str, Any]]:
+    """Агрегат по всем активным отделам для list_all_inboxes (ADR-009 §2.6).
+
+    Для каждого dept: id, name, wip/review/blocked counts, last_chat_msg_time.
+    Архивированные отделы исключены.
+    """
+    conn = _connect(db_path)
+    try:
+        # Counts по status в одном запросе. LEFT JOIN для отделов без задач.
+        rows = conn.execute(
+            """
+            SELECT d.id AS dept_id, d.name AS dept_name,
+              COUNT(DISTINCT CASE WHEN t.status = 'wip'     THEN t.id END) AS wip,
+              COUNT(DISTINCT CASE WHEN t.status = 'review'  THEN t.id END) AS review,
+              COUNT(DISTINCT CASE WHEN t.status = 'blocked' THEN t.id END) AS blocked
+            FROM departments d
+            LEFT JOIN tasks t ON t.department_id = d.id
+            WHERE d.archived_at IS NULL
+            GROUP BY d.id
+            ORDER BY d.name ASC
+            """
+        ).fetchall()
+        # last_chat_msg_time — отдельный запрос для каждого отдела (быстро на маленьких БД).
+        result = []
+        for r in rows:
+            last_msg = conn.execute(
+                "SELECT MAX(created_at) AS ts FROM chat_messages WHERE department_id = ?",
+                (r["dept_id"],),
+            ).fetchone()
+            result.append({
+                "dept_id":            r["dept_id"],
+                "dept_name":          r["dept_name"],
+                "wip":                r["wip"],
+                "review":             r["review"],
+                "blocked":            r["blocked"],
+                "last_chat_msg_time": last_msg["ts"] if last_msg and last_msg["ts"] else None,
+            })
+        return result
+    finally:
+        conn.close()

@@ -242,6 +242,50 @@ code, .md-inline {
 .nav-item.active .badge { background: var(--accent); color: white; }
 .nav-item .badge.empty { display: none; }
 
+/* ============================================================ Managing Director (ADR-009 §2.7.2) */
+/* Глобальная строчка «🏛 Управляющий» — главный собеседник owner-а в общем чате.
+   Всегда первая, над списком отделов. Подсветка — когда активен общий чат. */
+.managing-director-row {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--divider);
+}
+.managing-director-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: none;
+  transition: background 0.12s ease, color 0.12s ease;
+  width: 100%;
+}
+.managing-director-item:hover { background: var(--divider); }
+.managing-director-item.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.managing-director-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.managing-director-item .ico { font-size: 16px; width: 18px; text-align: center; }
+.managing-director-item .lbl {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ============================================================ Departments list (S9.1) */
 
 .departments-list {
@@ -1440,6 +1484,15 @@ code, .md-inline {
 .chat-message.author-frontend   { border-left-color: #e879f9;       background: rgba(232, 121, 249, 0.07); }
 .chat-message.author-devops     { border-left-color: #06b6d4;       background: rgba(6, 182, 212, 0.07); }
 .chat-message.author-техписатель{ border-left-color: #84cc16;       background: rgba(132, 204, 22, 0.07); }
+/* ADR-009 §2.7.2: Управляющий — основной собеседник в общем чате.
+   Стиль аналогичен тимлиду в чате отдела (он же лид-уровень иерархии).
+   Backend может писать сообщения и как cyrillic 'Управляющий', и как slug
+   'managing-director' — обе формы подсвечиваются одинаково. */
+.chat-message.author-Управляющий       { border-left-color: var(--accent); background: var(--accent-soft); }
+.chat-message.author-managing-director { border-left-color: var(--accent); background: var(--accent-soft); }
+/* dev-lead — переименованный тимлид (см. roles/dev/lead.md). Совпадает по
+   палитре со старым 'тимлид' для визуальной непрерывности. */
+.chat-message.author-dev-lead          { border-left-color: var(--accent); background: var(--accent-soft); }
 .chat-message.author-system  {
   border-left-color: var(--text-muted);
   background: var(--surface-2);
@@ -3690,3 +3743,202 @@ input[type="checkbox"] {
     font-size: 22px;
   }
 }
+
+/* ===================== Planning banner + panel (ADR-009 §2.7.3) =====================
+   Индикатор активной планёрки в шапке чата: кликабельный баннер раскрывает
+   панель с discussion_log. Полностью построен на CSS-variables — корректно
+   работает в обеих темах. */
+.planning-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 14px;
+  border: none;
+  border-bottom: 1px solid var(--divider);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.14s ease, color 0.14s ease;
+  flex-shrink: 0;
+  box-shadow: none;
+}
+.planning-banner:hover {
+  background: var(--accent);
+  color: #fff;
+}
+.planning-banner:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.planning-banner-ico {
+  font-size: 14px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.planning-banner-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.planning-banner-chevron {
+  font-size: 11px;
+  opacity: 0.7;
+  transition: transform 0.18s ease;
+  flex-shrink: 0;
+}
+.planning-banner[aria-expanded="true"] .planning-banner-chevron {
+  transform: rotate(180deg);
+}
+
+.planning-panel {
+  border-bottom: 1px solid var(--divider);
+  background: var(--bg-2);
+  max-height: 45vh;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.planning-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 6px 14px;
+  border-bottom: 1px solid var(--divider);
+  flex-shrink: 0;
+}
+.planning-panel-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+.planning-panel-close {
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  font-size: 13px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: none;
+}
+.planning-panel-close:hover {
+  background: var(--divider);
+  color: var(--text);
+}
+.planning-panel-meta {
+  padding: 8px 14px;
+  font-size: 11.5px;
+  color: var(--text-3);
+  line-height: 1.5;
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.planning-panel-meta .meta-key {
+  color: var(--text-3);
+  margin-right: 4px;
+}
+.planning-panel-meta .meta-val {
+  color: var(--text);
+  font-weight: 500;
+}
+.planning-panel-meta .meta-val.is-phase {
+  color: var(--accent);
+}
+.planning-panel-log {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 14px 12px 14px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text);
+}
+.planning-panel-log .planning-empty {
+  color: var(--text-3);
+  font-style: italic;
+  padding: 6px 0;
+}
+.planning-panel-log .planning-reply {
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--divider);
+}
+.planning-panel-log .planning-reply:last-child {
+  border-bottom: none;
+}
+.planning-panel-log .reply-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-3);
+  margin-bottom: 2px;
+}
+.planning-panel-log .reply-author {
+  font-weight: 600;
+  color: var(--text);
+}
+.planning-panel-log .reply-role {
+  color: var(--text-3);
+}
+.planning-panel-log .reply-dept {
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10.5px;
+}
+.planning-panel-log .reply-time {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-size: 10.5px;
+}
+.planning-panel-log .reply-text {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  color: var(--text);
+}
+.planning-panel-switcher {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-left: 8px;
+}
+.planning-panel-switcher button {
+  background: transparent;
+  border: 1px solid var(--divider);
+  color: var(--text-3);
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+  font-size: 11px;
+  line-height: 1;
+  box-shadow: none;
+}
+.planning-panel-switcher button:hover {
+  background: var(--divider);
+  color: var(--text);
+}
+.planning-panel-switcher button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.planning-panel-switcher .switch-label {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+/* Свёрнутый чат — баннер/панель прячем заодно с body/form */
+.chat.collapsed > .planning-banner,
+.chat.collapsed > .planning-panel { display: none; }

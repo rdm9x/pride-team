@@ -54,6 +54,20 @@
       </button>
     </nav>
 
+    <!-- ===== Managing Director (ADR-009 §2.7.2) ===== -->
+    <!-- Глобальный собеседник owner-а; всегда первая строчка над списком отделов.
+         Клик → фокус общего чата (department_id IS NULL, см. /api/chat?department=__global__). -->
+    <div class="managing-director-row">
+      <button type="button" class="managing-director-item" id="btn-managing-director"
+              data-i18n-attr="title:managingDirector.tooltip,aria-label:managingDirector.label"
+              title="Главный собеседник (общий чат)"
+              aria-label="Управляющий"
+              aria-pressed="false">
+        <span class="ico" aria-hidden="true">🏛</span>
+        <span class="lbl" data-i18n="managingDirector.label">Управляющий</span>
+      </button>
+    </div>
+
     <!-- ===== Departments (S9.1) ===== -->
     <div class="departments-list" id="departments-list" role="region"
          aria-labelledby="departments-list-title">
@@ -653,10 +667,32 @@
   <!-- ===== Chat (right) ===== -->
   <aside class="chat" id="chat">
     <header>
-      <strong><span class="ico">💬</span> <span data-i18n="chat.title">Чат с тимлидом</span></strong>
+      <strong><span class="ico">💬</span> <span id="chat-title-label" data-i18n="chat.title">Чат с тимлидом</span></strong>
       <button id="chat-collapse" class="chat-collapse-btn" title="Collapse chat"
               data-i18n-attr="title:chat.collapse_title">→</button>
     </header>
+    <!-- ADR-009 §2.7.3: индикатор активной планёрки. Виден только когда есть
+         planning_sessions с phase!='done'. Клик раскрывает панель с discussion_log. -->
+    <button type="button" id="planning-banner" class="planning-banner" hidden
+            aria-expanded="false" aria-controls="planning-panel"
+            data-i18n-attr="aria-label:planning.banner_aria">
+      <span class="planning-banner-ico" aria-hidden="true">🤔</span>
+      <span class="planning-banner-text" id="planning-banner-text"></span>
+      <span class="planning-banner-chevron" aria-hidden="true">▾</span>
+    </button>
+    <section id="planning-panel" class="planning-panel" hidden
+             aria-labelledby="planning-banner">
+      <header class="planning-panel-head">
+        <span class="planning-panel-title" id="planning-panel-title"
+              data-i18n="planning.panel_title">Планёрка</span>
+        <button type="button" id="planning-panel-close" class="planning-panel-close"
+                data-i18n-attr="aria-label:planning.close_aria,title:planning.close_aria"
+                aria-label="Закрыть панель">✕</button>
+      </header>
+      <div class="planning-panel-meta" id="planning-panel-meta"></div>
+      <div class="planning-panel-log" id="planning-panel-log"
+           role="log" aria-live="polite"></div>
+    </section>
     <div id="chat-body" class="chat-body">
       <button id="chat-scroll-bottom" class="chat-scroll-btn" hidden
               aria-label="Scroll to bottom"

@@ -126,6 +126,10 @@
       "tech_writer": "Tech Writer"
     }
   },
+  "managingDirector": {
+    "label": "Managing Director",
+    "tooltip": "Main interlocutor (general chat)"
+  },
   "dept": {
     "dev": "Development",
     "create": {
@@ -461,6 +465,7 @@
   },
   "chat": {
     "title": "Chat with team-lead",
+    "title_managing_director": "Chat with Managing Director",
     "collapse_title": "Collapse chat",
     "expand_title": "Expand chat",
     "rail_label": "Chat",
@@ -468,6 +473,27 @@
     "empty": "nothing yet. Drop a message — the team-lead will see it on the next run.",
     "send_failed": "Could not send: ",
     "scroll_to_bottom": "Scroll to bottom"
+  },
+  "planning": {
+    "banner": "Planning in progress: {depts} (Phase {phase_num} — {phase_name}, {replies})",
+    "banner_multi": "{n} planning sessions in progress. Click for details.",
+    "banner_aria": "Open planning panel",
+    "panel_title": "Planning session",
+    "close_aria": "Close panel",
+    "departments": "Departments",
+    "phase_label": "Phase",
+    "log_empty": "No replies yet — leads have not responded.",
+    "loading": "Loading…",
+    "load_error": "Failed to load planning details.",
+    "replies_count": "{n} replies",
+    "switch_session": "Planning {idx} of {total}",
+    "phase": {
+      "gathering": "gathering",
+      "discussion": "discussion",
+      "consolidation": "consolidation",
+      "distribution": "distribution",
+      "done": "done"
+    }
   },
   "modal": {
     "confirm": {

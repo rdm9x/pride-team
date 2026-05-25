@@ -749,6 +749,87 @@ def _preview_queue_position(
         conn.close()
 
 
+# === ADR list (для /api/manager/bootstrap) ===
+
+_ADR_DIR = _REPO_ROOT / "docs" / "adr"
+
+
+def _parse_adr_file(path: Path) -> Optional[dict[str, Any]]:
+    """Вытащить {number, title, status, file} из docs/adr/NNNN-*.md.
+
+    Формат файлов (см. 0001..0009): первая строка `# ADR-NNN — Title`,
+    далее `- **Status:** XXX (date)`. YAML-frontmatter в наших ADR нет —
+    парсим H1 и строку Status построчно. None если файл не похож на ADR.
+    """
+    try:
+        # Читаем только первые ~40 строк — Status обычно в первых 10
+        with path.open("r", encoding="utf-8") as f:
+            head_lines = [next(f, "") for _ in range(40)]
+    except OSError:
+        return None
+
+    number: Optional[int] = None
+    title: Optional[str] = None
+    status: Optional[str] = None
+
+    # Имя файла: 0007-memory-layer.md → number=7
+    name = path.name
+    if len(name) >= 4 and name[:4].isdigit():
+        try:
+            number = int(name[:4])
+        except ValueError:
+            number = None
+
+    h1_re = _re.compile(r"^#\s*ADR-(\d+)\s*[—\-:]\s*(.+?)\s*$")
+    status_re = _re.compile(r"^\s*[-*]?\s*\*\*Status:?\*\*\s*[:\-]?\s*(.+?)\s*$", _re.IGNORECASE)
+
+    for raw in head_lines:
+        line = raw.rstrip("\n")
+        if title is None:
+            m = h1_re.match(line)
+            if m:
+                if number is None:
+                    try:
+                        number = int(m.group(1))
+                    except ValueError:
+                        number = None
+                title = m.group(2).strip()
+                continue
+            # fallback: первая H1 без формата ADR-NNN
+            if line.startswith("# ") and not line.startswith("## "):
+                title = line.lstrip("# ").strip()
+        if status is None:
+            m = status_re.match(line)
+            if m:
+                status = m.group(1).strip()
+        if title is not None and status is not None:
+            break
+
+    if title is None and number is None:
+        return None
+
+    return {
+        "number": number,
+        "title": title,
+        "status": status,
+        "file": name,
+    }
+
+
+def _list_adr_files(adr_dir: Path = _ADR_DIR) -> list[dict[str, Any]]:
+    """Список всех ADR в docs/adr/*.md, отсортирован по номеру."""
+    if not adr_dir.exists() or not adr_dir.is_dir():
+        return []
+    result: list[dict[str, Any]] = []
+    for p in sorted(adr_dir.glob("*.md")):
+        parsed = _parse_adr_file(p)
+        if parsed is not None:
+            result.append(parsed)
+    # Стабильная сортировка: по number (None — в конец), затем по file
+    result.sort(key=lambda x: (x["number"] is None, x["number"] or 0, x["file"]))
+    return result
+
+
 # === Flask app ===
 
 
@@ -2457,6 +2538,80 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             return jsonify({"статус": "error", "status": "error", "причина": str(exc), "reason": str(exc)}), 400
         return jsonify({"статус": "ok", "сообщение": msg}), 201
 
+    # === Planning sessions (ADR-009 §2.4 / §2.7.3) ===
+    # Read-only HTTP-проекция planning_sessions для UI-индикатора в общем чате.
+    # MCP-tools (start/collect/finalize) живут в mcp_server — UI их не дёргает.
+
+    @app.get("/api/planning/active")
+    def api_planning_active() -> Any:
+        """Список активных планёрок (phase != 'done').
+
+        Используется баннером в шапке общего чата: пока есть хотя бы одна
+        активная планёрка — баннер виден. Polling из app.js раз в REFRESH_MS.
+        Возвращает короткий summary без discussion_log (детали — через /api/planning/<id>).
+        """
+        conn = db._connect(_db())
+        try:
+            rows = conn.execute(
+                """
+                SELECT id, owner_request, phase, departments_involved,
+                       discussion_log, started_at, finished_at
+                FROM planning_sessions
+                WHERE phase != 'done' AND finished_at IS NULL
+                ORDER BY started_at ASC
+                """
+            ).fetchall()
+        finally:
+            conn.close()
+
+        import json as _json
+        sessions: list[dict[str, Any]] = []
+        for r in rows:
+            try:
+                depts = _json.loads(r["departments_involved"]) if r["departments_involved"] else []
+            except (ValueError, TypeError):
+                depts = []
+            try:
+                replies = _json.loads(r["discussion_log"]) if r["discussion_log"] else []
+            except (ValueError, TypeError):
+                replies = []
+            sessions.append({
+                "id": r["id"],
+                "owner_request": r["owner_request"],
+                "phase": r["phase"],
+                "departments_involved": depts,
+                "replies_count": len(replies) if isinstance(replies, list) else 0,
+                "started_at": r["started_at"],
+                "finished_at": r["finished_at"],
+            })
+        return jsonify({"sessions": sessions})
+
+    @app.get("/api/planning/<session_id>")
+    def api_planning_get(session_id: str) -> Any:
+        """Детали одной планёрки — для раскрывающейся панели.
+
+        Используется panel'ом discussion_log в общем чате (polling).
+        404 если planning_session не существует.
+        """
+        sess = db.planning_session_get(_db(), session_id)
+        if sess is None:
+            return jsonify({
+                "статус": "not_found", "status": "not_found",
+                "причина": f"planning_session {session_id!r} не найдена",
+                "reason": f"planning_session {session_id!r} not found",
+            }), 404
+        # Только публично-интересные поля (не отдаём пока ничего лишнего).
+        return jsonify({
+            "id":                   sess["id"],
+            "owner_request":        sess["owner_request"],
+            "departments_involved": sess["departments_involved"],
+            "discussion_log":       sess["discussion_log"],
+            "phase":                sess["phase"],
+            "started_at":           sess["started_at"],
+            "finished_at":          sess["finished_at"],
+            "owner_answer":         sess["owner_answer"],
+        })
+
     @app.get("/api/inbox")
     def api_inbox() -> Any:
         """Что требует личного внимания пользователя.
@@ -2513,6 +2668,127 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             "reviews": review_tasks,
             "questions": questions,
             "total": total,
+        })
+
+    @app.get("/api/manager/bootstrap")
+    def api_manager_bootstrap() -> Any:
+        """Bootstrap-контекст для роли `managing-director`.
+
+        Source-of-truth: ADR-007 §2.4 (Bootstrap mode — экономия токенов),
+        ADR-009 §2.2 (что Управляющему нужно при старте сессии).
+
+        Используется `commands/devboard-work.sh` в начале сессии — единым
+        вызовом подгружает всё что нужно Управляющему, чтобы дальше за
+        каждый turn передавать только дельту (см. ADR-006).
+
+        Возвращает JSON c 6 полями:
+          - inboxes:                 list[dict] — агрегат `inbox_summary` по
+                                     всем активным отделам (wip/review/blocked
+                                     counts + last_chat_msg_time).
+          - chat_recent:             list[dict] — последние 50 сообщений
+                                     общего чата (department_id IS NULL).
+          - adr_list:                list[dict] — все ADR из docs/adr/*.md
+                                     c полями {number, title, status, file}.
+          - memory_notes:            list[dict] — `manager_chunk_recent(source='note', limit=20)`.
+          - memory_recall:           list[dict] — `manager_chunk_recent(source='recall', limit=10)`.
+          - planning_sessions_active list[dict] — все planning_sessions
+                                     с phase != 'done'.
+
+        Endpoint открытый (как другие dashboard endpoints) — предназначен
+        для роли managing-director (role gate уровня MCP-tool остаётся
+        первичным механизмом доступа к памяти). Bootstrap вызывается
+        ровно один раз в начале сессии скриптом запуска, не в каждый turn.
+
+        Performance: цель <500ms. Все запросы — один db.* вызов каждый,
+        FK pragma и схема прогреты через init_db() при старте.
+        """
+        db_path = _db()
+
+        # 1. Inboxes — агрегат по отделам (один SQL-запрос с LEFT JOIN + GROUP BY).
+        try:
+            inboxes = db.inbox_summary(db_path)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("bootstrap: inbox_summary failed: %s", exc)
+            inboxes = []
+
+        # 2. chat_recent — последние 50 сообщений глобального канала.
+        # list_chat_messages сортирует по id ASC; для «последние N» получаем
+        # ВСЕ с since=0, потом берём хвост — но это неэффективно если их много.
+        # Используем прямой SQL через _db_path (без копирования всей функции).
+        try:
+            import sqlite3 as _sqlite3
+            conn = _sqlite3.connect(str(db_path))
+            conn.row_factory = _sqlite3.Row
+            try:
+                rows = conn.execute(
+                    "SELECT * FROM chat_messages WHERE department_id IS NULL "
+                    "ORDER BY id DESC LIMIT 50"
+                ).fetchall()
+                # Возвращаем в хронологическом порядке (старые → новые).
+                chat_recent = [
+                    {
+                        "id":            r["id"],
+                        "author":        r["author"],
+                        "text":          r["text"],
+                        "created_at":    r["created_at"],
+                        "department_id": r["department_id"],
+                    }
+                    for r in reversed(rows)
+                ]
+            finally:
+                conn.close()
+        except Exception as exc:  # noqa: BLE001
+            log.warning("bootstrap: chat_recent failed: %s", exc)
+            chat_recent = []
+
+        # 3. adr_list — парсинг docs/adr/*.md.
+        try:
+            adr_list = _list_adr_files()
+        except Exception as exc:  # noqa: BLE001
+            log.warning("bootstrap: adr_list failed: %s", exc)
+            adr_list = []
+
+        # 4. memory_notes — последние 20 чанков source='note'.
+        try:
+            memory_notes = db.manager_chunk_recent(db_path, source="note", limit=20)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("bootstrap: memory_notes failed: %s", exc)
+            memory_notes = []
+
+        # 5. memory_recall — последние 10 чанков source='recall'.
+        try:
+            memory_recall = db.manager_chunk_recent(db_path, source="recall", limit=10)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("bootstrap: memory_recall failed: %s", exc)
+            memory_recall = []
+
+        # 6. planning_sessions_active — все с phase != 'done'.
+        try:
+            import sqlite3 as _sqlite3b
+            conn = _sqlite3b.connect(str(db_path))
+            conn.row_factory = _sqlite3b.Row
+            try:
+                rows = conn.execute(
+                    "SELECT id FROM planning_sessions WHERE phase != 'done' "
+                    "ORDER BY started_at DESC"
+                ).fetchall()
+                planning_sessions_active = [
+                    db.planning_session_get(db_path, r["id"]) for r in rows
+                ]
+                planning_sessions_active = [s for s in planning_sessions_active if s is not None]
+            finally:
+                conn.close()
+        except Exception as exc:  # noqa: BLE001
+            log.warning("bootstrap: planning_sessions_active failed: %s", exc)
+            planning_sessions_active = []
+
+        return jsonify({
+            "inboxes":                  inboxes,
+            "chat_recent":              chat_recent,
+            "adr_list":                 adr_list,
+            "memory_notes":             memory_notes,
+            "memory_recall":            memory_recall,
+            "planning_sessions_active": planning_sessions_active,
         })
 
     @app.get("/api/settings/static-info")

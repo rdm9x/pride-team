@@ -283,6 +283,175 @@ def create_department(
     return tools.create_department(name, description=description, template_id=template_id, icon=icon)
 
 
+# === Manager Memory (B2, ADR-007 §2.2) — только для роли managing-director ===
+#
+# Каждый MCP-tool принимает явный `caller_role`, который должен быть
+# 'managing-director'. Иначе возвращается status=forbidden. Это намеренный
+# дизайн: MCP-протокол сам не несёт identity, поэтому identity передаётся
+# параметром (точно как user_id у других tools).
+
+
+@mcp.tool()
+def manager_memory_add(
+    text: str,
+    source: str,
+    path: Optional[str] = None,
+    tags: Optional[list[str]] = None,
+    caller_role: Optional[str] = None,
+) -> dict[str, Any]:
+    """Сохранить чанк в долгосрочную память Управляющего.
+
+    ДОСТУП: только роль 'managing-director'. Иначе — forbidden.
+
+    Args:
+        text: что запомнить.
+        source: 'conversation' | 'note' | 'recall' | 'planning' | 'import'.
+        path: ссылка на исходник (chat#1234, adr/0009, planning_session#abc).
+        tags: массив тегов для фасетной фильтрации.
+        caller_role: ОБЯЗАТЕЛЬНО передавать 'managing-director'.
+    """
+    return tools.manager_memory_add(
+        text=text, source=source, path=path, tags=tags, caller_role=caller_role
+    )
+
+
+@mcp.tool()
+def manager_memory_search(
+    query: str,
+    source: Optional[str] = None,
+    limit: int = 10,
+    caller_role: Optional[str] = None,
+) -> dict[str, Any]:
+    """FTS5-поиск по памяти Управляющего. Возвращает результаты со score.
+
+    ДОСТУП: только роль 'managing-director'. Иначе — forbidden.
+
+    Score = bm25(manager_fts): меньше = релевантнее. Архивные чанки исключены.
+    """
+    return tools.manager_memory_search(
+        query=query, source=source, limit=limit, caller_role=caller_role
+    )
+
+
+@mcp.tool()
+def manager_memory_get(
+    chunk_id: int,
+    caller_role: Optional[str] = None,
+) -> dict[str, Any]:
+    """Прочитать один чанк по id.
+
+    ДОСТУП: только роль 'managing-director'.
+    """
+    return tools.manager_memory_get(chunk_id=chunk_id, caller_role=caller_role)
+
+
+@mcp.tool()
+def manager_memory_recent(
+    source: Optional[str] = None,
+    limit: int = 20,
+    caller_role: Optional[str] = None,
+) -> dict[str, Any]:
+    """Последние N не-архивных чанков (updated_at DESC). Bootstrap-режим.
+
+    ДОСТУП: только роль 'managing-director'.
+    """
+    return tools.manager_memory_recent(
+        source=source, limit=limit, caller_role=caller_role
+    )
+
+
+@mcp.tool()
+def manager_memory_archive(
+    chunk_id: int,
+    caller_role: Optional[str] = None,
+) -> dict[str, Any]:
+    """Soft-delete чанка (archived_at = now).
+
+    ДОСТУП: только роль 'managing-director'.
+    """
+    return tools.manager_memory_archive(chunk_id=chunk_id, caller_role=caller_role)
+
+
+# === Planning sessions (B3, ADR-009 §2.4 + §2.6) ===
+#
+# 4 tool'а для координации планёрок Управляющим. caller_role обязателен —
+# должен быть 'managing-director'. Иначе 403 forbidden.
+
+
+@mcp.tool()
+def list_all_inboxes(caller_role: Optional[str] = None) -> dict[str, Any]:
+    """Агрегат по всем активным отделам для Управляющего (ADR-009 §2.6).
+
+    Возвращает для каждого отдела: dept_id, dept_name, wip/review/blocked
+    counts, last_chat_msg_time. Архивированные отделы исключены.
+
+    ДОСТУП: только роль 'managing-director'.
+    """
+    return tools.list_all_inboxes(caller_role=caller_role)
+
+
+@mcp.tool()
+def start_planning_session(
+    owner_request: str,
+    departments: list[str],
+    caller_role: Optional[str] = None,
+) -> dict[str, Any]:
+    """Phase 1 (gathering): создать planning_session и позвать лидов отделов в чат.
+
+    Создаёт запись в planning_sessions(phase='gathering'). Для каждого dept_id
+    в `departments` постит chat_post(author='managing-director') с текстом-приглашением.
+
+    ДОСТУП: только роль 'managing-director'.
+
+    Args:
+        owner_request: исходное сообщение owner'а (требование, контекст).
+        departments: список dept_id отделов чьи лиды зовутся.
+    """
+    return tools.start_planning_session(
+        owner_request, departments, caller_role=caller_role
+    )
+
+
+@mcp.tool()
+def collect_planning_responses(
+    planning_session_id: str,
+    caller_role: Optional[str] = None,
+) -> dict[str, Any]:
+    """Phase 2 (discussion): собирает реплики лидов из чатов отделов в discussion_log.
+
+    Читает chat_recent каждого участвующего отдела с момента started_at,
+    исключает сообщения самого Управляющего, сортирует хронологически и
+    сохраняет в planning_sessions.discussion_log. phase → 'discussion'.
+
+    ДОСТУП: только роль 'managing-director'.
+    """
+    return tools.collect_planning_responses(
+        planning_session_id, caller_role=caller_role
+    )
+
+
+@mcp.tool()
+def finalize_planning_session(
+    planning_session_id: str,
+    owner_answer: str,
+    caller_role: Optional[str] = None,
+) -> dict[str, Any]:
+    """Phase 4 (distribution): парсит owner_answer на N задач и создаёт cross-task в каждый отдел.
+
+    owner_answer может содержать заголовки секций вида '<dept>:', '<dept> -'
+    или '<dept> —' — каждая секция = одна задача в соответствующий отдел.
+    Без заголовков → одна общая задача каждому отделу.
+
+    Задачи создаются с requester_role_slug='managing-director' (без
+    requester_department_id — Управляющий глобальная роль). phase → 'done'.
+
+    ДОСТУП: только роль 'managing-director'.
+    """
+    return tools.finalize_planning_session(
+        planning_session_id, owner_answer, caller_role=caller_role
+    )
+
+
 def main() -> None:
     log.info("pride-tasks MCP-сервер стартует (stdio)")
     mcp.run()

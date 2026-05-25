@@ -272,7 +272,7 @@ Use existing roles as templates. Match their tone and section structure so the T
 
 ### 4. Wire it into the Team Lead
 
-The Team Lead (`роли/тимлид.md`) lists the roles it knows about. Add your role to that list and to the README's role table.
+The Dev Lead (`roles/dev/lead.md`) lists the roles it knows about. Add your role to that list and to the README's role table.
 
 ### 5. Test it in the local kanban
 

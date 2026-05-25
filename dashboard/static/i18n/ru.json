@@ -126,6 +126,10 @@
       "tech_writer": "техписатель"
     }
   },
+  "managingDirector": {
+    "label": "Управляющий",
+    "tooltip": "Главный собеседник (общий чат)"
+  },
   "dept": {
     "dev": "Разработка",
     "create": {
@@ -461,6 +465,7 @@
   },
   "chat": {
     "title": "Чат с тимлидом",
+    "title_managing_director": "Чат с Управляющим",
     "collapse_title": "Свернуть чат",
     "expand_title": "Развернуть чат",
     "rail_label": "Чат",
@@ -468,6 +473,27 @@
     "empty": "пока ничего. Напиши тимлиду — увидит при следующем запуске команды.",
     "send_failed": "Не отправилось: ",
     "scroll_to_bottom": "Прокрутить вниз"
+  },
+  "planning": {
+    "banner": "Планёрка идёт: {depts} (Phase {phase_num} — {phase_name}, {replies})",
+    "banner_multi": "Планёрок идёт: {n}. Кликни для подробностей.",
+    "banner_aria": "Открыть панель планёрки",
+    "panel_title": "Планёрка",
+    "close_aria": "Закрыть панель",
+    "departments": "Отделы",
+    "phase_label": "Фаза",
+    "log_empty": "Реплик пока нет — лиды ещё не ответили.",
+    "loading": "Загрузка…",
+    "load_error": "Не удалось загрузить детали планёрки.",
+    "replies_count": "{n} реплик",
+    "switch_session": "Планёрка {idx} из {total}",
+    "phase": {
+      "gathering": "сбор",
+      "discussion": "обсуждение",
+      "consolidation": "консолидация",
+      "distribution": "распределение",
+      "done": "готово"
+    }
   },
   "modal": {
     "confirm": {

@@ -140,7 +140,7 @@ Each role lives as a system prompt in [`роли/`](роли/):
 
 | File | Role | Tools |
 |---|---|---|
-| `роли/тимлид.md` | Team Lead — plans, decomposes, reviews, escalates | MCP `pride-tasks` + Task (subagents) + Read / Bash / Edit |
+| `roles/dev/lead.md` | Dev Lead — plans, decomposes, reviews, escalates | MCP `pride-tasks` + Task (subagents) + Read / Bash / Edit |
 | `роли/бэкенд.md` | Backend — writes code, unit tests | Read / Write / Edit, Bash, MCP `pride-tasks` (read + comment + submit) |
 | `роли/qa.md` | QA — runs tests, finds regressions, writes new tests | Read, Bash, MCP `pride-tasks` |
 | `роли/архитектор.md` | Architect (optional) | Read, MCP `pride-tasks` |

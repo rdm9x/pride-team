@@ -73,7 +73,7 @@ graph LR
     end
 
     subgraph Agents["claude CLI session"]
-        Lead[Team Lead<br/>роли/тимлид.md]
+        Lead[Dev Lead<br/>roles/dev/lead.md]
         SubBE[Backend subagent<br/>роли/бэкенд.md]
         SubQA[QA subagent<br/>роли/qa.md]
         SubOpt[Architect / Frontend /<br/>DevOps / Tech Writer<br/>роли/*.md]
@@ -287,7 +287,7 @@ sequenceDiagram
     Sh->>R: python -m pride_tasks.router pick
     R->>DB: list_tasks(todo/wip/review/needs_approval)
     R-->>Sh: { model_alias: "sonnet", reason: "..." }
-    Sh->>C: exec claude --append-system-prompt тимлид.md<br/>--model sonnet --mcp-config .mcp.json
+    Sh->>C: exec claude --append-system-prompt roles/dev/lead.md<br/>--model sonnet --mcp-config .mcp.json
     C->>L: Spawn Team Lead session
     L->>M: chat_recent(limit=20)
     M->>DB: SELECT chat
@@ -315,7 +315,7 @@ sequenceDiagram
 
 1. **`POST /api/team/start`** calls `_start_team_process`. It guards against double-start with a lock and returns `409` if a session is already running.
 2. **`devboard-work.sh` runs the router first.** `pride_tasks.router.pick_from_db` reads open tasks, classifies them by keywords (architectural / trivial / techwrite / devops / other), and picks `haiku`, `sonnet`, or `opus`. The decision is logged to stdout so the user sees the *why*.
-3. **`claude` CLI launches in `--print` mode** with `--append-system-prompt = роли/тимлид.md`, `--mcp-config .mcp.json`, `--permission-mode bypassPermissions`, and `--output-format stream-json`.
+3. **`claude` CLI launches in `--print` mode** with `--append-system-prompt = roles/dev/lead.md`, `--mcp-config .mcp.json`, `--permission-mode bypassPermissions`, and `--output-format stream-json`.
 4. **The Team Lead starts every session with the chat.** `chat_recent` → reply via `chat_post` if there are unread messages from user. *Then* it reads the kanban.
 5. **Decomposition.** For each new top-level task the Team Lead calls `create_task(parent_id=..., assignee=...)` 2–6 times.
 6. **Delegation via the Task tool.** The Team Lead spawns subagents with `subagent_type="general-purpose"`, passing the relevant `роли/*.md` as the system prompt plus the subtask id.
@@ -531,8 +531,8 @@ The ADR template is short on purpose: Context → Decision → Consequences → 
 ├── docs/
 │   ├── adr/0001-llm-provider.md
 │   └── launch/                ← OS-specific launcher docs
-├── роли/                      ← role system prompts (one per role)
-│   ├── тимлид.md  бэкенд.md  qa.md  архитектор.md
+├── roles/                     ← role system prompts (one per role)
+│   ├── dev/lead.md  бэкенд.md  qa.md  архитектор.md
 │   └── frontend.md  devops.md  техписатель.md
 ├── mcp_сервер/pride_tasks/    ← MCP server
 │   ├── server.py              ← @mcp.tool() registrations

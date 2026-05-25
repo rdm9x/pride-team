@@ -266,6 +266,7 @@
       "done_title": "Closed tasks (older than 7 days go to Archive)"
     },
     "col_empty": "empty — drop a card here",
+    "active_count": "{total} ({active} active)",
     "move_failed": "Could not move: ",
     "card": {
       "ago_suffix": "ago",
@@ -625,6 +626,7 @@
     }
   },
   "task": {
+    "enable_tooltip": "Include/exclude from next team run",
     "reader": {
       "tldr": "Summary",
       "steps": "What to do",

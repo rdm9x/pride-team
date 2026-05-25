@@ -1160,7 +1160,19 @@
     const modelChip = model
       ? `<span class="model ${model}" title="${i18n("kanban.card.model_tooltip", { model })}">${model}</span>`
       : "";
+    // Checkbox only for todo cards
+    const enableChk = t.status === "todo"
+      ? `<input type="checkbox" class="task-enable"
+           title="${escapeAttr(i18n("task.enable_tooltip"))}"
+           data-task-id="${t.id}"
+           ${t.enabled !== false ? "checked" : ""}>`
+      : "";
+    // Apply disabled visual if enabled===false
+    if (t.status === "todo" && t.enabled === false) {
+      card.classList.add("task-disabled");
+    }
     card.innerHTML = `
+      ${enableChk}
       <div class="meta">
         <span class="id">#${t.id.slice(0, 6)}</span>
         <span class="pri">${t.priority}</span>
@@ -1174,6 +1186,29 @@
         <span>${shortAge(t.created_at)} ${i18n("kanban.card.ago_suffix")}</span>
       </div>
     `;
+    // Checkbox click: optimistic UI + PATCH, no modal open
+    if (t.status === "todo") {
+      const chk = card.querySelector(".task-enable");
+      chk.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const newEnabled = chk.checked;
+        // Optimistic UI
+        card.classList.toggle("task-disabled", !newEnabled);
+        fetch(`/api/tasks/${t.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: newEnabled }),
+        }).then((r) => {
+          if (!r.ok) throw new Error("PATCH failed: " + r.status);
+          // Update local task object for future re-renders
+          t.enabled = newEnabled;
+        }).catch(() => {
+          // Rollback optimistic UI
+          chk.checked = !newEnabled;
+          card.classList.toggle("task-disabled", newEnabled);
+        });
+      });
+    }
     card.addEventListener("click", () => openTaskModal(t.id));
     return card;
   }
@@ -1202,7 +1237,16 @@
         if (emptyBlock) emptyBlock.hidden = true;
         tasks.forEach((t) => container.appendChild(renderCard(t)));
       }
-      document.querySelector(`[data-count="${status}"]`).textContent = tasks.length;
+      const countEl = document.querySelector(`[data-count="${status}"]`);
+      if (status === "todo") {
+        const activeCount = tasks.filter((t) => t.enabled !== false).length;
+        const hasDisabled = activeCount < tasks.length;
+        countEl.textContent = hasDisabled
+          ? i18n("kanban.active_count", { total: tasks.length, active: activeCount })
+          : tasks.length;
+      } else {
+        countEl.textContent = tasks.length;
+      }
       const col = document.querySelector(`[data-status="${status}"]`);
       col.classList.toggle("empty-collapsed", tasks.length === 0 && !showEmpty);
     }

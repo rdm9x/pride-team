@@ -1681,6 +1681,8 @@ code, .md-inline {
   z-index: 100;
 }
 .modal[hidden] { display: none; }
+/* Confirm-dialog должен быть НАД любой открытой модалкой (например, карточкой задачи). */
+#modal-confirm { z-index: 250; }
 .modal-content {
   background: var(--glass-bg-2);
   backdrop-filter: var(--glass-blur);

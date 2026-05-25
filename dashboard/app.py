@@ -1819,6 +1819,15 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
     @app.post("/api/tasks")
     def api_create_task() -> Any:
         data = request.get_json(silent=True) or {}
+        # ADR-003 §2.4.1 + ADR-009: department_id определяется в порядке:
+        # 1) body.department_id (явное указание), 2) X-Department header,
+        # 3) cookie current_department, 4) fallback 'dev'.
+        department_id = (
+            data.get("department_id")
+            or request.headers.get("X-Department")
+            or request.cookies.get("current_department")
+            or "dev"
+        )
         res = tools.create_task(
             title=data.get("title", ""),
             description=data.get("description", ""),
@@ -1830,6 +1839,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             status=data.get("status", "todo"),
             labels=data.get("labels"),
             model_hint=data.get("model_hint") or None,
+            department_id=department_id,
             db_path=_db(),
         )
         if res["статус"] != "ok":

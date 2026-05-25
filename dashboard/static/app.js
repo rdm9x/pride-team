@@ -1864,6 +1864,9 @@
     e.preventDefault();
     const form = e.target;
     const modelHintVal = form.model_hint ? form.model_hint.value : "auto";
+    // ADR-003 §2.4.2 + ADR-009: задача создаётся в текущем активном отделе
+    // (из localStorage). Backend также проверит X-Department header / cookie.
+    const currentDept = localStorage.getItem("devboard:current_department") || "dev";
     const body = {
       title: form.title.value.trim(),
       description: form.description.value,
@@ -1871,10 +1874,14 @@
       assignee: form.assignee.value || null,
       requires_approval: form.requires_approval.checked,
       model_hint: modelHintVal === "auto" ? null : modelHintVal,
+      department_id: currentDept,
     };
     const r = await fetch("/api/tasks", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Department": currentDept,
+      },
       body: JSON.stringify(body),
     });
     if (!r.ok) {

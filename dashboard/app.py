@@ -553,6 +553,8 @@ def _smart_default_role(db_path: "Path | None" = None) -> str:
         all_todo = _db_mod.list_tasks(path, status="todo", limit=500)
     except Exception:
         return "managing-director"
+    # F2.1: исключаем отключённые задачи из выборки для старта сессии
+    all_todo = [t for t in all_todo if t.get("enabled", True)]
     if not all_todo:
         return "managing-director"
 
@@ -592,7 +594,9 @@ def pick_model_for_role(role: str, db_path: "Path | None" = None) -> str:
 
     path = db_path or DB_PATH
     # Берём только todo-задачи этой роли — именно они определяют следующую сессию
+    # F2.1: исключаем отключённые задачи (enabled=0) из выборки
     role_tasks = _db_mod.list_tasks(path, status="todo", assignee=role, limit=200)
+    role_tasks = [t for t in role_tasks if t.get("enabled", True)]
     decision = _router_mod.pick(role_tasks)
     return decision["model_alias"]
 
@@ -2081,6 +2085,15 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
     @app.patch("/api/tasks/<task_id>")
     def api_update_task(task_id: str) -> Any:
         data = request.get_json(silent=True) or {}
+
+        # F2.1: enabled — отдельная ветка с быстрым ответом {id, enabled}.
+        if "enabled" in data and len(data) == 1:
+            enabled_val = bool(data["enabled"])
+            updated = db.update_task(_db(), task_id, enabled=enabled_val)
+            if updated is None:
+                return jsonify({"статус": "not_found", "task_id": task_id}), 404
+            return jsonify({"id": task_id, "enabled": updated["enabled"]})
+
         res = tools.update_task(
             task_id,
             status=data.get("status"),

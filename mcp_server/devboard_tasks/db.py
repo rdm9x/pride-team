@@ -107,6 +107,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   requester_department_id TEXT REFERENCES departments(id),  -- S11.1: ADR-005, NULL для intra
   requester_role_slug TEXT,                                  -- S11.1: ADR-005, slug Lead-заказчика
   model_hint TEXT,                                           -- S15.2: ADR-006, hint для роутера (opus/sonnet/haiku)
+  enabled INTEGER NOT NULL DEFAULT 1,                        -- F2.1: чекбокс на todo-карточке (1=активна, 0=пропустить)
   FOREIGN KEY (parent_id) REFERENCES tasks(id)
 );
 
@@ -393,6 +394,9 @@ def ensure_dev_department(conn: sqlite3.Connection) -> None:
 
     # S15.2 (ADR-006): per-task model hint. Idempotent.
     _add_column_if_missing(conn, "tasks", "model_hint", "TEXT")
+
+    # F2.1: чекбокс enabled (1=активна, 0=пропустить при старте сессии). Idempotent.
+    _add_column_if_missing(conn, "tasks", "enabled", "INTEGER NOT NULL DEFAULT 1")
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_tasks_requester_dept "
         "ON tasks(requester_department_id) WHERE requester_department_id IS NOT NULL"
@@ -560,6 +564,8 @@ def _row_to_task(row: sqlite3.Row) -> dict[str, Any]:
         "requester_role_slug": row["requester_role_slug"] if "requester_role_slug" in keys else None,
         # S15.2 (ADR-006): hint для роутера — opus/sonnet/haiku или None.
         "model_hint": row["model_hint"] if "model_hint" in keys else None,
+        # F2.1: чекбокс на todo-карточке. DEFAULT 1 (активна).
+        "enabled": bool(row["enabled"]) if "enabled" in keys else True,
     }
 
 
@@ -594,6 +600,7 @@ _ALLOWED_UPDATE_FIELDS = {
     "completed_at",
     "requires_approval",
     "model_hint",  # S15.2 (ADR-006): hint для роутера
+    "enabled",     # F2.1: чекбокс на todo-карточке
 }
 
 
@@ -750,8 +757,8 @@ def update_task(db_path: Path, task_id: str, **fields: Any) -> Optional[dict[str
         if key == "labels":
             sets.append("labels = ?")
             args.append(json.dumps(value or [], ensure_ascii=False))
-        elif key == "requires_approval":
-            sets.append("requires_approval = ?")
+        elif key in ("requires_approval", "enabled"):
+            sets.append(f"{key} = ?")
             args.append(1 if value else 0)
         else:
             sets.append(f"{key} = ?")
@@ -1549,8 +1556,8 @@ def atomic_modify(
             if key == "labels":
                 sets.append("labels = ?")
                 args.append(json.dumps(value or [], ensure_ascii=False))
-            elif key == "requires_approval":
-                sets.append("requires_approval = ?")
+            elif key in ("requires_approval", "enabled"):
+                sets.append(f"{key} = ?")
                 args.append(1 if value else 0)
             else:
                 sets.append(f"{key} = ?")

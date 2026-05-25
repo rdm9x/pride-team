@@ -75,24 +75,45 @@ fi
 
 TEAMLEAD_PROMPT="$(cat "$ROLE_FILE")"
 
-TASK_PROMPT="Старт сессии тимлида.
+TASK_PROMPT="Старт сессии тимлида (${ROLE_SLUG}).
 
 1) ЧАТ с пользователем — mcp__devboard-tasks__chat_recent(limit=20). Если есть
    сообщения от него без твоего ответа — ответь через
    mcp__devboard-tasks__chat_post(author=\"${ROLE_SLUG}\", text=\"...\") ДО задач.
 
-2) Канбан: list_tasks(status=\"todo\", assignee=\"${ROLE_SLUG}\"), потом wip, потом
-   list_tasks(status=\"needs_approval\").
+2) КАНБАН — ты КООРДИНАТОР отдела. Дочерние задачи assigned на специалистов
+   (бэкенд/qa/frontend/devops/архитектор/техписатель), а ТЫ их делегируешь
+   через Task tool. НЕ жди сигнала от owner-а — это твоя работа.
 
-3) Для каждой новой: декомпозируй на 2-6 атомарных подзадач (create_task
-   с parent_id, assignee=бэкенд|qa). Subagent'ы — параллельно через Task tool
-   (subagent_type=general-purpose, prompt = roles/бэкенд.md или roles/qa.md
-   + описание подзадачи + id).
+   Шаги:
+   a) mcp__devboard-tasks__list_tasks(status='todo', limit=50) — ВСЕ todo.
+   b) Отфильтруй задачи где department_id='dev' (или твой отдел) ИЛИ
+      assignee in (бэкенд, qa, архитектор, frontend, devops, техписатель).
+   c) Также list_tasks(status='wip', assignee='${ROLE_SLUG}') — что было начато.
+   d) Также list_tasks(status='needs_approval', assignee='${ROLE_SLUG}').
 
-4) Собери результаты, ревьюй, обнови статусы родительских задач.
+3) Для каждой todo задачи специалиста (НЕ parent-эпиков с label=epic):
+   a) Запусти subagent через Task tool параллельно (до 4-5 одновременно
+      в одном сообщении): subagent_type=general-purpose, prompt = содержимое
+      файла roles/<assignee>.md + description задачи + id задачи.
+   b) Subagent НЕ имеет MCP — после его завершения ТЫ сам делаешь
+      mcp__devboard-tasks__update_task(id, status='review').
 
-5) Финал: chat_post(author=\"${ROLE_SLUG}\", text=\"итоги: ...\") — короткое резюме
-   для пользователя. Какие задачи в review, какие нуждаются в одобрении."
+   Parent-эпики (label=epic с уже декомпозированными children) — НЕ трогай.
+   Работай напрямую с child задачами.
+
+4) Параллельность важна: 4-5 subagent'ов сразу в одном сообщении (несколько tool_use).
+   После сбора результатов — update_task на review для каждой.
+
+5) Финал: ОБЯЗАТЕЛЬНО chat_post(author=\"${ROLE_SLUG}\",
+   text=\"итоги: делегировал N задач, M в review\") — короткое резюме.
+
+ЗАПРЕТЫ:
+- НЕ пиши 'жду твоего сигнала какую роль запустить' — owner ставит задачи,
+  ты их выполняешь автономно без подтверждения.
+- НЕ запускай app.py для проверки UI — dashboard работает на :4999 отдельно.
+- НЕ используй timeout (нет на macOS).
+- Сигнал owner-а нужен ТОЛЬКО для acceptance review→done."
 
 cd "$REPO_ROOT"
 

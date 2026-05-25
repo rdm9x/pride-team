@@ -3109,7 +3109,10 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         _demo_lead = _find_lead_for_department(_db(), _demo_dept) or "тимлид"
 
         # Epic: Build a landing page
-        epic_res = tools.create_task(
+        # Используем db.insert_task напрямую — assignee может быть non-legacy slug
+        # (например, marketing-lead), который tools.create_task не знает.
+        _epic_task = db.insert_task(
+            _db(),
             title="Build a landing page",
             description="Верстаем лендинг для продукта. Эпик-задача.",
             assignee=_demo_lead,
@@ -3117,9 +3120,9 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             priority="P1",
             status="wip",
             labels=["demo"],
-            db_path=_db(),
+            department_id=_demo_dept,
         )
-        epic_id = epic_res["задача"]["id"]
+        epic_id = _epic_task["id"]
         created_ids.append(epic_id)
 
         # Subtask 1: todo

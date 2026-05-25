@@ -253,7 +253,7 @@ class TestThreadsMessagesFilterViewerEndpoint:
     def test_get_messages_no_filter(self, client, test_db, setup_roles):
         """Get all messages without viewer filter."""
         thread = db.create_chat_thread(test_db, title="Test", kind="direct")
-        db.add_chat_message_to_thread(test_db, thread["id"], "owner", "Owner message")
+        db.add_chat_message_to_thread(test_db, thread["id"], "пользователь", "User message")
         db.add_chat_message_to_thread(test_db, thread["id"], "dev-lead", "Lead message")
         db.add_chat_message_to_thread(test_db, thread["id"], "managing-director", "MD message")
 

@@ -1176,7 +1176,7 @@ def add_chat_message_to_thread(
     _base_allowed = {
         "пользователь", "тимлид", "бэкенд", "qa",
         "архитектор", "frontend", "devops", "техписатель",
-        "system", "managing-director",
+        "system", "managing-director", "owner",
     }
 
     # Загружаем все роли из БД

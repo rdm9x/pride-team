@@ -290,3 +290,53 @@ def test_delete_task_cleans_comments(db_path: Path) -> None:
     finally:
         conn.close()
     assert cnt == 0
+
+
+def test_add_chat_message_with_owner_role(db_path: Path) -> None:
+    """Проверить что роль 'owner' признаётся в add_chat_message_to_thread."""
+    # Создаём thread
+    thread = db.create_chat_thread(db_path, "Обсуждение #1")
+    assert thread is not None
+
+    # Добавляем сообщение от owner (это не должно вызывать ValueError)
+    msg = db.add_chat_message_to_thread(
+        db_path,
+        thread["id"],
+        author="owner",
+        text="Мой комментарий от owner"
+    )
+
+    assert msg is not None
+    assert msg["author"] == "owner"
+    assert msg["text"] == "Мой комментарий от owner"
+    assert msg["thread_id"] == thread["id"]
+
+
+def test_add_chat_message_with_various_roles(db_path: Path) -> None:
+    """Проверить что различные роли работают корректно."""
+    thread = db.create_chat_thread(db_path, "Обсуждение #2")
+
+    roles_to_test = ["owner", "тимлид", "бэкенд", "qa", "system"]
+
+    for role in roles_to_test:
+        msg = db.add_chat_message_to_thread(
+            db_path,
+            thread["id"],
+            author=role,
+            text=f"Сообщение от {role}"
+        )
+        assert msg is not None
+        assert msg["author"] == role
+
+
+def test_add_chat_message_rejects_invalid_role(db_path: Path) -> None:
+    """Проверить что неизвестная роль отвергается."""
+    thread = db.create_chat_thread(db_path, "Обсуждение #3")
+
+    with pytest.raises(ValueError, match="неизвестный author"):
+        db.add_chat_message_to_thread(
+            db_path,
+            thread["id"],
+            author="invalid_role",
+            text="Текст"
+        )

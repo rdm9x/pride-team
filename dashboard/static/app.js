@@ -208,6 +208,18 @@
   // Storage key — выбранный пользователем отдел; fallback на 'dev' (default).
   const DEPT_STORAGE_KEY = "devboard-current-department";
   let _departmentsCache = [];
+  // id → project — кэш для отображения чипа PRJ-NNN на карточке.
+  let _projectsCache = {};
+  async function refreshProjectsCache() {
+    try {
+      const r = await fetch("/api/projects/list");
+      if (!r.ok) return;
+      const data = await r.json();
+      const map = {};
+      (data.projects || []).forEach((p) => { map[p.id] = p; });
+      _projectsCache = map;
+    } catch (_) { /* offline — оставляем старый кэш */ }
+  }
 
   function currentDepartment() {
     try {
@@ -422,6 +434,8 @@
     } catch (e) {
       console.error("loadDepartments failed", e);
     }
+    // Заодно обновляем кэш проектов — он нужен для PRJ-NNN чипа на карточках.
+    refreshProjectsCache();
   }
 
   // ===================== Sidebar agents list (F1-1.5) =====================
@@ -1226,6 +1240,11 @@
     const artifactBadge = artifactCount > 0
       ? `<span class="artifact-badge ico" title="${i18n("kanban.card.has_artifacts", { count: artifactCount })}">📎 ${artifactCount}</span>`
       : "";
+    // Project chip — PRJ-NNN если задача привязана.
+    const project = t.project_id && _projectsCache[t.project_id];
+    const projectChip = project
+      ? `<span class="project-chip" title="${escapeAttr(project.title)}">${escapeHtml(project.code)}</span>`
+      : "";
     // Checkbox only for todo cards
     const enableChk = t.status === "todo"
       ? `<input type="checkbox" class="task-enable"
@@ -1243,6 +1262,7 @@
         <span class="pri">${t.priority}</span>
         ${role}
         ${modelChip}
+        ${projectChip}
         ${approval}
         ${linkIcon}
         ${artifactBadge}

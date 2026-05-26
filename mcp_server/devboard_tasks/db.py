@@ -1351,22 +1351,27 @@ def get_thread_messages(
     Returns:
         list[dict] с полями: id, author, text, created_at, thread_id.
     """
-    # Определяем лид-роли: роли заканчивающиеся на '-lead'
-    lead_roles = set()
+    # ADR-011 §6.1: viewer='owner' прячет реплики тимлидов в обычных тредах,
+    # чтобы они не шумели в чате owner-а. НО в planning-тредах реплики лидов —
+    # это и есть содержимое планёрки, owner должен их видеть. Поэтому фильтр
+    # применяем только если thread.kind != 'planning'.
+    apply_lead_filter = False
+    lead_roles: set[str] = set()
     if viewer == "owner":
-        conn_roles = _connect(db_path)
-        try:
-            rows = conn_roles.execute("SELECT name FROM roles WHERE name LIKE '%lead'").fetchall()
-            lead_roles = {row["name"] for row in rows}
-            # Добавляем 'тимлид' как лид-роль
-            lead_roles.add("тимлид")
-        finally:
-            conn_roles.close()
+        thread = get_chat_thread(db_path, thread_id)
+        if thread is not None and thread.get("kind") != "planning":
+            apply_lead_filter = True
+            conn_roles = _connect(db_path)
+            try:
+                rows = conn_roles.execute("SELECT name FROM roles WHERE name LIKE '%lead'").fetchall()
+                lead_roles = {row["name"] for row in rows}
+                lead_roles.add("тимлид")
+            finally:
+                conn_roles.close()
 
     conn = _connect(db_path)
     try:
-        if viewer == "owner":
-            # Исключаем лид-роли
+        if apply_lead_filter and lead_roles:
             cur = conn.execute(
                 """
                 SELECT * FROM chat_messages

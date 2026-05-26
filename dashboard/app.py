@@ -572,9 +572,10 @@ def _auto_can_start_for_role(role: str, now: int) -> tuple[bool, str]:
 # Phase 3b: Planning orchestrator
 # ============================================================================
 
-_PLANNING_LEAD_TIMEOUT_SEC = 300   # 5 минут на ответ одного лида
+_PLANNING_LEAD_TIMEOUT_SEC = 180   # 3 минуты на ответ одного лида
 _PLANNING_POLL_INTERVAL = 5         # как часто проверяем БД на pending
 _PLANNING_MAX_WALL_SEC = 30 * 60    # 30 минут на всю планёрку
+_PLANNING_STALE_RECOVERY_SEC = 10 * 60  # running > 10 минут без апдейтов = orphan
 
 
 def _planning_cost_so_far(db_path: Path, started_at: int) -> float:
@@ -850,12 +851,47 @@ def _abort_planning(db_path: Path, sid: str, reason: str, thread_id: Optional[st
         )
 
 
+def _planning_recover_orphans(db_path: Path) -> None:
+    """На старте orchestrator-а: планёрки в status='running' старше N минут
+    считаются orphaned (Flask упал/перезапустился во время рана), переводим
+    в 'aborted' с пометкой в треде. Запускается один раз при старте."""
+    cutoff = int(time.time()) - _PLANNING_STALE_RECOVERY_SEC
+    conn = db._connect(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT id, thread_id, started_at FROM planning_sessions "
+            "WHERE status = 'running' AND started_at < ?",
+            (cutoff,),
+        ).fetchall()
+    finally:
+        conn.close()
+    for r in rows:
+        sid = r["id"]
+        thread_id = r["thread_id"]
+        log.warning("orphan planning %s (started %ds ago), aborting",
+                    sid, int(time.time()) - int(r["started_at"]))
+        db.planning_session_update(
+            db_path, sid, status="aborted", finished_at=int(time.time()),
+        )
+        if thread_id:
+            _planning_post_to_thread(
+                db_path, thread_id, "system",
+                f"⛔ Планёрка #{sid[:6]} прервана: Flask перезапустился во время раунда. "
+                "Запусти заново.",
+            )
+
+
 def _planning_orchestrator_loop(db_path: Path = DB_PATH) -> None:
     """Background thread: подбирает планёрки в status='pending' и ведёт их по очереди.
 
     Один поток — sequentially. Если параллельный запуск нужен — отдельная задача.
     """
     log.info("planning orchestrator started, polling every %ds", _PLANNING_POLL_INTERVAL)
+    # На старте — забираем orphaned running sessions из прошлого Flask-инстанса.
+    try:
+        _planning_recover_orphans(db_path)
+    except Exception:  # noqa: BLE001
+        log.exception("planning orphan recovery failed")
     while True:
         try:
             conn = db._connect(db_path)

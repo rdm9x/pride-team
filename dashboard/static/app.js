@@ -1486,7 +1486,7 @@
       });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
-        alert(i18n("kanban.move_failed") + (err.причина || err.reason || r.status));
+        (window.customAlert || alert)(i18n("kanban.move_failed") + (err.причина || err.reason || r.status));
       }
       refresh();
     });
@@ -1947,7 +1947,7 @@
         });
         if (!r.ok) {
           const err = await r.json().catch(() => ({}));
-          alert(i18n("modal.task.save_failed") + (err.причина || err.reason || r.status));
+          (window.customAlert || alert)(i18n("modal.task.save_failed") + (err.причина || err.reason || r.status));
           return;
         }
         await openTaskModal(t.id);
@@ -1970,7 +1970,7 @@
         });
         if (!r.ok) {
           const err = await r.json().catch(() => ({}));
-          alert(i18n("modal.task.dep_failed") + (err.причина || err.reason || r.status));
+          (window.customAlert || alert)(i18n("modal.task.dep_failed") + (err.причина || err.reason || r.status));
           return;
         }
         depForm.depends_on.value = "";
@@ -2271,7 +2271,7 @@
     });
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
-      alert(i18n("modal.task.create_failed") + (err.причина || err.reason || r.status));
+      (window.customAlert || alert)(i18n("modal.task.create_failed") + (err.причина || err.reason || r.status));
       return;
     }
     closeModal("modal-new");
@@ -2506,7 +2506,7 @@
     });
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
-      alert(i18n("team.start_failed") + (err.reason || err.причина || r.status));
+      (window.customAlert || alert)(i18n("team.start_failed") + (err.reason || err.причина || r.status));
     }
     refreshTeamStatus();
   }
@@ -2870,7 +2870,7 @@
       });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
-        alert(i18n("inbox.inter_dept.error.take") + (err.причина || err.reason || r.status));
+        (window.customAlert || alert)(i18n("inbox.inter_dept.error.take") + (err.причина || err.reason || r.status));
         return;
       }
       refresh();
@@ -3386,7 +3386,7 @@
       btnResetTour.addEventListener("click", () => {
         localStorage.removeItem("onboarding_completed");
         localStorage.removeItem("onboarding_completed_at");
-        alert(i18n("settings.danger.reset_tour_done"));
+        (window.customAlert || alert)(i18n("settings.danger.reset_tour_done"));
       });
     }
 
@@ -3402,8 +3402,12 @@
     // Danger zone: clear localStorage
     const btnClearStorage = $("#btn-clear-storage");
     if (btnClearStorage) {
-      btnClearStorage.addEventListener("click", () => {
-        if (!confirm(i18n("settings.danger.clear_storage_confirm"))) return;
+      btnClearStorage.addEventListener("click", async () => {
+        const msg = i18n("settings.danger.clear_storage_confirm");
+        const ok = window.customConfirm
+          ? await window.customConfirm(msg)
+          : confirm(msg);
+        if (!ok) return;
         localStorage.clear();
         location.reload();
       });
@@ -4279,7 +4283,7 @@
     });
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
-      alert(i18n("modal.task.create_failed") + (err.причина || err.reason || r.status));
+      (window.customAlert || alert)(i18n("modal.task.create_failed") + (err.причина || err.reason || r.status));
       return;
     }
     closeRoleModal();
@@ -4292,7 +4296,7 @@
     const r = await fetch(`/api/roles/${encodeURIComponent(name)}`, { method: "DELETE" });
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
-      alert(i18n("roles.error.deleteFailed") + (err.причина || err.reason || r.status));
+      (window.customAlert || alert)(i18n("roles.error.deleteFailed") + (err.причина || err.reason || r.status));
     }
     loadRoles();
   }

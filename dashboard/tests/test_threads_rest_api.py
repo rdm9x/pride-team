@@ -284,8 +284,12 @@ class TestThreadsMessagesFilterViewerEndpoint:
         assert len(data["messages"]) == 3
 
     def test_get_messages_viewer_owner_filters_leads(self, client, test_db, setup_roles):
-        """viewer=owner excludes all lead-role messages (ADR-011 §6.1, CRITICAL)."""
-        thread = db.create_chat_thread(test_db, title="Test", kind="planning")
+        """viewer=owner excludes all lead-role messages in DIRECT threads (ADR-011 §6.1).
+
+        В planning тредах фильтр не применяется (коммит 4ba283c) — owner должен
+        видеть реплики лидов как содержимое планёрки. См. отдельный тест ниже.
+        """
+        thread = db.create_chat_thread(test_db, title="Test", kind="direct")
 
         # Add messages from various roles
         db.add_chat_message_to_thread(test_db, thread["id"], "owner", "Owner msg 1")
@@ -307,6 +311,24 @@ class TestThreadsMessagesFilterViewerEndpoint:
         assert "dev-lead" not in authors
         assert "marketing-lead" not in authors
         assert "тимлид" not in authors
+
+    def test_get_messages_viewer_owner_shows_leads_in_planning(self, client, test_db, setup_roles):
+        """В planning тредах viewer=owner НЕ фильтрует лидов — реплики лидов
+        и есть содержимое планёрки, owner должен их видеть (коммит 4ba283c)."""
+        thread = db.create_chat_thread(test_db, title="Plan", kind="planning")
+
+        db.add_chat_message_to_thread(test_db, thread["id"], "owner", "ask")
+        db.add_chat_message_to_thread(test_db, thread["id"], "dev-lead", "dev opinion")
+        db.add_chat_message_to_thread(test_db, thread["id"], "marketing-lead", "mkt opinion")
+        db.add_chat_message_to_thread(test_db, thread["id"], "managing-director", "synthesis")
+
+        resp = client.get(f"/api/threads/{thread['id']}/messages?viewer=owner")
+        assert resp.status_code == 200
+        msgs = resp.get_json()["messages"]
+        # Owner видит ВСЕ 4 сообщения — фильтр в planning тредах отключён.
+        assert len(msgs) == 4
+        authors = {m["author"] for m in msgs}
+        assert authors == {"owner", "dev-lead", "marketing-lead", "managing-director"}
 
     def test_get_messages_viewer_owner_no_lead_roles(self, client, test_db):
         """viewer=owner with no roles in roles table (only default roles)."""
@@ -447,10 +469,11 @@ class TestThreadsIntegrationScenario:
             "text": "На маркетинге согласны с предложением"
         })
 
-        # 3. Owner views (filtered)
+        # 3. Owner views — в planning тредах фильтр отключён, owner видит всё
+        # (коммит 4ba283c: содержимое планёрки — это реплики лидов).
         resp = client.get(f"/api/threads/{thread_id}/messages?viewer=owner")
         owner_msgs = resp.get_json()["messages"]
-        assert len(owner_msgs) == 2  # owner + MD only
+        assert len(owner_msgs) == 4  # owner + MD + dev-lead + marketing-lead
 
         # 4. MD views all
         resp = client.get(f"/api/threads/{thread_id}/messages?viewer=managing-director")

@@ -164,10 +164,14 @@ elif [[ "${DEVBOARD_PLANNING_MODE:-}" == "revise" && "${ROLE_SLUG}" == "managing
 elif [[ "${DEVBOARD_PLANNING_MODE:-}" == "dispatch" && "${ROLE_SLUG}" == "managing-director" ]]; then
     PLANNING_ID="${DEVBOARD_PLANNING_ID:-}"
     THREAD_ID="${DEVBOARD_THREAD_ID:-}"
+    PROJECT_ID="${DEVBOARD_PROJECT_ID:-}"
     TASK_PROMPT="DISPATCH-режим: декомпозиция планёрки #${PLANNING_ID:0:6} в реальные задачи отделов.
 
 Owner одобрил план — твоя задача превратить consolidated_proposal в карточки
 задач на доске. НЕ запускать никого в работу, только создать todo-карточки.
+
+ВАЖНО: планёрка привязана к проекту project_id=${PROJECT_ID}. Все создаваемые
+задачи ОБЯЗАНЫ иметь этот project_id — иначе artifacts/workspace не работают.
 
 1) Прочитай отчёт планёрки:
        curl -s http://127.0.0.1:4999/api/planning/active
@@ -191,12 +195,14 @@ Owner одобрил план — твоя задача превратить con
          description='<подробности из плана>',
          assignee='<роль>',
          department_id='<отдел>',
+         project_id=${PROJECT_ID},
          priority='P2',
          status='todo',
          labels=['planning', 'planning:${PLANNING_ID:0:6}']
        )
-   Если в плане упомянут проект (PRJ-NNN) — добавь его через
-   mcp__devboard-tasks__link_task_to_project(task_id, project_id_or_code).
+   project_id=${PROJECT_ID} — ОБЯЗАТЕЛЕН. Если create_task не принимает
+   project_id напрямую, после создания вызови:
+       mcp__devboard-tasks__link_task_to_project(task_id=<новый id>, project_id_or_code=${PROJECT_ID})
 
 5) После создания всех задач — короткое сообщение в тред планёрки:
        curl -X POST http://127.0.0.1:4999/api/threads/${THREAD_ID}/messages \\

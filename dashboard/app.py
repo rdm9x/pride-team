@@ -648,6 +648,21 @@ _PLANNING_MODELS: dict[str, dict[str, str]] = {
 }
 
 
+def _slugify_project_title(title: str) -> str:
+    """Slug из title для нового проекта: latin-only, dashes, lowercase.
+    Если ничего latin-symbol-уцелело (например русское название) — фолбэк
+    'proj-<8 hex>'. Slug идёт в workspace/<code>-<slug>/, поэтому ASCII-safe.
+    """
+    import re
+    import unicodedata
+    import uuid as _uuid
+    normalized = unicodedata.normalize("NFKD", title).encode("ascii", "ignore").decode("ascii")
+    slug = re.sub(r"[^a-z0-9]+", "-", normalized.lower()).strip("-")
+    if not slug:
+        slug = f"proj-{_uuid.uuid4().hex[:8]}"
+    return slug[:50]
+
+
 def _planning_model_for(profile: Optional[str], stage: str) -> str:
     """Вернуть alias модели (haiku|sonnet|opus) для пары profile×stage.
 
@@ -777,6 +792,11 @@ def _planning_run_dispatch(db_path: Path, session_id: str) -> None:
     env["DEVBOARD_TEAM_MODEL"] = _planning_model_for(
         session.get("model_profile"), "dispatch",
     )
+    # Project к которому привязана планёрка — Управляющий обязан задавать
+    # этот project_id во всех создаваемых задачах, иначе artifacts/workspace
+    # ломаются (см. devboard-work.sh dispatch-prompt).
+    if session.get("project_id"):
+        env["DEVBOARD_PROJECT_ID"] = str(session["project_id"])
 
     cmd = ["bash", str(script), "--role", "managing-director"] if sys.platform != "win32" else \
           ["pwsh", "-File", str(script), "-Role", "managing-director"]
@@ -4294,6 +4314,12 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         except (TypeError, ValueError):
             cost_limit_usd = 10.0
 
+        # Проект — обязательный (иначе artifacts/workspace ломаются).
+        # Либо project_id existing, либо new_project_title для создания.
+        raw_project_id = data.get("project_id")
+        new_project_title = (data.get("new_project_title") or "").strip() or None
+        project_id: Optional[int] = None
+
         if not owner_request:
             return jsonify({
                 "статус": "error", "status": "error",
@@ -4315,6 +4341,26 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
                 "причина": "cost_limit_usd должен быть от $0.5 до $500",
             }), 400
 
+        # Резолвим project: existing id или создаём новый.
+        if raw_project_id is not None and str(raw_project_id).strip() not in ("", "new"):
+            try:
+                project_id = int(raw_project_id)
+            except (TypeError, ValueError):
+                return jsonify({"статус": "error",
+                                "причина": "project_id должен быть числом"}), 400
+            if tools.get_project(project_id, db_path=_db()).get("статус") != "ok":
+                return jsonify({"статус": "error",
+                                "причина": f"project_id={project_id} не существует"}), 400
+        elif new_project_title:
+            slug = _slugify_project_title(new_project_title)
+            create_res = tools.create_project(slug=slug, title=new_project_title, db_path=_db())
+            if create_res.get("статус") != "ok":
+                return jsonify(create_res), 400
+            project_id = create_res["project"]["id"]
+        else:
+            return jsonify({"статус": "error",
+                            "причина": "нужен project_id или new_project_title"}), 400
+
         res = tools.start_planning_session(
             owner_request=owner_request,
             departments=list(departments),
@@ -4323,6 +4369,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             total_rounds=rounds,
             cost_limit_usd=cost_limit_usd,
             model_profile=model_profile,
+            project_id=project_id,
             _bypass_role=True,
             db_path=_db(),
         )

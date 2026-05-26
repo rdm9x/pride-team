@@ -277,7 +277,11 @@ CREATE TABLE IF NOT EXISTS planning_sessions (
   decision_comment      TEXT,
   -- Профиль моделей для subprocess'ов планёрки (lead/synthesis/dispatch/revise).
   -- 'base' = sonnet везде; 'deep' = opus на synthesis/revise.
-  model_profile         TEXT NOT NULL DEFAULT 'base'
+  model_profile         TEXT NOT NULL DEFAULT 'base',
+  -- Проект-контейнер. Dispatch создаёт task'и с этим project_id, чтобы
+  -- artifacts шли в правильный workspace/<code>-<slug>/<dept>/<task_id>/.
+  -- Nullable для legacy записей до этого фикса.
+  project_id            INTEGER REFERENCES projects(id) ON DELETE SET NULL
 );
 
 -- Активные планёрки — самый частый запрос Управляющего при старте сессии.
@@ -550,6 +554,7 @@ def _ensure_planning_sessions_columns(conn: sqlite3.Connection) -> None:
             "decided_at":       "INTEGER",
             "decision_comment": "TEXT",
             "model_profile":    "TEXT NOT NULL DEFAULT 'base'",
+            "project_id":       "INTEGER REFERENCES projects(id) ON DELETE SET NULL",
         }
         for col, col_def in expected.items():
             if col not in existing:
@@ -2356,6 +2361,7 @@ def _row_to_planning_session(row: sqlite3.Row) -> dict[str, Any]:
         "decided_at":            row["decided_at"] if "decided_at" in keys else None,
         "decision_comment":      row["decision_comment"] if "decision_comment" in keys else None,
         "model_profile":         row["model_profile"] if "model_profile" in keys else "base",
+        "project_id":            row["project_id"] if "project_id" in keys else None,
     }
 
 
@@ -2373,6 +2379,7 @@ def planning_session_create(
     total_rounds: int = 3,
     cost_limit_usd: float = 2.0,
     model_profile: str = "base",
+    project_id: Optional[int] = None,
 ) -> dict[str, Any]:
     """Создать запись planning_sessions. id = uuid4 hex[:12]."""
     if not owner_request or not owner_request.strip():
@@ -2401,9 +2408,9 @@ def planning_session_create(
                   discussion_log, consolidated_proposal, questions_for_owner,
                   owner_answer, created_tasks, started_at, finished_at,
                   thread_id, topic, total_rounds, current_round, status,
-                  cost_limit_usd, cost_so_far_usd, model_profile
+                  cost_limit_usd, cost_so_far_usd, model_profile, project_id
                 ) VALUES (?, ?, ?, ?, '[]', NULL, NULL, NULL, '[]', ?, NULL,
-                          ?, ?, ?, 0, 'pending', ?, 0, ?)
+                          ?, ?, ?, 0, 'pending', ?, 0, ?, ?)
                 """,
                 (
                     session_id,
@@ -2416,6 +2423,7 @@ def planning_session_create(
                     int(total_rounds),
                     float(cost_limit_usd),
                     model_profile,
+                    project_id,
                 ),
             )
             conn.execute("COMMIT")

@@ -783,6 +783,36 @@
   // Перерисовка баннера при смене треда — вызывается из selectThread напрямую.
 
   // ============================================================
+  // Load Planning Projects — список projects + опция «➕ Новый проект»
+  // ============================================================
+
+  async function loadPlanningProjects() {
+    const sel = document.getElementById('planning-project-chat');
+    if (!sel) return;
+    try {
+      const r = await fetch('/api/projects/list');
+      const data = await r.json();
+      const projects = data.projects || [];
+      sel.innerHTML = '';
+      projects.forEach((p) => {
+        const opt = document.createElement('option');
+        opt.value = String(p.id);
+        opt.textContent = `${p.code} · ${p.title}`;
+        sel.appendChild(opt);
+      });
+      const newOpt = document.createElement('option');
+      newOpt.value = 'new';
+      const tNew = window.t && window.t('planning.create.new_project');
+      newOpt.textContent = '➕ ' + (tNew && tNew !== 'planning.create.new_project' ? tNew : 'Новый проект');
+      sel.appendChild(newOpt);
+      // Default: первый existing, иначе «new»
+      sel.value = projects.length > 0 ? String(projects[0].id) : 'new';
+    } catch (err) {
+      console.error('loadPlanningProjects failed', err);
+    }
+  }
+
+  // ============================================================
   // Create Planning Session (Phase 3b — Этап 1)
   // ============================================================
 
@@ -796,10 +826,12 @@
       const roundsSel = document.getElementById('planning-rounds-chat');
       const profileSel = document.getElementById('planning-profile-chat');
       const costSel = document.getElementById('planning-cost-limit-chat');
+      const projectSel = document.getElementById('planning-project-chat');
       const topicInp = document.getElementById('planning-topic');
       const rounds = roundsSel ? parseInt(roundsSel.value, 10) : 3;
       const modelProfile = profileSel ? profileSel.value : 'base';
       const costLimitUsd = costSel ? parseFloat(costSel.value) : 10;
+      const projectValue = projectSel ? projectSel.value : '';
       const topic = topicInp ? topicInp.value.trim() : '';
 
       if (departments.length === 0) {
@@ -811,19 +843,33 @@
         return;
       }
 
+      // Project payload: либо project_id числом, либо new_project_title строкой.
+      const payload = {
+        departments,
+        topic,
+        rounds,
+        model_profile: modelProfile,
+        cost_limit_usd: costLimitUsd,
+        owner_request: topic,
+      };
+      if (projectValue === 'new' || !projectValue) {
+        const promptTitle = (window.t && window.t('planning.create.new_project_prompt'))
+          || 'Название нового проекта';
+        const title = window.customPrompt
+          ? await window.customPrompt(promptTitle, { default: topic.slice(0, 60), placeholder: 'Лендинг X…' })
+          : prompt(promptTitle, topic.slice(0, 60));
+        if (!title || !title.trim()) return; // cancel
+        payload.new_project_title = title.trim();
+      } else {
+        payload.project_id = parseInt(projectValue, 10);
+      }
+
       btn.disabled = true;
       try {
         const resp = await fetch('/api/planning/start', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            departments,
-            topic,
-            rounds,
-            model_profile: modelProfile,
-            cost_limit_usd: costLimitUsd,
-            owner_request: topic,
-          }),
+          body: JSON.stringify(payload),
         });
         const data = await resp.json();
         if (!resp.ok || data.статус !== 'ok') {
@@ -932,6 +978,7 @@
 
     // F4: Load planning departments and managing director tasks
     loadPlanningDepartments();
+    loadPlanningProjects();
     loadManagingDirectorTasks();
     initPlanningCreate();
     initPlanningBannerPoll();

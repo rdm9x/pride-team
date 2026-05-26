@@ -146,15 +146,10 @@ def test_api_team_start_role_marketing_lead_calls_work_script(
     monkeypatch.setattr(app_module, "_PID_FILE", tmp_path / "team.pid")
     monkeypatch.setattr(app_module, "_LIVE_LOG", tmp_path / "team.log")
 
-    # Сбрасываем глобальное состояние тимлида.
-    app_module._team_state["process"] = None
-    app_module._team_state["queue"] = Queue()
-    app_module._team_state["started_at"] = None
-    app_module._team_state["lock"] = Lock()
-    app_module._team_state["auto_mode"] = False
-    app_module._team_state["starts_history"] = []
-    app_module._team_state["auto_pause_reason"] = None
-    app_module._team_state["reader_thread"] = None
+    # D38BCDDA9CF9: _team_states[role] вместо _team_state.
+    app_module._team_states.clear()
+    app_module._global_state["auto_mode"] = False
+    app_module._global_state["auto_pause_reason"] = None
 
     fake_proc = _make_fake_proc()
 

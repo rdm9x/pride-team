@@ -14,8 +14,12 @@ from unittest.mock import patch, MagicMock
 
 
 def test_owner_dashboard_template_renders(client):
-    """Test that owner dashboard HTML template loads without errors."""
-    resp = client.get("/")
+    """Test that owner dashboard HTML template loads without errors.
+
+    Owner решил (ADR-013 §6.1 → handoff §10): Kanban остаётся на `/`,
+    Owner Dashboard живёт на `/home`.
+    """
+    resp = client.get("/home")
     assert resp.status_code == 200
     assert b"owner-dashboard" in resp.data.lower()
     assert b"Owner Dashboard" in resp.data or b"owner-dashboard" in resp.data
@@ -23,18 +27,18 @@ def test_owner_dashboard_template_renders(client):
 
 def test_owner_dashboard_has_navbar(client):
     """Test that dashboard nav has Dashboard as first active item."""
-    resp = client.get("/")
+    resp = client.get("/home")
     assert resp.status_code == 200
     html = resp.data.decode("utf-8")
 
-    # Check for nav element with dashboard view
-    assert "data-view=" in html
+    # Sidebar navigation is anchor-style (window.location), not data-view tabs.
+    assert "nav-item" in html
     assert "projects-container" in html
 
 
 def test_owner_dashboard_accessibility_landmarks(client):
     """Test semantic HTML and ARIA landmarks."""
-    resp = client.get("/")
+    resp = client.get("/home")
     html = resp.data.decode("utf-8")
 
     # Required semantic elements
@@ -50,7 +54,7 @@ def test_owner_dashboard_accessibility_landmarks(client):
 
 def test_owner_dashboard_responsive_classes(client):
     """Test that CSS classes for responsive design are present."""
-    resp = client.get("/")
+    resp = client.get("/home")
     html = resp.data.decode("utf-8")
 
     # Check for responsive design patterns in HTML
@@ -233,7 +237,7 @@ def test_responsive_classes_mobile_first(client, viewport):
 
 def test_form_validation_attributes(client):
     """Test that form inputs have validation attributes."""
-    resp = client.get("/")
+    resp = client.get("/home")
     html = resp.data.decode("utf-8")
 
     # Check for form patterns

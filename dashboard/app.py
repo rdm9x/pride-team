@@ -2174,6 +2174,8 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             or request.cookies.get("current_department")
             or "dev"
         )
+        # project_id_or_code: int id, code 'PRJ-001' или slug. Опционально.
+        project_ref = data.get("project_id") or data.get("project") or data.get("project_code")
         res = tools.create_task(
             title=data.get("title", ""),
             description=data.get("description", ""),
@@ -2186,6 +2188,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             labels=data.get("labels"),
             model_hint=data.get("model_hint") or None,
             department_id=department_id,
+            project_id_or_code=project_ref,
             db_path=_db(),
         )
         if res["статус"] != "ok":
@@ -2856,23 +2859,23 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             pass
         return None
 
-    def _get_artifacts_for_project(project_slug: str) -> list[dict[str, Any]]:
-        """Получить все артефакты для проекта."""
+    def _get_artifacts_for_project(folder_name: str) -> list[dict[str, Any]]:
+        """Получить артефакты по имени папки проекта (например 'PRJ-001-landing-roofing')."""
         conn = db._connect(_db())
         try:
             rows = conn.execute(
                 "SELECT id, file_path, task_id, kind FROM task_artifacts WHERE file_path LIKE ?",
-                (f"%workspace/{project_slug}/%",),
+                (f"workspace/{folder_name}/%",),
             ).fetchall()
-            artifacts = []
-            for r in rows:
-                artifacts.append({
+            return [
+                {
                     "id": r["id"],
                     "file_path": r["file_path"],
                     "task_id": r["task_id"],
                     "kind": r["kind"],
-                })
-            return artifacts
+                }
+                for r in rows
+            ]
         finally:
             conn.close()
 
@@ -2934,27 +2937,27 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         }
 
     def _group_tasks_by_project(all_tasks: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
-        """Группировать задачи по project_slug."""
+        """Группировать задачи по проектам (по tasks.project_id).
+
+        Ключи: code проекта ('PRJ-001'), либо '[Без проекта]' для несвязанных.
+        """
+        # Загружаем все проекты разово, чтобы резолвить project_id → code.
+        projects_by_id = {p["id"]: p for p in db.list_projects(_db(), include_archived=True)}
+
         groups: dict[str, list[dict[str, Any]]] = {}
         no_project_tasks: list[dict[str, Any]] = []
 
         for task in all_tasks:
-            # Пытаемся инферировать project_slug из комментариев или description
-            # или используем default "[Без проекта]"
-            project_slug = "[Без проекта]"
-
-            # Первая эвристика: если есть явное project_slug в задаче (расширение БД в v2.1)
-            if "project_slug" in task and task["project_slug"]:
-                project_slug = task["project_slug"]
-            else:
-                # Вторая эвристика: если есть parent_id, может быть информация в иерархии
-                # Пока используем простой fallback на "[Без проекта]" для всех задач
+            pid = task.get("project_id")
+            project = projects_by_id.get(pid) if pid else None
+            if project is None:
                 no_project_tasks.append(task)
                 continue
 
-            if project_slug not in groups:
-                groups[project_slug] = []
-            groups[project_slug].append(task)
+            code = project["code"]
+            if code not in groups:
+                groups[code] = []
+            groups[code].append(task)
 
         # Объединяем "Без проекта"
         if no_project_tasks:
@@ -2976,22 +2979,33 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             include_devboard = True
 
         try:
-            # Получаем все задачи (независимо от статуса)
             all_tasks = db.list_tasks(_db(), status=None, limit=10000, department_id=None)
-
-            # Группируем по проектам
             project_groups = _group_tasks_by_project(all_tasks)
 
-            result_projects = []
+            projects_index = {p["code"]: p for p in db.list_projects(_db(), include_archived=True)}
 
-            for project_slug, tasks in sorted(project_groups.items()):
-                # Пропускаем "[Без проекта]" если не нужен devboard
-                if project_slug == "[Без проекта]" and not include_devboard:
-                    continue
+            result_projects: list[dict[str, Any]] = []
+
+            for code, tasks in sorted(project_groups.items()):
+                if code == "[Без проекта]":
+                    if not include_devboard:
+                        continue
+                    project = None
+                    folder_name = ""
+                    title = "[Без проекта]"
+                    slug = ""
+                else:
+                    project = projects_index.get(code)
+                    if project is None:
+                        continue  # orphan reference, skip
+                    if not include_archived and project["status"] == "archived":
+                        continue
+                    slug = project["slug"]
+                    folder_name = f"{code}-{slug}"
+                    title = project["title"]
 
                 progress = _compute_project_progress(tasks)
 
-                # Определяем статус проекта
                 if progress["total"] == 0:
                     status = "empty"
                 elif progress["percentage"] == 100.0 and progress["blocked"] == 0:
@@ -3001,31 +3015,24 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
                 else:
                     status = "active"
 
-                # Получаем артефакты для проекта (только если не "[Без проекта]")
-                artifacts = []
+                artifacts: list[dict[str, Any]] = []
                 workspace_path = ""
-                if project_slug != "[Без проекта]":
-                    artifacts = _get_artifacts_for_project(project_slug)
-                    # Инферируем workspace_path из первого артефакта или конструируем
-                    if artifacts:
-                        workspace_path = str(Path(artifacts[0]["file_path"]).parent.parent)
-                    else:
-                        workspace_path = str(_REPO_ROOT / "workspace" / project_slug)
+                if folder_name:
+                    artifacts = _get_artifacts_for_project(folder_name)
+                    workspace_path = str(_REPO_ROOT / "workspace" / folder_name)
 
-                # Последний update
                 last_updated_at = 0
                 if tasks:
-                    last_updated_at = max(t.get("updated_at", 0) or t.get("created_at", 0) for t in tasks)
-
-                # Берём title из первой задачи в проекте
-                title = project_slug.replace("-", " ").title()
-                if tasks:
-                    title = tasks[0].get("title", title)
+                    last_updated_at = max(
+                        t.get("updated_at", 0) or t.get("created_at", 0) for t in tasks
+                    )
 
                 action_items = _extract_action_items(tasks)
 
                 card = {
-                    "project_slug": project_slug,
+                    "code": code,
+                    "slug": slug,
+                    "project_slug": code,  # backwards-compat для текущего фронта
                     "title": title,
                     "status": status,
                     "progress": progress,
@@ -3046,6 +3053,52 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
                 "status": "error",
                 "reason": str(exc),
             }), 500
+
+    # === Project CRUD (для селекторов и Управляющего) ===
+
+    @app.get("/api/projects/list")
+    def api_projects_list() -> Any:
+        """Короткий список проектов для селектора: [{id, code, slug, title, status}]."""
+        include_archived = request.args.get("include_archived") in ("1", "true", "yes")
+        projects = db.list_projects(_db(), include_archived=include_archived)
+        return jsonify({"статус": "ok", "projects": projects})
+
+    @app.post("/api/projects")
+    def api_create_project() -> Any:
+        """POST /api/projects {slug, title} → создать проект."""
+        data = request.get_json(silent=True) or {}
+        slug = (data.get("slug") or "").strip()
+        title = (data.get("title") or "").strip()
+        if not slug or not title:
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": "slug и title обязательны",
+            }), 400
+        res = tools.create_project(slug=slug, title=title, db_path=_db())
+        if res["статус"] != "ok":
+            return jsonify(res), 400
+        return jsonify(res), 201
+
+    @app.post("/api/projects/<project_id_or_code>/archive")
+    def api_archive_project(project_id_or_code: str) -> Any:
+        res = tools.archive_project(project_id_or_code=project_id_or_code, db_path=_db())
+        if res["статус"] == "not_found":
+            return jsonify(res), 404
+        return jsonify(res)
+
+    @app.post("/api/tasks/<task_id>/link-project")
+    def api_link_task_to_project(task_id: str) -> Any:
+        """POST /api/tasks/<id>/link-project {project: id|code|slug|null} — привязать/отвязать."""
+        data = request.get_json(silent=True) or {}
+        project_ref = data.get("project_id") or data.get("project") or data.get("project_code")
+        res = tools.link_task_to_project(
+            task_id=task_id,
+            project_id_or_code=project_ref,
+            db_path=_db(),
+        )
+        if res["статус"] == "not_found":
+            return jsonify(res), 404
+        return jsonify(res)
 
     @app.get("/api/projects/<project_slug>")
     def api_project_details(project_slug: str) -> Any:
@@ -3552,11 +3605,14 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         """POST /api/threads {title, kind, participants} — создать новый thread."""
         data = request.get_json(silent=True) or {}
         title = data.get("title", "").strip()
-        kind = data.get("kind", "direct")
+        # Пустой/отсутствующий kind → 'direct' (ADR-011 default).
+        kind = data.get("kind") or "direct"
         participants = data.get("participants")
 
         if not title:
             return jsonify({"статус": "error", "status": "error", "причина": "title обязателен"}), 400
+        if participants is not None and not isinstance(participants, list):
+            return jsonify({"статус": "error", "status": "error", "причина": "participants должен быть list"}), 400
 
         try:
             thread = db.create_chat_thread(_db(), title, kind=kind, participants=participants)
@@ -3579,6 +3635,8 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
 
         Если viewer=owner: исключает сообщения от тимлид-ролей.
         """
+        if db.get_chat_thread(_db(), thread_id) is None:
+            return jsonify({"статус": "not_found", "status": "not_found"}), 404
         viewer = request.args.get("viewer")
         messages = db.get_thread_messages(_db(), thread_id, viewer=viewer)
         return jsonify({"messages": messages})
@@ -3614,6 +3672,22 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
 
         try:
             updated = db.update_chat_thread_status(_db(), thread_id, new_status)
+            if updated is None:
+                return jsonify({"статус": "not_found", "status": "not_found"}), 404
+            return jsonify({"статус": "ok", "thread": updated})
+        except ValueError as exc:
+            return jsonify({"статус": "error", "status": "error", "причина": str(exc)}), 400
+        except Exception as exc:  # noqa: BLE001
+            return jsonify({"статус": "error", "status": "error", "причина": str(exc)}), 400
+
+    @app.post("/api/threads/<thread_id>/stop")
+    def api_stop_thread(thread_id: str) -> Any:
+        """POST /api/threads/<id>/stop — остановить thread (status='aborted').
+
+        ADR-011 §6.4: кнопка «Остановить» в активном planning-thread.
+        """
+        try:
+            updated = db.update_chat_thread_status(_db(), thread_id, "aborted")
             if updated is None:
                 return jsonify({"статус": "not_found", "status": "not_found"}), 404
             return jsonify({"статус": "ok", "thread": updated})

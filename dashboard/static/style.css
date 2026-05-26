@@ -168,6 +168,10 @@ code, .md-inline {
 .app.chat-collapsed {
   grid-template-columns: 220px 1fr 42px;
 }
+/* Страницы без правой колонки (канбан, owner-dashboard). */
+.app.app--no-right {
+  grid-template-columns: 220px 1fr;
+}
 
 /* ============================================================ Sidebar */
 

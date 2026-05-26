@@ -582,7 +582,8 @@
         "title": "Заголовок",
         "description": "Описание",
         "priority": "Приоритет",
-        "assignee": "Назначить"
+        "assignee": "Назначить",
+        "project": "Проект"
       },
       "description_placeholder": "**TL;DR**: краткая суть в одной строке\n\nДетали:\n..."
     },

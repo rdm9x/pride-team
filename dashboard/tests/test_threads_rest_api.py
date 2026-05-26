@@ -45,10 +45,24 @@ def client(test_db):
 
 @pytest.fixture
 def setup_roles(test_db):
-    """Create test roles: some leads, some non-leads."""
+    """Create test roles: some leads, some non-leads.
+
+    init_db creates only the 'dev' department by default — we add 'marketing'
+    so that marketing roles can satisfy the roles.department_id FK.
+    """
     conn = db._connect(test_db)
     try:
-        # Lead roles - use unique names
+        # Ensure marketing department exists (init_db only seeds 'dev').
+        try:
+            now = int(__import__("time").time())
+            conn.execute(
+                "INSERT INTO departments (id, name, description, template_id, icon, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                ("marketing", "Marketing", "", None, "📣", now),
+            )
+        except sqlite3.IntegrityError:
+            pass  # already exists
+
         roles_to_insert = [
             ("dev-lead", "Dev Lead", json.dumps({"model": "opus"}), "dev"),
             ("marketing-lead", "Marketing Lead", json.dumps({"model": "opus"}), "marketing"),
@@ -116,8 +130,15 @@ class TestThreadsListEndpoint:
         assert data["threads"][0]["status"] == "archived"
 
     def test_list_threads_sort_by_updated_at(self, client, test_db):
-        """Threads sorted by updated_at DESC."""
+        """Threads sorted by updated_at DESC.
+
+        updated_at — seconds-resolution, поэтому без задержки между двумя
+        вставками порядок tie-breaking недетерминирован.
+        """
+        import time as _t
+
         t1 = db.create_chat_thread(test_db, title="Older", kind="direct")
+        _t.sleep(1.1)  # гарантируем разный updated_at в секундах
         t2 = db.create_chat_thread(test_db, title="Newer", kind="direct")
         # t2 is created after t1, so should be first in DESC order
 
@@ -278,8 +299,8 @@ class TestThreadsMessagesFilterViewerEndpoint:
         assert resp.status_code == 200
         data = resp.get_json()
 
-        # Should only see: owner messages + managing-director message
-        assert len(data["messages"]) == 4
+        # Should only see: 2 owner + 1 managing-director = 3 messages
+        assert len(data["messages"]) == 3
         authors = [m["author"] for m in data["messages"]]
         assert "owner" in authors
         assert "managing-director" in authors

@@ -8,8 +8,8 @@
 </head>
 <body>
 
-<!-- ===================== App layout (3 column) ===================== -->
-<div class="app">
+<!-- ===================== App layout (2 column: sidebar + main) ===================== -->
+<div class="app app--no-right">
 
   <!-- ===== Sidebar (left) ===== -->
   <aside class="sidebar">
@@ -63,20 +63,6 @@
         <span class="lbl" data-i18n="nav.settings">Настройки</span>
       </button>
     </nav>
-
-    <!-- ===== Managing Director (ADR-009 §2.7.2) ===== -->
-    <!-- Глобальный собеседник owner-а; всегда первая строчка над списком отделов.
-         Клик → фокус общего чата (department_id IS NULL, см. /api/chat?department=__global__). -->
-    <div class="managing-director-row">
-      <button type="button" class="managing-director-item" id="btn-managing-director"
-              data-i18n-attr="title:managingDirector.tooltip,aria-label:managingDirector.label"
-              title="Главный собеседник (общий чат)"
-              aria-label="Управляющий"
-              aria-pressed="false">
-        <span class="ico" aria-hidden="true">🏛</span>
-        <span class="lbl" data-i18n="managingDirector.label">Управляющий</span>
-      </button>
-    </div>
 
     <!-- ===== Departments (S9.1) ===== -->
     <div class="departments-list" id="departments-list" role="region"
@@ -700,80 +686,9 @@
     </section>
   </main>
 
-  <!-- ===== Right panel (F4) ===== -->
-  <aside class="right-panel">
-    <!-- Upper block: Planning section (30%) -->
-    <section class="right-panel-block right-panel-planning">
-      <h3 class="right-panel-title" data-i18n="f4.planning.title">
-        <span class="ico">📋</span>
-        <span>Собрать планёрку</span>
-      </h3>
+  <!-- Right panel удалена целиком: «Собрать планёрку» и «Задачи Управляющего»
+       живут только в /chat. -->
 
-      <form id="form-planning" class="planning-form">
-        <!-- Departments checkboxes -->
-        <div class="planning-field">
-          <label class="planning-label" data-i18n="f4.planning.departments">Отделы</label>
-          <div class="departments-checkboxes" id="planning-departments-list" role="group"
-               aria-label="Select departments"
-               data-i18n-attr="aria-label:f4.planning.departments">
-            <!-- Dynamically filled from /api/departments -->
-          </div>
-        </div>
-
-        <!-- Rounds dropdown -->
-        <div class="planning-field">
-          <label for="planning-rounds" class="planning-label" data-i18n="f4.planning.rounds">Раундов</label>
-          <select id="planning-rounds" class="planning-select" aria-label="Number of rounds"
-                  data-i18n-attr="aria-label:f4.planning.rounds">
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3" selected>3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-          </select>
-        </div>
-
-        <!-- Title input -->
-        <div class="planning-field">
-          <label for="planning-title" class="planning-label" data-i18n="f4.planning.title_input">Тема</label>
-          <input id="planning-title" type="text" class="planning-input" placeholder="Описание планёрки…"
-                 data-i18n-attr="placeholder:f4.planning.title_placeholder"
-                 aria-label="Planning topic"
-                 data-i18n-attr="aria-label:f4.planning.title_input">
-        </div>
-
-        <!-- Create button (disabled with Phase 3b tooltip) -->
-        <button type="button" id="btn-create-planning" class="planning-btn primary" disabled
-                title="Доступно в Фазе 3b"
-                data-i18n-attr="title:f4.planning.phase3b,aria-label:f4.planning.create_btn"
-                aria-label="Create planning session"
-                data-i18n="f4.planning.create_btn">
-          Создать планёрку
-        </button>
-      </form>
-    </section>
-
-    <!-- Lower block: Tasks section (70%) -->
-    <section class="right-panel-block right-panel-tasks">
-      <h3 class="right-panel-title" data-i18n="f4.tasks.title">
-        <span class="ico">📌</span>
-        <span>Задачи Управляющего</span>
-      </h3>
-
-      <div class="tasks-list" id="managing-director-tasks-list" role="region"
-           aria-label="Managing Director tasks"
-           data-i18n-attr="aria-label:f4.tasks.aria_label">
-        <!-- Dynamically filled from /api/tasks?assignee=managing-director&status=todo,wip -->
-      </div>
-
-      <button type="button" id="btn-add-managing-task" class="task-add-btn secondary"
-              aria-label="Add task"
-              data-i18n-attr="aria-label:f4.tasks.add_btn"
-              data-i18n="f4.tasks.add_btn">
-        + Добавить задачу
-      </button>
-    </section>
-  </aside>
 </div>
 
 <!-- ============== Универсальная модалка-prompt ============== -->
@@ -856,6 +771,12 @@
           <select name="assignee" id="new-task-assignee">
             <!-- Опции загружаются динамически из /api/departments/<current>/roles
                  при открытии модалки (F1 ADR-009 Phase 1.7). -->
+          </select>
+        </label>
+        <label><span data-i18n="modal.new.field.project">Проект</span>
+          <select name="project" id="new-task-project">
+            <option value="">— Без проекта —</option>
+            <!-- Опции загружаются из /api/projects/list при открытии модалки. -->
           </select>
         </label>
         <label class="check"><input type="checkbox" name="requires_approval"> Approval</label>

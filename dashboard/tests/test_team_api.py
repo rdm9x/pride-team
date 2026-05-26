@@ -129,7 +129,8 @@ def test_api_team_stop_happy(client, reset_state, monkeypatch, tmp_path) -> None
     fake = MagicMock()
     fake.poll.return_value = None
     fake.wait.return_value = 0
-    app_module._team_state["process"] = fake
+    # D38BCDDA9CF9: _team_states[role] вместо _team_state.
+    app_module._get_team_state_for_role("managing-director")["process"] = fake
     r = client.post("/api/team/stop")
     assert r.status_code == 200
     assert r.get_json()["статус"] == "ok"

@@ -1203,7 +1203,6 @@
     card.innerHTML = `
       ${enableChk}
       <div class="meta">
-        <span class="id">#${t.id.slice(0, 6)}</span>
         <span class="pri">${t.priority}</span>
         ${role}
         ${modelChip}
@@ -1597,7 +1596,7 @@
     // Парсим описание на клиенте для reader-mode v2 (S6.2)
     const clientParsed = parseTaskDescription(t.description || "");
 
-    $("#modal-task-title").textContent = `#${t.id.slice(0, 6)} · ${t.title}`;
+    $("#modal-task-title").textContent = t.title;
     $("#modal-task-body").innerHTML = renderTaskBody(t, serverParsed, clientParsed);
     bindTaskActions(t);
     bindReaderMode(serverParsed);
@@ -1751,7 +1750,7 @@
       </div>`,
     ).join("") || `<div class="entry" style="color:var(--muted)">${i18n("task.history.quiet")}</div>`;
     const subtasks = (t.subtasks || []).map((s) =>
-      `<div class="sub">#${s.id.slice(0, 6)} · ${escapeHtml(statusLabel(s.status))} · ${escapeHtml(displayRole(s.assignee) || i18n("task.subtasks.no_assignee"))} · ${escapeHtml(s.title)}</div>`,
+      `<div class="sub" data-task-ref="${escapeAttr(s.id)}">${escapeHtml(statusLabel(s.status))} · ${escapeHtml(displayRole(s.assignee) || i18n("task.subtasks.no_assignee"))} · ${escapeHtml(s.title)}</div>`,
     ).join("") || `<div style="color:var(--muted)">${i18n("task.subtasks.none")}</div>`;
     const result = t.result
       ? `<pre class="result-block">${escapeHtml(JSON.stringify(t.result, null, 2))}</pre>`
@@ -1762,10 +1761,10 @@
     const blockedBy = t.blocked_by || [];
     const blocking  = t.blocking  || [];
     const blockedByHtml = blockedBy.length
-      ? blockedBy.map((b) => `<span class="task-ref" data-task-ref="${b.id}">#${b.id.slice(0,6)} ${escapeHtml(b.title.slice(0,40))}</span>`).join(" ")
+      ? blockedBy.map((b) => `<span class="task-ref" data-task-ref="${b.id}">${escapeHtml(b.title.slice(0,60))}</span>`).join(" ")
       : `<span style="color:var(--muted)">${i18n("task.deps.none")}</span>`;
     const blockingHtml = blocking.length
-      ? blocking.map((b) => `<span class="task-ref" data-task-ref="${b.id}">#${b.id.slice(0,6)} ${escapeHtml(b.title.slice(0,40))}</span>`).join(" ")
+      ? blocking.map((b) => `<span class="task-ref" data-task-ref="${b.id}">${escapeHtml(b.title.slice(0,60))}</span>`).join(" ")
       : `<span style="color:var(--muted)">${i18n("task.deps.none")}</span>`;
 
     return `
@@ -2179,9 +2178,31 @@
     }
   }
 
+  // Заполняет селектор проекта в форме новой задачи.
+  async function loadProjectOptions() {
+    const sel = $("#new-task-project");
+    if (!sel) return;
+    try {
+      const r = await fetch("/api/projects/list");
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const data = await r.json();
+      const opts = ['<option value="">— Без проекта —</option>'];
+      (data.projects || []).forEach((p) => {
+        opts.push(
+          `<option value="${escapeHtml(p.code)}">${escapeHtml(p.code)} · ${escapeHtml(p.title)}</option>`
+        );
+      });
+      sel.innerHTML = opts.join("");
+    } catch (e) {
+      console.error("loadProjectOptions:", e);
+      // Оставляем дефолтный '— Без проекта —' — задачу всё ещё можно создать.
+    }
+  }
+
   function openNewTaskModal() {
     $("#form-new-task").reset();
     loadAssigneeOptions();
+    loadProjectOptions();
     $("#modal-new").hidden = false;
   }
   $("#form-new-task").addEventListener("submit", async (e) => {
@@ -2192,6 +2213,7 @@
     // 'devboard-current-department', не как в ADR-003 с двоеточием).
     const currentDept = currentDepartment();
     const modelHintVal = form.model_hint ? form.model_hint.value : "auto";
+    const projectVal = form.project ? form.project.value.trim() : "";
     const body = {
       title: form.title.value.trim(),
       description: form.description.value,
@@ -2200,6 +2222,7 @@
       requires_approval: form.requires_approval.checked,
       model_hint: modelHintVal === "auto" ? null : modelHintVal,
       department_id: currentDept,
+      project: projectVal || null,
     };
     const r = await fetch("/api/tasks", {
       method: "POST",
@@ -2721,7 +2744,6 @@
       item.innerHTML = `
         <div class="ttl" data-task-id="${escapeAttr(t.id)}">${escapeHtml(t.title)}</div>
         <div class="meta">
-          <span>#${t.id.slice(0, 6)}</span>
           <span class="priority-chip prio-${escapeAttr(t.priority || "P3")}">${escapeHtml(t.priority || "P3")}</span>
           ${_renderDeptBadge(t.requester_department_id, "origin")}
           <span class="role">${i18n("inbox.from_prefix")}${escapeHtml(displayRole(requester))}</span>
@@ -2771,7 +2793,6 @@
       item.innerHTML = `
         <div class="ttl" data-task-id="${escapeAttr(t.id)}">${escapeHtml(t.title)}</div>
         <div class="meta">
-          <span>#${t.id.slice(0, 6)}</span>
           <span class="priority-chip prio-${escapeAttr(t.priority || "P3")}">${escapeHtml(t.priority || "P3")}</span>
           ${_renderDeptBadge(t.requester_department_id, "origin")}
           <span aria-hidden="true">→</span>
@@ -2833,8 +2854,7 @@
     document.getElementById("counter-priority").value = "";
     document.getElementById("counter-error").hidden = true;
     document.getElementById("modal-counter-target").innerHTML =
-      `<span>${escapeHtml(task.title)}</span> — #${escapeHtml(task.id.slice(0, 6))} (` +
-      `${escapeHtml(task.priority || "P3")})`;
+      `<span>${escapeHtml(task.title)}</span> (${escapeHtml(task.priority || "P3")})`;
     modal.hidden = false;
     setTimeout(() => {
       const ta = form && form.querySelector("textarea[name=comment]");
@@ -3061,7 +3081,6 @@
         <div class="ttl" data-task-id="${t.id}">${escapeHtml(t.title)}</div>
         ${tldr ? `<div class="tldr">${escapeHtml(tldr)}</div>` : ""}
         <div class="meta">
-          <span>#${t.id.slice(0, 6)}</span>
           <span class="pri">${t.priority}</span>
           <span class="role">${i18n("inbox.from_prefix")}${escapeHtml(displayRole(author))}</span>
           <span>${shortAge(t.created_at)} ${i18n("kanban.card.ago_suffix")}</span>

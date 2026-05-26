@@ -258,14 +258,74 @@ def register_task_artifact(
     """Зарегистрировать артефакт (файл) связанный с задачей.
 
     Args:
-        task_id: id задачи (uuid-hex 12 символов).
-        file_path: относительный путь к файлу в workspace/ (например workspace/result.pdf).
-        kind: тип артефакта (по умолчанию 'artifact', другие значения: 'log', 'report', 'screenshot').
+        task_id: id задачи (uuid-hex 12 символов). Задача должна быть привязана
+            к проекту (link_task_to_project), иначе путь некуда нормализовать.
+        file_path: относительный путь внутри workspace/. Допустимо передать
+            только имя файла (например 'copy.md') — функция сама пристроит
+            путь по схеме workspace/<code>-<slug>/<dept>/<task_id>/<file>.
+        kind: тип артефакта ('artifact' по умолчанию, либо 'log', 'report', ...).
 
     Returns:
         {status, artifact_id, task_id, file_path, kind, created_at}
     """
     return tools.register_task_artifact(task_id=task_id, file_path=file_path, kind=kind)
+
+
+# === Projects ===
+# Управляющий создаёт проект когда owner просит «новый проект Х», затем
+# привязывает связанные задачи через link_task_to_project. Артефакты
+# автоматически складываются в workspace/<code>-<slug>/<отдел>/<id-задачи>/.
+
+
+@mcp.tool()
+def create_project(slug: str, title: str) -> dict[str, Any]:
+    """Создать новый проект.
+
+    Args:
+        slug: техническое имя на латинице (a-z, 0-9, дефис) для пути workspace/.
+            Пример: 'landing-roofing'.
+        title: человекочитаемое название (любой язык).
+            Пример: 'Лендинг рекламных конструкций'.
+
+    Returns:
+        {status, project: {id, code (PRJ-NNN), slug, title, status, created_at}}.
+
+    После создания папка workspace/<code>-<slug>/ готова принимать артефакты
+    задач, привязанных к проекту.
+    """
+    return tools.create_project(slug=slug, title=title)
+
+
+@mcp.tool()
+def list_projects(include_archived: bool = False) -> dict[str, Any]:
+    """Список проектов (по умолчанию без архивированных)."""
+    return tools.list_projects(include_archived=include_archived)
+
+
+@mcp.tool()
+def get_project(project_id_or_code: str) -> dict[str, Any]:
+    """Получить детали проекта по id (число), code ('PRJ-001') или slug."""
+    return tools.get_project(project_id_or_code=project_id_or_code)
+
+
+@mcp.tool()
+def link_task_to_project(
+    task_id: str,
+    project_id_or_code: Optional[str] = None,
+) -> dict[str, Any]:
+    """Привязать задачу к проекту (или отвязать, если project_id_or_code пуст).
+
+    project_id_or_code принимает int id, code 'PRJ-001' или slug.
+    """
+    return tools.link_task_to_project(
+        task_id=task_id, project_id_or_code=project_id_or_code
+    )
+
+
+@mcp.tool()
+def archive_project(project_id_or_code: str) -> dict[str, Any]:
+    """Архивировать проект (status='archived'). Папка workspace/ не удаляется."""
+    return tools.archive_project(project_id_or_code=project_id_or_code)
 
 
 @mcp.tool()

@@ -138,6 +138,7 @@ def create_task(
     labels: Optional[list[str]] = None,
     department_id: str = DEFAULT_DEPARTMENT_ID,
     model_hint: Optional[str] = None,
+    project_id_or_code: Any = None,
     *,
     db_path: Optional[Path] = None,
 ) -> dict[str, Any]:
@@ -145,7 +146,7 @@ def create_task(
 
     department_id по умолчанию 'dev' (backward compatible).
     model_hint — опциональный hint для роутера: 'opus', 'sonnet' или 'haiku'.
-    Если задан — роутер может использовать этот hint при выборе модели (ADR-006).
+    project_id_or_code — int id, code ('PRJ-001') или slug проекта. NULL = без проекта.
     """
 
     if not title or not title.strip():
@@ -159,6 +160,15 @@ def create_task(
         return {"статус": "error", "status": "error", "причина": f"неизвестная роль assignee: {assignee}", "reason": f"неизвестная роль assignee: {assignee}"}
     if parent_id and db.get_task(path, parent_id) is None:
         return {"статус": "error", "status": "error", "причина": f"parent_id {parent_id} не существует", "reason": f"parent_id {parent_id} не существует"}
+
+    project_id: Optional[int] = None
+    if project_id_or_code:
+        project = db.get_project(path, project_id_or_code)
+        if project is None:
+            reason = f"Проект {project_id_or_code!r} не найден"
+            return {"статус": "error", "status": "error", "причина": reason, "reason": reason}
+        project_id = project["id"]
+
     task = db.insert_task(
         path,
         title=title.strip(),
@@ -172,6 +182,7 @@ def create_task(
         labels=labels,
         department_id=department_id,
         model_hint=model_hint,
+        project_id=project_id,
     )
     return {"статус": "ok", "задача": task}
 
@@ -1172,6 +1183,133 @@ def parse_task_description(task_id: str, *, db_path: Optional[Path] = None) -> d
 # === 14. register_task_artifact ===
 
 
+# === Projects ===
+# Проекты — единица группировки задач для owner-а (один лендинг, одна кампания).
+# Папка артефактов: workspace/{code}-{slug}/.
+
+
+def create_project(
+    slug: str,
+    title: str,
+    *,
+    db_path: Optional[Path] = None,
+) -> dict[str, Any]:
+    """Создать новый проект.
+
+    Args:
+        slug: техническое имя (только латиница, цифры, дефис) — для пути workspace/.
+              Пример: 'landing-roofing'.
+        title: человекочитаемое название (любой язык). Пример: 'Лендинг крыши'.
+
+    Returns:
+        {status, project: {id, code (PRJ-NNN), slug, title, status, created_at}}
+        либо {status: 'error', причина: ...} если slug невалиден или занят.
+
+    После создания проекта папка `workspace/{code}-{slug}/` будет ожидать
+    артефактов задач, привязанных к проекту через link_task_to_project.
+    """
+    db_path_resolved = _resolve_db_path(db_path)
+    try:
+        project = db.create_project(db_path_resolved, slug=slug, title=title)
+    except ValueError as exc:
+        return {"статус": "error", "status": "error", "причина": str(exc), "reason": str(exc)}
+    except Exception as exc:  # noqa: BLE001 — sqlite3.IntegrityError = занятый slug
+        reason = f"не удалось создать проект: {exc}"
+        return {"статус": "error", "status": "error", "причина": reason, "reason": reason}
+    return {"статус": "ok", "status": "ok", "project": project}
+
+
+def list_projects(
+    include_archived: bool = False,
+    *,
+    db_path: Optional[Path] = None,
+) -> dict[str, Any]:
+    """Список проектов (по умолчанию без архивированных), отсортированных по id ASC."""
+    db_path_resolved = _resolve_db_path(db_path)
+    projects = db.list_projects(db_path_resolved, include_archived=include_archived)
+    return {"статус": "ok", "status": "ok", "projects": projects}
+
+
+def get_project(
+    project_id_or_code: Any,
+    *,
+    db_path: Optional[Path] = None,
+) -> dict[str, Any]:
+    """Получить детали проекта по id (число) или code (строка 'PRJ-001') или slug."""
+    db_path_resolved = _resolve_db_path(db_path)
+    project = db.get_project(db_path_resolved, project_id_or_code)
+    if project is None:
+        return {
+            "статус": "not_found",
+            "status": "not_found",
+            "причина": f"Проект {project_id_or_code!r} не найден",
+            "reason": f"Project {project_id_or_code!r} not found",
+        }
+    return {"статус": "ok", "status": "ok", "project": project}
+
+
+def link_task_to_project(
+    task_id: str,
+    project_id_or_code: Any,
+    *,
+    db_path: Optional[Path] = None,
+) -> dict[str, Any]:
+    """Привязать задачу к проекту. project_id_or_code: int id, code 'PRJ-001' или slug.
+
+    Если передать project_id_or_code=None, задача отвязывается от любого проекта.
+    """
+    db_path_resolved = _resolve_db_path(db_path)
+    project_id: Optional[int] = None
+    if project_id_or_code is not None:
+        project = db.get_project(db_path_resolved, project_id_or_code)
+        if project is None:
+            return {
+                "статус": "not_found",
+                "status": "not_found",
+                "причина": f"Проект {project_id_or_code!r} не найден",
+                "reason": f"Project {project_id_or_code!r} not found",
+            }
+        project_id = project["id"]
+    task = db.link_task_to_project(db_path_resolved, task_id, project_id)
+    if task is None:
+        return {
+            "статус": "not_found",
+            "status": "not_found",
+            "причина": f"Задача {task_id} не найдена",
+            "reason": f"Task {task_id} not found",
+        }
+    return {"статус": "ok", "status": "ok", "task": task}
+
+
+def archive_project(
+    project_id_or_code: Any,
+    *,
+    db_path: Optional[Path] = None,
+) -> dict[str, Any]:
+    """Архивировать проект (status='archived')."""
+    db_path_resolved = _resolve_db_path(db_path)
+    project = db.get_project(db_path_resolved, project_id_or_code)
+    if project is None:
+        return {
+            "статус": "not_found",
+            "status": "not_found",
+            "причина": f"Проект {project_id_or_code!r} не найден",
+            "reason": f"Project {project_id_or_code!r} not found",
+        }
+    conn = db._connect(db_path_resolved)
+    try:
+        now = int(__import__("time").time())
+        conn.execute(
+            "UPDATE projects SET status='archived', archived_at=? WHERE id=?",
+            (now, project["id"]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    updated = db.get_project(db_path_resolved, project["id"])
+    return {"статус": "ok", "status": "ok", "project": updated}
+
+
 def register_task_artifact(
     task_id: str,
     file_path: str,
@@ -1230,6 +1368,41 @@ def register_task_artifact(
             "причина": f"Задача {task_id} не найдена",
             "reason": f"Task {task_id} not found"
         }
+
+    # Задача должна быть привязана к проекту, иначе непонятно куда сохранять.
+    if not task.get("project_id"):
+        reason = (
+            f"Задача {task_id} не привязана к проекту. "
+            "Сначала link_task_to_project(task_id, project_id_or_code)."
+        )
+        return {"статус": "error", "status": "error", "причина": reason, "reason": reason}
+
+    # Получаем проект и формируем ожидаемый префикс пути.
+    project = db.get_project(db_path_resolved, task["project_id"])
+    if project is None:
+        reason = (
+            f"Проект задачи (id={task['project_id']}) не найден в БД — "
+            "ссылка повреждена, попросите owner-а исправить вручную."
+        )
+        return {"статус": "error", "status": "error", "причина": reason, "reason": reason}
+
+    department = task.get("department_id") or "general"
+    folder_name = f"{project['code']}-{project['slug']}"
+    expected_prefix = f"workspace/{folder_name}/{department}/{task_id}/"
+
+    norm_path = file_path
+    if not norm_path.startswith(expected_prefix):
+        # Если автор передал только basename — приклеиваем префикс.
+        if "/" not in norm_path:
+            norm_path = expected_prefix + norm_path
+        else:
+            reason = (
+                f"Путь должен быть внутри {expected_prefix}, "
+                f"получено: {file_path!r}"
+            )
+            return {"статус": "error", "status": "error", "причина": reason, "reason": reason}
+
+    file_path = norm_path
 
     # Вставляем артефакт
     try:

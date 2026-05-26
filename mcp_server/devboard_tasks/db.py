@@ -87,6 +87,17 @@ CREATE TABLE IF NOT EXISTS departments (
   archived_at   INTEGER
 );
 
+CREATE TABLE IF NOT EXISTS projects (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  code        TEXT UNIQUE NOT NULL,        -- 'PRJ-001'
+  slug        TEXT UNIQUE NOT NULL,        -- 'landing-roofing' (latin)
+  title       TEXT NOT NULL,                -- 'Лендинг рекламных конструкций'
+  status      TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','completed','archived')),
+  created_at  INTEGER NOT NULL,
+  archived_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
+
 CREATE TABLE IF NOT EXISTS tasks (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
@@ -108,12 +119,15 @@ CREATE TABLE IF NOT EXISTS tasks (
   requester_role_slug TEXT,                                  -- S11.1: ADR-005, slug Lead-заказчика
   model_hint TEXT,                                           -- S15.2: ADR-006, hint для роутера (opus/sonnet/haiku)
   enabled INTEGER NOT NULL DEFAULT 1,                        -- F2.1: чекбокс на todo-карточке (1=активна, 0=пропустить)
+  project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,  -- группировка в проекты (PRJ-NNN)
   FOREIGN KEY (parent_id) REFERENCES tasks(id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_tasks_status   ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON tasks(assignee);
 CREATE INDEX IF NOT EXISTS idx_tasks_parent   ON tasks(parent_id);
+-- idx_tasks_project_id создаётся в _ensure_tasks_project_id_column,
+-- чтобы не падать на старых БД, где tasks ещё без колонки project_id.
 
 CREATE TABLE IF NOT EXISTS task_comments (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -501,6 +515,33 @@ def _ensure_hr_sessions_columns(conn: sqlite3.Connection) -> None:
         pass
 
 
+def _ensure_tasks_project_id_column(conn: sqlite3.Connection) -> None:
+    """Миграция: добавить tasks.project_id для старых БД без этой колонки.
+
+    Новые БД получают колонку сразу через SCHEMA_SQL. Для существующих БД,
+    созданных до появления projects, эта функция добавляет колонку. Индекс
+    создаётся всегда (после возможного ALTER), чтобы покрыть оба случая.
+    """
+    try:
+        existing = {row[1] for row in conn.execute("PRAGMA table_info(tasks)")}
+        if "project_id" not in existing:
+            try:
+                conn.execute(
+                    "ALTER TABLE tasks ADD COLUMN project_id INTEGER "
+                    "REFERENCES projects(id) ON DELETE SET NULL"
+                )
+            except sqlite3.OperationalError:
+                pass  # параллельное добавление — игнорируем
+        try:
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id)"
+            )
+        except sqlite3.OperationalError:
+            pass  # колонки всё ещё нет (старая БД и ALTER упал) — пропускаем
+    except sqlite3.OperationalError:
+        pass  # таблицы tasks нет (вряд ли)
+
+
 def _migrate_тимлид_to_dev_lead(conn: sqlite3.Connection) -> None:
     """B1 (1.7) миграция: переименование роли 'тимлид' → 'dev-lead' в dev-отделе.
 
@@ -568,6 +609,7 @@ def init_db(db_path: Optional[Path] = None) -> Path:
                     )
             ensure_dev_department(conn)
             _ensure_hr_sessions_columns(conn)
+            _ensure_tasks_project_id_column(conn)
             _migrate_тимлид_to_dev_lead(conn)
             conn.execute("COMMIT")
         finally:
@@ -604,6 +646,8 @@ def _row_to_task(row: sqlite3.Row) -> dict[str, Any]:
         "model_hint": row["model_hint"] if "model_hint" in keys else None,
         # F2.1: чекбокс на todo-карточке. DEFAULT 1 (активна).
         "enabled": bool(row["enabled"]) if "enabled" in keys else True,
+        # Связь с проектом (PRJ-NNN) — None если задача не привязана.
+        "project_id": row["project_id"] if "project_id" in keys else None,
     }
 
 
@@ -658,12 +702,14 @@ def insert_task(
     requester_department_id: Optional[str] = None,
     requester_role_slug: Optional[str] = None,
     model_hint: Optional[str] = None,
+    project_id: Optional[int] = None,
 ) -> dict[str, Any]:
     """Вставка задачи. Возвращает dict как _row_to_task.
 
     requester_department_id / requester_role_slug — S11.1 (ADR-005), для
     inter-department задач. NULL для обычных intra-задач.
     model_hint — S15.2 (ADR-006): hint для роутера (opus/sonnet/haiku). NULL = авто.
+    project_id — связь с таблицей projects (PRJ-NNN). NULL для несвязанных задач.
     """
 
     task_id = uuid.uuid4().hex[:12]
@@ -678,8 +724,8 @@ def insert_task(
                   id, title, description, status, assignee, reporter, priority,
                   labels, parent_id, requires_approval, created_at, updated_at,
                   department_id, requester_department_id, requester_role_slug,
-                  model_hint
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  model_hint, project_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     task_id,
@@ -698,6 +744,7 @@ def insert_task(
                     requester_department_id,
                     requester_role_slug,
                     model_hint,
+                    project_id,
                 ),
             )
             conn.execute("COMMIT")
@@ -2483,6 +2530,125 @@ def delete_artifact(db_path: Path, artifact_id: int) -> bool:
         return cursor.rowcount > 0
     finally:
         conn.close()
+
+
+# === Projects ===
+# Проекты — единица группировки задач для owner-а (один лендинг, одна
+# кампания, один продукт). Папка артефактов: workspace/{code}-{slug}/.
+
+
+def _row_to_project(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "code": row["code"],
+        "slug": row["slug"],
+        "title": row["title"],
+        "status": row["status"],
+        "created_at": row["created_at"],
+        "archived_at": row["archived_at"],
+    }
+
+
+def create_project(db_path: Path, slug: str, title: str) -> dict[str, Any]:
+    """Создать проект. Code (PRJ-NNN) генерируется автоинкрементом.
+
+    Args:
+        slug: техническое имя (латиница, дефисы), для папки workspace/.
+        title: человекочитаемое название (любой язык).
+
+    Returns dict со всеми полями проекта.
+
+    Raises:
+        ValueError: slug не валиден, либо slug/title пустые.
+        sqlite3.IntegrityError: slug уже занят.
+    """
+    if not slug or not title:
+        raise ValueError("slug и title обязательны")
+    slug = slug.strip()
+    if not all(c.isascii() and (c.isalnum() or c == "-") for c in slug):
+        raise ValueError("slug должен содержать только латиницу, цифры и дефис")
+    if slug.startswith("-") or slug.endswith("-"):
+        raise ValueError("slug не может начинаться или заканчиваться дефисом")
+
+    now = int(time.time())
+    with write_lock(db_path):
+        conn = _connect(db_path)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            # Получаем следующий id заранее, чтобы сформировать code.
+            row = conn.execute(
+                "SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM projects"
+            ).fetchone()
+            next_id = int(row["next_id"])
+            code = f"PRJ-{next_id:03d}"
+
+            conn.execute(
+                "INSERT INTO projects (id, code, slug, title, status, created_at) "
+                "VALUES (?, ?, ?, ?, 'active', ?)",
+                (next_id, code, slug, title.strip(), now),
+            )
+            conn.commit()
+            row = conn.execute("SELECT * FROM projects WHERE id = ?", (next_id,)).fetchone()
+            return _row_to_project(row)
+        finally:
+            conn.close()
+
+
+def list_projects(db_path: Path, include_archived: bool = False) -> list[dict[str, Any]]:
+    """Список проектов, отсортированных по id ASC."""
+    conn = _connect(db_path)
+    try:
+        if include_archived:
+            cur = conn.execute("SELECT * FROM projects ORDER BY id ASC")
+        else:
+            cur = conn.execute(
+                "SELECT * FROM projects WHERE status != 'archived' ORDER BY id ASC"
+            )
+        return [_row_to_project(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+def get_project(db_path: Path, project_id_or_code: Any) -> Optional[dict[str, Any]]:
+    """Получить проект по id (int) или code (строка вида 'PRJ-001')."""
+    conn = _connect(db_path)
+    try:
+        if isinstance(project_id_or_code, int) or (
+            isinstance(project_id_or_code, str) and project_id_or_code.isdigit()
+        ):
+            row = conn.execute(
+                "SELECT * FROM projects WHERE id = ?", (int(project_id_or_code),)
+            ).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT * FROM projects WHERE code = ? OR slug = ?",
+                (project_id_or_code, project_id_or_code),
+            ).fetchone()
+        return _row_to_project(row) if row else None
+    finally:
+        conn.close()
+
+
+def link_task_to_project(
+    db_path: Path, task_id: str, project_id: Optional[int]
+) -> Optional[dict[str, Any]]:
+    """Привязать задачу к проекту (или отвязать, если project_id=None)."""
+    with write_lock(db_path):
+        conn = _connect(db_path)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            cur = conn.execute(
+                "UPDATE tasks SET project_id = ?, updated_at = ? WHERE id = ?",
+                (project_id, int(time.time()), task_id),
+            )
+            if cur.rowcount == 0:
+                conn.execute("ROLLBACK")
+                return None
+            conn.execute("COMMIT")
+            row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+            return _row_to_task(row) if row else None
+        finally:
+            conn.close()
 
 
 # === App state (Task 99119C362B4A: persistence для auto_mode) ===

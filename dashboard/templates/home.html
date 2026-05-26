@@ -8,8 +8,8 @@
 </head>
 <body>
 
-<!-- ===================== App layout (3 column) ===================== -->
-<div class="app">
+<!-- ===================== App layout (2 column: sidebar + main) ===================== -->
+<div class="app app--no-right">
 
   <!-- ===== Sidebar (left) ===== -->
   <aside class="sidebar">
@@ -34,18 +34,6 @@
         <span class="lbl" data-i18n="nav.chat">Чат</span>
       </button>
     </nav>
-
-    <!-- ===== Managing Director (ADR-009 §2.7.2) ===== -->
-    <div class="managing-director-row">
-      <button type="button" class="managing-director-item" id="btn-managing-director"
-              data-i18n-attr="title:managingDirector.tooltip,aria-label:managingDirector.label"
-              title="Главный собеседник (общий чат)"
-              aria-label="Управляющий"
-              aria-pressed="false">
-        <span class="ico" aria-hidden="true">🏛</span>
-        <span class="lbl" data-i18n="managingDirector.label">Управляющий</span>
-      </button>
-    </div>
 
     <!-- ===== Departments ===== -->
     <div class="departments-list" id="departments-list" role="region"

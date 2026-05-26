@@ -204,8 +204,8 @@ class TestThreadsCRUD:
         resp = client.patch("/api/threads/nonexistent", json={"status": "archived"})
         assert resp.status_code == 404
 
-    def test_stop_thread_not_implemented(self, client_with_db: tuple[Any, Path]) -> None:
-        """POST /api/threads/<id>/stop — заглушка (501)."""
+    def test_stop_thread_aborts(self, client_with_db: tuple[Any, Path]) -> None:
+        """POST /api/threads/<id>/stop — переводит thread в status='aborted' (ADR-011 §6.4)."""
         client, _ = client_with_db
 
         payload = {"title": "Thread"}
@@ -213,7 +213,10 @@ class TestThreadsCRUD:
         thread_id = resp.get_json()["thread"]["id"]
 
         resp = client.post(f"/api/threads/{thread_id}/stop")
-        assert resp.status_code == 501
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["thread"]["status"] == "aborted"
+        assert data["thread"]["finished_at"] is not None
 
 
 class TestThreadMessages:

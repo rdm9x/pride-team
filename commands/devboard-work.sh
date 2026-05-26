@@ -41,11 +41,14 @@ done
 # === Поиск файла роли ===
 # Если слаг содержит '/' — прямой путь: roles/<slug>.md
 # Иначе ищем по порядку:
+#   0. spec: managing-director → roles/управляющий.md (русское имя файла)
 #   1. roles/<slug>.md
 #   2. roles/dev/<slug>.md
 #   3. roles/marketing/<slug>.md
 #   4. Паттерн <dept>-<role>: roles/<dept>/<role>.md (например dev-lead → roles/dev/lead.md)
-if [[ "$ROLE_SLUG" == *"/"* ]]; then
+if [[ "$ROLE_SLUG" == "managing-director" ]]; then
+    ROLE_FILE="$REPO_ROOT/roles/управляющий.md"
+elif [[ "$ROLE_SLUG" == *"/"* ]]; then
     ROLE_FILE="$REPO_ROOT/roles/${ROLE_SLUG}.md"
 else
     if [[ -f "$REPO_ROOT/roles/${ROLE_SLUG}.md" ]]; then
@@ -75,7 +78,101 @@ fi
 
 TEAMLEAD_PROMPT="$(cat "$ROLE_FILE")"
 
-TASK_PROMPT="Старт сессии тимлида (${ROLE_SLUG}).
+# --- Planning mode (Phase 3b) -------------------------------------------------
+# Если оркестратор запустил лида внутри планёрки, он передаёт:
+#   DEVBOARD_PLANNING_MODE=1
+#   DEVBOARD_PLANNING_ID=<session_id>
+#   DEVBOARD_THREAD_ID=<thread_id>
+#   DEVBOARD_PLANNING_ROUND=<n>
+# Для лидов отделов — даём реплику в общем треде.
+# Для managing-director — финальный синтез отчёта.
+if [[ "${DEVBOARD_PLANNING_MODE:-0}" == "1" && "${ROLE_SLUG}" == "managing-director" ]]; then
+    PLANNING_ID="${DEVBOARD_PLANNING_ID:-}"
+    THREAD_ID="${DEVBOARD_THREAD_ID:-}"
+    TASK_PROMPT="Финальный синтез планёрки (planning_session_id=${PLANNING_ID}).
+
+Ты — Управляющий. Раунды лидов закончены, твоя задача — собрать итог.
+
+1) Прочитай thread по REST:
+       curl http://127.0.0.1:4999/api/threads/${THREAD_ID}/messages
+   В нём: системное сообщение с темой планёрки + реплики лидов отделов
+   по раундам. Цитировать не надо, нужен СИНТЕЗ.
+
+2) Напиши финальный отчёт в формате:
+
+   ## Решение по планёрке #${PLANNING_ID:0:6}
+
+   **Что предлагаем:**
+   - <предлагаемый шаг 1, конкретно>
+   - <шаг 2>
+   - <шаг 3>
+
+   **Кому что делать:**
+   - <отдел A>: <короткая роль>
+   - <отдел B>: <короткая роль>
+
+   **Открытые вопросы для owner-а** (если есть):
+   - <вопрос>
+
+   **Риски** (если есть):
+   - <риск + mitigation>
+
+3) Запости отчёт в thread:
+       curl -X POST http://127.0.0.1:4999/api/threads/${THREAD_ID}/messages \\
+            -H 'Content-Type: application/json' \\
+            -d '{\"author\":\"managing-director\",\"text\":\"<отчёт>\"}'
+
+4) Заверши сессию. Никаких задач не создавай — owner сначала apprve отчёт.
+
+ЗАПРЕТЫ: НЕ создавать задачи (это после accept), НЕ дёргать subagent'ов,
+НЕ обновлять канбан."
+elif [[ "${DEVBOARD_PLANNING_MODE:-0}" == "1" ]]; then
+    PLANNING_ID="${DEVBOARD_PLANNING_ID:-}"
+    THREAD_ID="${DEVBOARD_THREAD_ID:-}"
+    PLANNING_ROUND="${DEVBOARD_PLANNING_ROUND:-1}"
+    TASK_PROMPT="Ты участвуешь в ПЛАНЁРКЕ как ${ROLE_SLUG}. Это НЕ обычная сессия —
+канбан НЕ трогай, новые задачи НЕ создавай, специалистов НЕ запускай.
+
+Контекст:
+- planning_session_id: ${PLANNING_ID}
+- thread_id: ${THREAD_ID}
+- текущий раунд: ${PLANNING_ROUND}
+
+Что делать (один проход, не цикл):
+
+1) Прочитай thread через MCP-инструмент:
+   mcp__devboard-tasks__chat_recent читает legacy-чат, поэтому используй
+   get_thread_messages напрямую через прямой sqlite — нельзя. Вместо этого
+   читай через REST:
+       curl http://127.0.0.1:4999/api/threads/${THREAD_ID}/messages
+   и разбери последние ~20 сообщений. Тема планёрки в системном сообщении
+   от managing-director (начинается с «🤔 Планёрка #...»).
+
+2) Подумай с позиции своей роли (${ROLE_SLUG}):
+   - Раунд 1: твой первый взгляд — какие подходы / решения / риски ты видишь
+     с точки зрения своего отдела. Конкретно, без воды, 3-5 предложений.
+   - Раунд 2+: ты УЖЕ видишь реплики других лидов. Реагируй на них:
+     согласись / возрази / предложи объединить подходы. Не повторяй своё
+     прошлое — двигай обсуждение вперёд.
+
+3) Напиши ОДНУ реплику в thread через REST POST:
+       curl -X POST http://127.0.0.1:4999/api/threads/${THREAD_ID}/messages \\
+            -H 'Content-Type: application/json' \\
+            -d '{\"author\":\"${ROLE_SLUG}\",\"text\":\"<твой текст>\"}'
+
+   Реплика должна быть КОНКРЕТНОЙ и КОРОТКОЙ (5-12 строк, можно с маркерами).
+   Никаких «жду указаний» / «готов начать работу» — это планёрка, твоё мнение нужно.
+
+4) Заверши сессию. Больше ничего не делай — оркестратор позовёт лида следующего
+   отдела или начнёт новый раунд.
+
+ЗАПРЕТЫ:
+- НЕ создавать задачи через MCP.
+- НЕ запускать subagent'ов.
+- НЕ постить в department-chat (это для обычной работы).
+- НЕ писать длинные эссе — это диалог, не отчёт."
+else
+    TASK_PROMPT="Старт сессии тимлида (${ROLE_SLUG}).
 
 1) ЧАТ с пользователем — mcp__devboard-tasks__chat_recent(limit=20). Если есть
    сообщения от него без твоего ответа — ответь через
@@ -120,6 +217,7 @@ TASK_PROMPT="Старт сессии тимлида (${ROLE_SLUG}).
 - НЕ запускай app.py для проверки UI — dashboard работает на :4999 отдельно.
 - НЕ используй timeout (нет на macOS).
 - Сигнал owner-а нужен ТОЛЬКО для acceptance review→done."
+fi
 
 cd "$REPO_ROOT"
 

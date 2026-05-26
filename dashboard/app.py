@@ -568,6 +568,217 @@ def _auto_can_start_for_role(role: str, now: int) -> tuple[bool, str]:
     return True, "ок"
 
 
+# ============================================================================
+# Phase 3b: Planning orchestrator
+# ============================================================================
+
+_PLANNING_LEAD_TIMEOUT_SEC = 300   # 5 минут на ответ одного лида
+_PLANNING_POLL_INTERVAL = 5         # как часто проверяем БД на pending
+_PLANNING_MAX_WALL_SEC = 30 * 60    # 30 минут на всю планёрку
+
+
+def _planning_cost_so_far(db_path: Path, started_at: int) -> float:
+    """Сумма total_cost_usd по claude_sessions, начатым после started_at."""
+    conn = db._connect(db_path)
+    try:
+        row = conn.execute(
+            "SELECT COALESCE(SUM(total_cost_usd), 0) AS s FROM claude_sessions "
+            "WHERE started_at >= ?",
+            (started_at,),
+        ).fetchone()
+        return float(row["s"] or 0.0)
+    finally:
+        conn.close()
+
+
+def _planning_post_to_thread(db_path: Path, thread_id: str, author: str, text: str) -> None:
+    try:
+        db.add_chat_message_to_thread(db_path, thread_id, author, text)
+    except Exception:  # noqa: BLE001
+        log.exception("planning: cannot post to thread %s", thread_id)
+
+
+def _planning_run_lead(
+    db_path: Path,
+    *,
+    session_id: str,
+    thread_id: Optional[str],
+    role: str,
+    round_n: int,
+) -> bool:
+    """Запускает одну сессию лида в planning-mode. Ждёт завершения (с timeout).
+    Возвращает True если процесс завершился штатно."""
+    commands_dir = _REPO_ROOT / "commands"
+    script = commands_dir / ("devboard-work.ps1" if sys.platform == "win32" else "devboard-work.sh")
+    if not script.exists():
+        log.error("planning: script not found: %s", script)
+        return False
+
+    # Если Flask сам запущен внутри Claude Code, в env есть переменные которые
+    # заставят subprocess `claude` сразу выйти (защита от рекурсии). Чистим их,
+    # чтобы новая claude-сессия стартовала полноценно.
+    _STRIP_PREFIXES = (
+        "CLAUDE_CODE_",
+        "CLAUDE_AGENT_SDK_",
+        "CLAUDE_EFFORT",
+        "ANTHROPIC_PROMPT_CACHING",
+    )
+    _STRIP_KEYS = {"CLAUDECODE", "CLAUDE_CODE_SESSION_ID", "AI_AGENT"}
+    env = {k: v for k, v in os.environ.items()
+           if k not in _STRIP_KEYS and not any(k.startswith(p) for p in _STRIP_PREFIXES)}
+    env["DEVBOARD_PLANNING_MODE"] = "1"
+    env["DEVBOARD_PLANNING_ID"] = session_id
+    if thread_id:
+        env["DEVBOARD_THREAD_ID"] = thread_id
+    env["DEVBOARD_PLANNING_ROUND"] = str(round_n)
+
+    cmd = ["bash", str(script), "--role", role] if sys.platform != "win32" else \
+          ["pwsh", "-File", str(script), "-Role", role]
+
+    # Лог в data/planning-<session>.log — полезно для диагностики.
+    log_path = _REPO_ROOT / "data" / f"planning-{session_id[:8]}.log"
+    try:
+        with open(log_path, "a") as log_f:
+            log_f.write(f"\n==== {role} round {round_n} @ {time.strftime('%H:%M:%S')} ====\n")
+            log_f.flush()
+            proc = subprocess.Popen(
+                cmd, cwd=str(_REPO_ROOT), env=env,
+                stdout=log_f, stderr=subprocess.STDOUT,
+            )
+            try:
+                proc.wait(timeout=_PLANNING_LEAD_TIMEOUT_SEC)
+                ok = proc.returncode == 0
+                log.info("planning: lead %s round %d done rc=%d", role, round_n, proc.returncode)
+                return ok
+            except subprocess.TimeoutExpired:
+                log.warning("planning: lead %s timeout (%ss), killing", role, _PLANNING_LEAD_TIMEOUT_SEC)
+                proc.kill()
+                return False
+    except Exception:  # noqa: BLE001
+        log.exception("planning: failed to launch lead %s", role)
+        return False
+
+
+def _planning_resolve_lead_role(db_path: Path, dept_id: str) -> Optional[str]:
+    """По dept_id найти slug лида: dev → dev-lead, marketing → marketing-lead, etc.
+    Возвращает None если нет роли с подходящим именем."""
+    try:
+        roles = db.list_roles(db_path)
+    except Exception:  # noqa: BLE001
+        return None
+    candidates = [f"{dept_id}-lead", "dev-lead" if dept_id == "dev" else None]
+    for name in candidates:
+        if not name:
+            continue
+        if any(r["name"] == name for r in roles):
+            return name
+    return None
+
+
+def _planning_run_session(db_path: Path, session: dict) -> None:
+    """Полный цикл одной планёрки: раунды × лиды + финальный синтез."""
+    sid = session["id"]
+    thread_id = session.get("thread_id")
+    total_rounds = int(session.get("total_rounds") or 3)
+    departments = session.get("departments_involved") or []
+    cost_limit = float(session.get("cost_limit_usd") or 2.0)
+    wall_start = time.time()
+
+    log.info("planning: starting session %s, depts=%s, rounds=%d",
+             sid, departments, total_rounds)
+    db.planning_session_update(db_path, sid,
+                               status="running", phase="discussion", current_round=1)
+
+    for round_n in range(1, total_rounds + 1):
+        db.planning_session_update(db_path, sid, current_round=round_n)
+        for dept_id in departments:
+            # Wall-time + cost limit
+            if time.time() - wall_start > _PLANNING_MAX_WALL_SEC:
+                log.warning("planning %s: wall time exceeded, aborting", sid)
+                _abort_planning(db_path, sid, "wall-time exceeded", thread_id)
+                return
+            spent = _planning_cost_so_far(db_path, int(wall_start))
+            db.planning_session_update(db_path, sid, cost_so_far_usd=spent)
+            if spent > cost_limit:
+                log.warning("planning %s: cost $%.2f > limit $%.2f, aborting",
+                            sid, spent, cost_limit)
+                _abort_planning(db_path, sid, f"cost exceeded ${spent:.2f}", thread_id)
+                return
+
+            role = _planning_resolve_lead_role(db_path, dept_id)
+            if role is None:
+                log.warning("planning %s: no lead role for dept %s", sid, dept_id)
+                continue
+            log.info("planning %s: round %d, lead %s", sid, round_n, role)
+            _planning_run_lead(
+                db_path, session_id=sid, thread_id=thread_id, role=role, round_n=round_n,
+            )
+
+    # Финальный синтез — Управляющий читает thread, пишет consolidated_proposal.
+    db.planning_session_update(db_path, sid, phase="consolidation")
+    if thread_id:
+        _planning_post_to_thread(
+            db_path, thread_id, "system",
+            f"⏳ Раунды планёрки #{sid[:6]} завершены. Управляющий синтезирует итог…",
+        )
+    _planning_run_lead(
+        db_path, session_id=sid, thread_id=thread_id,
+        role="managing-director", round_n=total_rounds + 1,  # маркер «synth»
+    )
+
+    finished_at = int(time.time())
+    spent = _planning_cost_so_far(db_path, int(wall_start))
+    db.planning_session_update(db_path, sid,
+                               status="done", phase="done",
+                               finished_at=finished_at, cost_so_far_usd=spent)
+    log.info("planning %s done in %ds, cost $%.2f", sid, finished_at - int(wall_start), spent)
+
+
+def _abort_planning(db_path: Path, sid: str, reason: str, thread_id: Optional[str]) -> None:
+    db.planning_session_update(db_path, sid,
+                               status="aborted",
+                               finished_at=int(time.time()))
+    if thread_id:
+        _planning_post_to_thread(
+            db_path, thread_id, "system",
+            f"⛔ Планёрка #{sid[:6]} прервана: {reason}",
+        )
+
+
+def _planning_orchestrator_loop(db_path: Path = DB_PATH) -> None:
+    """Background thread: подбирает планёрки в status='pending' и ведёт их по очереди.
+
+    Один поток — sequentially. Если параллельный запуск нужен — отдельная задача.
+    """
+    log.info("planning orchestrator started, polling every %ds", _PLANNING_POLL_INTERVAL)
+    while True:
+        try:
+            conn = db._connect(db_path)
+            try:
+                rows = conn.execute(
+                    "SELECT id FROM planning_sessions WHERE status = 'pending' "
+                    "ORDER BY started_at ASC LIMIT 1"
+                ).fetchall()
+            finally:
+                conn.close()
+            for r in rows:
+                session = db.planning_session_get(db_path, r["id"])
+                if session is None:
+                    continue
+                try:
+                    _planning_run_session(db_path, session)
+                except Exception:  # noqa: BLE001
+                    log.exception("planning %s crashed", r["id"])
+                    db.planning_session_update(
+                        db_path, r["id"],
+                        status="aborted",
+                        finished_at=int(time.time()),
+                    )
+        except Exception:  # noqa: BLE001
+            log.exception("planning orchestrator loop error")
+        time.sleep(_PLANNING_POLL_INTERVAL)
+
+
 def _auto_monitor_loop(db_path: Path = DB_PATH) -> None:
     """Фоновый поток: следит за завершением сессий и запускает следующие если в авто-режиме.
 
@@ -1119,6 +1330,9 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         # Auto-режим: фоновый монитор запускает следующую сессию по графу зависимостей
         # D38BCDDA9CF9: передаём db_path в функцию
         Thread(target=_auto_monitor_loop, args=(effective_db,), daemon=True, name="auto-monitor").start()
+        # Phase 3b: оркестратор планёрок — подбирает status='pending' и ведёт раунды.
+        Thread(target=_planning_orchestrator_loop, args=(effective_db,),
+               daemon=True, name="planning-orchestrator").start()
 
     def _db() -> Path:
         return app.config["DB_PATH"]

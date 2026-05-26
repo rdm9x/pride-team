@@ -194,24 +194,17 @@ docs/security-audit/
 # Отдельный проект (вынесем в свой репозиторий)
 calculator.html
 
-# Внутренний рекламный план / стратегия маркетинга — НЕ публиковать
-MARKETING_PLAN.md
+# Внутренние рекламные планы / стратегия маркетинга — НЕ публиковать
+MARKETING_PLAN*.md
 
 # =============================================================================
-# Workspace: артефакты задач и временные файлы (не для git)
-# Структура: workspace/<project-slug>/<task-id>/<artifact-file>
-# Исключение: .gitkeep для гарантии наличия директорий
+# Workspace: артефакты задач (не для git)
+# Структура: workspace/PRJ-NNN-<slug>/<dept>/<task_id>/<file>
+# Полностью игнорируем содержимое; .gitkeep сохраняет саму папку workspace/.
 # =============================================================================
 /workspace/**/*
 !/workspace/
 !/workspace/.gitkeep
-!/workspace/dev/
-!/workspace/dev/.gitkeep
-!/workspace/marketing/
-!/workspace/marketing/.gitkeep
-# E2E test artifacts
-!/workspace/roofing-company/
-!/workspace/roofing-company/landing.html
 
 # Stray test artifacts
 .devboard.tasks.db

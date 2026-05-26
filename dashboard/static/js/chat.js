@@ -658,10 +658,45 @@
     if (currentThreadId) await loadAndRenderMessages(currentThreadId);
   }
 
+  // Silent refresh thread messages (без spinner и без сброса scroll).
+  let _lastRenderedMessageCount = 0;
+  async function _silentRefreshMessages() {
+    if (!currentThreadId) return;
+    try {
+      const r = await fetch(`/api/threads/${encodeURIComponent(currentThreadId)}/messages?viewer=owner`);
+      if (!r.ok) return;
+      const data = await r.json();
+      const messages = data.messages || [];
+      // Если число сообщений не изменилось — не перерисовываем.
+      if (messages.length === _lastRenderedMessageCount) return;
+      _lastRenderedMessageCount = messages.length;
+
+      const container = document.querySelector('.chat-messages');
+      if (!container) return;
+
+      // Проверяем, был ли пользователь в самом низу — чтобы не дёргать его
+      // если он листает старые сообщения.
+      const wasAtBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight < 50;
+
+      container.innerHTML = '';
+      if (messages.length === 0) {
+        container.innerHTML = '<div class="message-placeholder">No messages yet. Start the conversation!</div>';
+      } else {
+        messages.forEach((msg) => container.appendChild(renderMessage(msg)));
+      }
+      if (wasAtBottom) container.scrollTop = container.scrollHeight;
+    } catch (_) { /* network blip — игнорируем */ }
+  }
+
   function initPlanningBannerPoll() {
     if (_planningPollTimer) clearInterval(_planningPollTimer);
     _fetchAndRenderPlanning();
-    _planningPollTimer = setInterval(_fetchAndRenderPlanning, 5000);
+    _silentRefreshMessages();
+    _planningPollTimer = setInterval(() => {
+      _fetchAndRenderPlanning();
+      _silentRefreshMessages();
+    }, 5000);
   }
 
   // Перерисовка баннера при смене треда — вызывается из selectThread напрямую.

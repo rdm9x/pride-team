@@ -822,30 +822,36 @@ def list_all_inboxes(
 def start_planning_session(
     owner_request: str,
     departments: list[str],
+    thread_id: Optional[str] = None,
+    topic: Optional[str] = None,
+    total_rounds: int = 3,
+    cost_limit_usd: float = 2.0,
     *,
     caller_role: Optional[str] = None,
+    _bypass_role: bool = False,
     db_path: Optional[Path] = None,
 ) -> dict[str, Any]:
     """Phase 1: создать planning_session и пригласить лидов отделов в чат.
 
-    Создаёт запись planning_sessions(phase='gathering'). Для каждого отдела
-    в списке `departments` отправляет chat_post (author='managing-director',
-    department_id=<dept>) с приглашением.
+    Создаёт запись planning_sessions(phase='gathering', status='pending').
+    Для каждого отдела в `departments` отправляется chat_post в чат отдела.
+    Если задан thread_id — планёрка привязывается к нему (Phase 3b
+    orchestration).
 
     Args:
-        owner_request: исходное сообщение owner-а (требование, контекст).
-        departments: список dept_id отделов, чьи лиды зовутся на планёрку.
+        owner_request: исходное сообщение owner-а.
+        departments: список dept_id отделов.
+        thread_id: id чат-треда для оркестрации (опционально).
+        topic: короткая тема (опционально).
+        total_rounds: число раундов 1..5 (default 3).
+        cost_limit_usd: лимит расходов (default 2.0).
         caller_role: должна быть 'managing-director'.
-
-    Returns:
-        {"статус": "ok", "session_id": "...", "сессия": {...},
-         "приглашения": [{"dept_id": ..., "message_id": ...}, ...]}
-        {"статус": "forbidden", ...} если caller_role != managing-director.
-        {"статус": "error", ...} при пустых параметрах или несуществующем dept.
+        _bypass_role: True → пропустить role-gate (для Flask UI от owner-а).
     """
-    deny = _check_managing_director_role(caller_role)
-    if deny is not None:
-        return deny
+    if not _bypass_role:
+        deny = _check_managing_director_role(caller_role)
+        if deny is not None:
+            return deny
 
     if not owner_request or not owner_request.strip():
         return {"статус": "error", "status": "error", "причина": "owner_request пустой", "reason": "owner_request пустой"}
@@ -862,6 +868,11 @@ def start_planning_session(
         if dept is None:
             return {"статус": "error", "status": "error", "причина": f"отдел {dept_id!r} не существует", "reason": f"отдел {dept_id!r} не существует"}
 
+    # Если передан thread_id — проверяем что такой тред есть.
+    if thread_id is not None and db.get_chat_thread(path_db, thread_id) is None:
+        reason = f"thread {thread_id!r} не существует"
+        return {"статус": "error", "status": "error", "причина": reason, "reason": reason}
+
     # Создаём запись планёрки.
     try:
         session = db.planning_session_create(
@@ -869,6 +880,10 @@ def start_planning_session(
             owner_request=owner_request.strip(),
             departments=list(departments),
             phase="gathering",
+            thread_id=thread_id,
+            topic=topic,
+            total_rounds=total_rounds,
+            cost_limit_usd=cost_limit_usd,
         )
     except ValueError as exc:
         return {"статус": "error", "status": "error", "причина": str(exc), "reason": str(exc)}

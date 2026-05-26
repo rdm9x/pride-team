@@ -262,12 +262,22 @@ CREATE TABLE IF NOT EXISTS planning_sessions (
   owner_answer          TEXT,
   created_tasks         TEXT,                    -- JSON: [{dept, task_id}, ...]
   started_at            INTEGER NOT NULL,
-  finished_at           INTEGER
+  finished_at           INTEGER,
+  -- Phase 3b: оркестрация и лимиты.
+  thread_id             TEXT REFERENCES chat_threads(id),
+  topic                 TEXT,
+  total_rounds          INTEGER NOT NULL DEFAULT 3,
+  current_round         INTEGER NOT NULL DEFAULT 0,
+  status                TEXT NOT NULL DEFAULT 'pending',  -- pending|running|aborted|done
+  cost_limit_usd        REAL NOT NULL DEFAULT 2.0,
+  cost_so_far_usd       REAL NOT NULL DEFAULT 0
 );
 
 -- Активные планёрки — самый частый запрос Управляющего при старте сессии.
 CREATE INDEX IF NOT EXISTS idx_planning_phase
   ON planning_sessions(phase) WHERE finished_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_planning_status
+  ON planning_sessions(status) WHERE status != 'done';
 
 -- B1 (ADR-007 §2.1): долгосрочная память Управляющего — chunks + FTS5.
 -- Хранит structured-факты, recall-выводы, итоги планёрок. Доступ только у роли
@@ -515,6 +525,38 @@ def _ensure_hr_sessions_columns(conn: sqlite3.Connection) -> None:
         pass
 
 
+def _ensure_planning_sessions_columns(conn: sqlite3.Connection) -> None:
+    """Миграция: добавить Phase 3b колонки в planning_sessions для старых БД."""
+    try:
+        existing = {row[1] for row in conn.execute("PRAGMA table_info(planning_sessions)")}
+        if not existing:
+            return  # таблицы нет — её создаст SCHEMA_SQL
+        expected = {
+            "thread_id":        "TEXT",
+            "topic":            "TEXT",
+            "total_rounds":     "INTEGER NOT NULL DEFAULT 3",
+            "current_round":    "INTEGER NOT NULL DEFAULT 0",
+            "status":           "TEXT NOT NULL DEFAULT 'pending'",
+            "cost_limit_usd":   "REAL NOT NULL DEFAULT 2.0",
+            "cost_so_far_usd":  "REAL NOT NULL DEFAULT 0",
+        }
+        for col, col_def in expected.items():
+            if col not in existing:
+                try:
+                    conn.execute(f"ALTER TABLE planning_sessions ADD COLUMN {col} {col_def}")
+                except sqlite3.OperationalError:
+                    pass
+        try:
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_planning_status "
+                "ON planning_sessions(status) WHERE status != 'done'"
+            )
+        except sqlite3.OperationalError:
+            pass
+    except sqlite3.OperationalError:
+        pass
+
+
 def _ensure_tasks_project_id_column(conn: sqlite3.Connection) -> None:
     """Миграция: добавить tasks.project_id для старых БД без этой колонки.
 
@@ -610,6 +652,7 @@ def init_db(db_path: Optional[Path] = None) -> Path:
             ensure_dev_department(conn)
             _ensure_hr_sessions_columns(conn)
             _ensure_tasks_project_id_column(conn)
+            _ensure_planning_sessions_columns(conn)
             _migrate_тимлид_to_dev_lead(conn)
             conn.execute("COMMIT")
         finally:
@@ -2263,6 +2306,7 @@ def _row_to_planning_session(row: sqlite3.Row) -> dict[str, Any]:
         except (json.JSONDecodeError, TypeError):
             return None
 
+    keys = row.keys() if hasattr(row, "keys") else []
     return {
         "id":                    row["id"],
         "owner_request":         row["owner_request"],
@@ -2275,6 +2319,14 @@ def _row_to_planning_session(row: sqlite3.Row) -> dict[str, Any]:
         "created_tasks":         _maybe_load(row["created_tasks"]) or [],
         "started_at":            row["started_at"],
         "finished_at":           row["finished_at"],
+        # Phase 3b — оркестрация и лимиты.
+        "thread_id":             row["thread_id"] if "thread_id" in keys else None,
+        "topic":                 row["topic"] if "topic" in keys else None,
+        "total_rounds":          row["total_rounds"] if "total_rounds" in keys else 3,
+        "current_round":         row["current_round"] if "current_round" in keys else 0,
+        "status":                row["status"] if "status" in keys else "pending",
+        "cost_limit_usd":        row["cost_limit_usd"] if "cost_limit_usd" in keys else 2.0,
+        "cost_so_far_usd":       row["cost_so_far_usd"] if "cost_so_far_usd" in keys else 0.0,
     }
 
 
@@ -2284,6 +2336,10 @@ def planning_session_create(
     owner_request: str,
     departments: list[str],
     phase: str = "gathering",
+    thread_id: Optional[str] = None,
+    topic: Optional[str] = None,
+    total_rounds: int = 3,
+    cost_limit_usd: float = 2.0,
 ) -> dict[str, Any]:
     """Создать запись planning_sessions. id = uuid4 hex[:12]."""
     if not owner_request or not owner_request.strip():
@@ -2292,6 +2348,10 @@ def planning_session_create(
         raise ValueError("departments должен быть непустым списком")
     if phase not in _PLANNING_VALID_PHASES:
         raise ValueError(f"невалидная phase: {phase!r}")
+    if not (1 <= int(total_rounds) <= 5):
+        raise ValueError("total_rounds должен быть от 1 до 5")
+    if float(cost_limit_usd) <= 0:
+        raise ValueError("cost_limit_usd должен быть положительным")
 
     session_id = uuid.uuid4().hex[:12]
     now = int(time.time())
@@ -2304,8 +2364,11 @@ def planning_session_create(
                 INSERT INTO planning_sessions (
                   id, owner_request, phase, departments_involved,
                   discussion_log, consolidated_proposal, questions_for_owner,
-                  owner_answer, created_tasks, started_at, finished_at
-                ) VALUES (?, ?, ?, ?, '[]', NULL, NULL, NULL, '[]', ?, NULL)
+                  owner_answer, created_tasks, started_at, finished_at,
+                  thread_id, topic, total_rounds, current_round, status,
+                  cost_limit_usd, cost_so_far_usd
+                ) VALUES (?, ?, ?, ?, '[]', NULL, NULL, NULL, '[]', ?, NULL,
+                          ?, ?, ?, 0, 'pending', ?, 0)
                 """,
                 (
                     session_id,
@@ -2313,6 +2376,10 @@ def planning_session_create(
                     phase,
                     json.dumps(departments, ensure_ascii=False),
                     now,
+                    thread_id,
+                    (topic or "").strip() or None,
+                    int(total_rounds),
+                    float(cost_limit_usd),
                 ),
             )
             conn.execute("COMMIT")
@@ -2349,6 +2416,10 @@ _PLANNING_ALLOWED_UPDATE_FIELDS = {
     "owner_answer",
     "created_tasks",
     "finished_at",
+    # Phase 3b orchestration:
+    "current_round",
+    "status",
+    "cost_so_far_usd",
 }
 
 

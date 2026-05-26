@@ -85,6 +85,8 @@
       dlg.hidden = false;
       const okBtn = dlg.querySelector("[data-confirm-ok]");
       const cancelBtns = dlg.querySelectorAll("[data-confirm-cancel]");
+      // На случай если customAlert ранее прятал Cancel — вернуть видимость.
+      cancelBtns.forEach((b) => { b.style.display = ""; });
 
       function cleanup() {
         dlg.hidden = true;
@@ -97,6 +99,40 @@
       cancelBtns.forEach((b) => b.addEventListener("click", onCancel));
     });
   }
+
+  // customAlert — переиспользует #modal-confirm, но прячет кнопки «Отмена»,
+  // оставляя только OK. Возвращает Promise<void> чтобы можно было await.
+  function customAlert(text) {
+    return new Promise((resolve) => {
+      const dlg = $("#modal-confirm");
+      $("#confirm-text").textContent = text;
+      dlg.hidden = false;
+      const okBtn = dlg.querySelector("[data-confirm-ok]");
+      const cancelBtns = dlg.querySelectorAll("[data-confirm-cancel]");
+      const closeBtn = dlg.querySelector(".close[data-confirm-cancel]");
+      // Скрываем «Отмена» внизу, но крестик ✕ оставляем (даём способ закрыть).
+      cancelBtns.forEach((b) => {
+        if (b !== closeBtn) b.style.display = "none";
+      });
+
+      function cleanup() {
+        dlg.hidden = true;
+        okBtn.removeEventListener("click", onOk);
+        if (closeBtn) closeBtn.removeEventListener("click", onOk);
+        // Восстанавливаем видимость cancel для последующих customConfirm.
+        cancelBtns.forEach((b) => { b.style.display = ""; });
+      }
+      function onOk() { cleanup(); resolve(); }
+      okBtn.addEventListener("click", onOk);
+      if (closeBtn) closeBtn.addEventListener("click", onOk);
+    });
+  }
+
+  // Экспонируем custom-dialogs глобально — chat.js и другие view-скрипты
+  // дёргают их вместо нативных confirm/prompt/alert.
+  window.customConfirm = customConfirm;
+  window.customPrompt = customPrompt;
+  window.customAlert = customAlert;
 
   // ===================== Theme toggle =====================
   function applyTheme(theme) {

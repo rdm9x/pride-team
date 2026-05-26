@@ -191,7 +191,8 @@
   async function archiveThread(threadId) {
     if (!threadId) return;
     const confirmMsg = (window.t && window.t('chat.threads.archive_confirm')) || 'Архивировать этот чат?';
-    if (!confirm(confirmMsg)) return;
+    const ok = await (window.customConfirm ? window.customConfirm(confirmMsg) : Promise.resolve(confirm(confirmMsg)));
+    if (!ok) return;
     try {
       const resp = await fetch(`/api/threads/${encodeURIComponent(threadId)}`, {
         method: 'PATCH',
@@ -207,7 +208,7 @@
       await loadThreads();
     } catch (err) {
       console.error('archive thread failed', err);
-      alert('Не удалось архивировать тред');
+      await (window.customAlert || alert)('Не удалось архивировать тред');
     }
   }
 
@@ -223,7 +224,7 @@
       await loadThreads();
     } catch (err) {
       console.error('restore thread failed', err);
-      alert('Не удалось восстановить тред');
+      await (window.customAlert || alert)('Не удалось восстановить тред');
     }
   }
 
@@ -530,7 +531,7 @@
         input.focus();
       } catch (error) {
         console.error('Error sending message:', error);
-        alert('Failed to send message: ' + error.message);
+        await (window.customAlert || alert)('Failed to send message: ' + error.message);
       } finally {
         input.disabled = false;
         sendButton.disabled = false;
@@ -539,7 +540,7 @@
 
     async function startSession() {
       if (!currentThreadId) {
-        alert('Please select a thread first');
+        await (window.customAlert || alert)('Please select a thread first');
         return;
       }
 
@@ -556,10 +557,10 @@
         if (!response.ok) throw new Error('Failed to start session');
 
         console.log('Team session started with thread context');
-        alert('Team session started');
+        await (window.customAlert || alert)('Team session started');
       } catch (error) {
         console.error('Error starting session:', error);
-        alert('Failed to start session: ' + error.message);
+        await (window.customAlert || alert)('Failed to start session: ' + error.message);
       } finally {
         startSessionButton.disabled = false;
       }
@@ -707,14 +708,20 @@
   async function _onPlanningAction(action, id) {
     if (!id) return;
     if (action === 'stop') {
-      if (!confirm('Остановить активную планёрку?')) return;
+      const ok = await (window.customConfirm
+        ? window.customConfirm('Остановить активную планёрку?')
+        : Promise.resolve(confirm('Остановить активную планёрку?')));
+      if (!ok) return;
       await fetch(`/api/planning/${encodeURIComponent(id)}/stop`, {method: 'POST'});
     } else if (action === 'accept' || action === 'reject' || action === 'revise') {
       let comment = null;
       if (action === 'revise' || action === 'reject') {
-        comment = prompt(action === 'revise'
+        const promptTitle = action === 'revise'
           ? 'Что доработать? (необязательно)'
-          : 'Причина отклонения? (необязательно)');
+          : 'Причина отклонения? (необязательно)';
+        comment = window.customPrompt
+          ? await window.customPrompt(promptTitle, { placeholder: 'Опционально…' })
+          : prompt(promptTitle);
         if (comment === null) return; // отмена prompt
       }
       const resp = await fetch(`/api/planning/${encodeURIComponent(id)}/decision`, {
@@ -724,7 +731,7 @@
       });
       if (!resp.ok) {
         const j = await resp.json().catch(() => ({}));
-        alert('Не удалось сохранить решение: ' + (j.причина || j.reason || resp.statusText));
+        await (window.customAlert || alert)('Не удалось сохранить решение: ' + (j.причина || j.reason || resp.statusText));
         return;
       }
     }
@@ -796,11 +803,11 @@
       const topic = topicInp ? topicInp.value.trim() : '';
 
       if (departments.length === 0) {
-        alert('Выбери хотя бы один отдел для планёрки');
+        await (window.customAlert || alert)('Выбери хотя бы один отдел для планёрки');
         return;
       }
       if (!topic) {
-        alert('Введи тему планёрки');
+        await (window.customAlert || alert)('Введи тему планёрки');
         return;
       }
 
@@ -821,7 +828,7 @@
         const data = await resp.json();
         if (!resp.ok || data.статус !== 'ok') {
           const reason = data.причина || data.reason || resp.statusText;
-          alert('Не удалось создать планёрку: ' + reason);
+          await (window.customAlert || alert)('Не удалось создать планёрку: ' + reason);
           return;
         }
         // Очищаем форму
@@ -836,7 +843,7 @@
         }
       } catch (e) {
         console.error('planning start failed', e);
-        alert('Ошибка сети при создании планёрки');
+        await (window.customAlert || alert)('Ошибка сети при создании планёрки');
       } finally {
         btn.disabled = false;
       }

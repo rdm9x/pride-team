@@ -274,7 +274,10 @@ CREATE TABLE IF NOT EXISTS planning_sessions (
   -- Owner-decision на финальном отчёте Управляющего.
   decision              TEXT,                    -- 'accept'|'reject'|'revise'|NULL
   decided_at            INTEGER,
-  decision_comment      TEXT
+  decision_comment      TEXT,
+  -- Профиль моделей для subprocess'ов планёрки (lead/synthesis/dispatch/revise).
+  -- 'base' = sonnet везде; 'deep' = opus на synthesis/revise.
+  model_profile         TEXT NOT NULL DEFAULT 'base'
 );
 
 -- Активные планёрки — самый частый запрос Управляющего при старте сессии.
@@ -546,6 +549,7 @@ def _ensure_planning_sessions_columns(conn: sqlite3.Connection) -> None:
             "decision":         "TEXT",
             "decided_at":       "INTEGER",
             "decision_comment": "TEXT",
+            "model_profile":    "TEXT NOT NULL DEFAULT 'base'",
         }
         for col, col_def in expected.items():
             if col not in existing:
@@ -2351,7 +2355,11 @@ def _row_to_planning_session(row: sqlite3.Row) -> dict[str, Any]:
         "decision":              row["decision"] if "decision" in keys else None,
         "decided_at":            row["decided_at"] if "decided_at" in keys else None,
         "decision_comment":      row["decision_comment"] if "decision_comment" in keys else None,
+        "model_profile":         row["model_profile"] if "model_profile" in keys else "base",
     }
+
+
+_PLANNING_VALID_MODEL_PROFILES = {"base", "deep"}
 
 
 def planning_session_create(
@@ -2364,6 +2372,7 @@ def planning_session_create(
     topic: Optional[str] = None,
     total_rounds: int = 3,
     cost_limit_usd: float = 2.0,
+    model_profile: str = "base",
 ) -> dict[str, Any]:
     """Создать запись planning_sessions. id = uuid4 hex[:12]."""
     if not owner_request or not owner_request.strip():
@@ -2376,6 +2385,8 @@ def planning_session_create(
         raise ValueError("total_rounds должен быть от 1 до 5")
     if float(cost_limit_usd) <= 0:
         raise ValueError("cost_limit_usd должен быть положительным")
+    if model_profile not in _PLANNING_VALID_MODEL_PROFILES:
+        raise ValueError(f"невалидный model_profile: {model_profile!r}")
 
     session_id = uuid.uuid4().hex[:12]
     now = int(time.time())
@@ -2390,9 +2401,9 @@ def planning_session_create(
                   discussion_log, consolidated_proposal, questions_for_owner,
                   owner_answer, created_tasks, started_at, finished_at,
                   thread_id, topic, total_rounds, current_round, status,
-                  cost_limit_usd, cost_so_far_usd
+                  cost_limit_usd, cost_so_far_usd, model_profile
                 ) VALUES (?, ?, ?, ?, '[]', NULL, NULL, NULL, '[]', ?, NULL,
-                          ?, ?, ?, 0, 'pending', ?, 0)
+                          ?, ?, ?, 0, 'pending', ?, 0, ?)
                 """,
                 (
                     session_id,
@@ -2404,6 +2415,7 @@ def planning_session_create(
                     (topic or "").strip() or None,
                     int(total_rounds),
                     float(cost_limit_usd),
+                    model_profile,
                 ),
             )
             conn.execute("COMMIT")
@@ -2448,6 +2460,8 @@ _PLANNING_ALLOWED_UPDATE_FIELDS = {
     "decision",
     "decided_at",
     "decision_comment",
+    # Profile (можно поменять до старта — пока pending).
+    "model_profile",
 }
 
 

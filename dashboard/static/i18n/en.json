@@ -781,11 +781,16 @@
       "title": "Gather Planning Session",
       "departments_label": "Departments",
       "rounds_label": "Rounds",
+      "profile_label": "Mode",
+      "profile_base": "Regular (Sonnet)",
+      "profile_deep": "Deep (Opus on synthesis)",
       "topic_label": "Topic",
       "topic_placeholder": "Enter planning topic…",
       "button": "Create planning session",
       "button_disabled_hint": "Available in Phase 3b"
     },
+    "profile_badge_base": "Regular",
+    "profile_badge_deep": "Deep (Opus)",
     "loading": "Loading…"
   },
   "demo": {

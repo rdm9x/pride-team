@@ -826,6 +826,7 @@ def start_planning_session(
     topic: Optional[str] = None,
     total_rounds: int = 3,
     cost_limit_usd: float = 2.0,
+    model_profile: str = "base",
     *,
     caller_role: Optional[str] = None,
     _bypass_role: bool = False,
@@ -900,6 +901,7 @@ def start_planning_session(
             topic=topic,
             total_rounds=total_rounds,
             cost_limit_usd=cost_limit_usd,
+            model_profile=model_profile,
         )
     except ValueError as exc:
         return {"статус": "error", "status": "error", "причина": str(exc), "reason": str(exc)}

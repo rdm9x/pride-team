@@ -585,6 +585,38 @@ _CHAT_RESPOND_MIN_AGE_SEC = 10        # ждём 10 сек после owner-со
 _chat_responder_active: dict[str, float] = {}  # thread_id → started_at (running)
 _chat_responder_last_run: dict[str, float] = {}  # thread_id → finished_at (cooldown)
 
+# Модели для chat-responder (всегда быстрая короткая реплика — haiku).
+_CHAT_RESPOND_MODEL = "haiku"
+
+# Профили моделей для планёрки.
+# Stage: lead (реплика в раунде), synthesis (итоговый отчёт Управляющего),
+#        dispatch (декомпозиция в задачи), revise (пересборка отчёта).
+# Профиль: base = sonnet везде; deep = opus где нужно нюансное рассуждение.
+_PLANNING_MODELS: dict[str, dict[str, str]] = {
+    "base": {
+        "lead":      "sonnet",
+        "synthesis": "sonnet",
+        "dispatch":  "sonnet",
+        "revise":    "sonnet",
+    },
+    "deep": {
+        "lead":      "sonnet",   # opus на одну реплику лида — пустая трата
+        "synthesis": "opus",     # итоговый отчёт — opus для нюансов
+        "dispatch":  "sonnet",   # декомпозиция структурная — sonnet справится
+        "revise":    "opus",     # пересборка по owner-фидбеку — opus
+    },
+}
+
+
+def _planning_model_for(profile: Optional[str], stage: str) -> str:
+    """Вернуть alias модели (haiku|sonnet|opus) для пары profile×stage.
+
+    Падение на дефолты безопасное: неизвестный профиль → base, неизвестная
+    стадия → sonnet.
+    """
+    table = _PLANNING_MODELS.get((profile or "base").lower(), _PLANNING_MODELS["base"])
+    return table.get(stage, "sonnet")
+
 
 def _planning_cost_so_far(db_path: Path, started_at: int) -> float:
     """Сумма total_cost_usd по claude_sessions, начатым после started_at."""
@@ -641,6 +673,13 @@ def _planning_run_lead(
         env["DEVBOARD_THREAD_ID"] = thread_id
     env["DEVBOARD_PLANNING_ROUND"] = str(round_n)
 
+    # Модель по профилю: managing-director на этой стадии = синтез (после раундов),
+    # остальные роли — реплика лида.
+    session_for_model = db.planning_session_get(db_path, session_id)
+    profile = (session_for_model or {}).get("model_profile") or "base"
+    stage = "synthesis" if role == "managing-director" else "lead"
+    env["DEVBOARD_TEAM_MODEL"] = _planning_model_for(profile, stage)
+
     cmd = ["bash", str(script), "--role", role] if sys.platform != "win32" else \
           ["pwsh", "-File", str(script), "-Role", role]
 
@@ -694,6 +733,9 @@ def _planning_run_dispatch(db_path: Path, session_id: str) -> None:
     env["DEVBOARD_PLANNING_ID"] = session_id
     if thread_id:
         env["DEVBOARD_THREAD_ID"] = thread_id
+    env["DEVBOARD_TEAM_MODEL"] = _planning_model_for(
+        session.get("model_profile"), "dispatch",
+    )
 
     cmd = ["bash", str(script), "--role", "managing-director"] if sys.platform != "win32" else \
           ["pwsh", "-File", str(script), "-Role", "managing-director"]
@@ -743,6 +785,9 @@ def _planning_run_revise(db_path: Path, session_id: str) -> None:
     env["DEVBOARD_PLANNING_ID"] = session_id
     if thread_id:
         env["DEVBOARD_THREAD_ID"] = thread_id
+    env["DEVBOARD_TEAM_MODEL"] = _planning_model_for(
+        session.get("model_profile"), "revise",
+    )
 
     cmd = ["bash", str(script), "--role", "managing-director"] if sys.platform != "win32" else \
           ["pwsh", "-File", str(script), "-Role", "managing-director"]
@@ -876,6 +921,8 @@ def _chat_responder_run(db_path: Path, thread_id: str) -> None:
            if k not in _STRIP_KEYS and not any(k.startswith(p) for p in _STRIP_PREFIXES)}
     env["DEVBOARD_CHAT_RESPOND"] = "1"
     env["DEVBOARD_THREAD_ID"] = thread_id
+    # Chat-responder = короткая реплика owner-у, всегда haiku (быстро/дёшево).
+    env["DEVBOARD_TEAM_MODEL"] = _CHAT_RESPOND_MODEL
 
     cmd = ["bash", str(script), "--role", "managing-director"] if sys.platform != "win32" else \
           ["pwsh", "-File", str(script), "-Role", "managing-director"]
@@ -4192,6 +4239,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         topic = (data.get("topic") or "").strip() or None
         rounds = int(data.get("rounds") or 3)
         owner_request = (data.get("owner_request") or topic or "").strip()
+        model_profile = (data.get("model_profile") or "base").strip().lower()
 
         if not owner_request:
             return jsonify({
@@ -4203,6 +4251,11 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
                 "статус": "error", "status": "error",
                 "причина": "departments должен быть непустым списком",
             }), 400
+        if model_profile not in ("base", "deep"):
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": "model_profile должен быть base|deep",
+            }), 400
 
         res = tools.start_planning_session(
             owner_request=owner_request,
@@ -4211,6 +4264,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             topic=topic,
             total_rounds=rounds,
             cost_limit_usd=2.0,
+            model_profile=model_profile,
             _bypass_role=True,
             db_path=_db(),
         )

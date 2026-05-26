@@ -793,11 +793,16 @@
       "title": "Собрать планёрку",
       "departments_label": "Отделы",
       "rounds_label": "Раундов",
+      "profile_label": "Режим",
+      "profile_base": "Обычный (Sonnet)",
+      "profile_deep": "Глубокий (Opus на синтезе)",
       "topic_label": "Тема",
       "topic_placeholder": "Введи тему планёрки…",
       "button": "Создать планёрку",
       "button_disabled_hint": "Доступно в Фазе 3b"
     },
+    "profile_badge_base": "Обычный",
+    "profile_badge_deep": "Глубокий (Opus)",
     "loading": "Загрузка…"
   },
   "managing_director_tasks": {

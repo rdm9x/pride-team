@@ -593,6 +593,10 @@
     const topic = (planning.topic || planning.owner_request || '').slice(0, 80);
     const status = _humanPlanningStatus(planning);
     const idShort = (planning.id || '').slice(0, 6);
+    const profile = planning.model_profile || 'base';
+    const profileBadge = profile === 'deep'
+      ? '<span class="planning-banner-profile deep" title="Opus на синтезе и пересборке">🧠 Opus</span>'
+      : '';
 
     let actionsHtml = '';
     if (planning.status === 'running' || planning.status === 'pending') {
@@ -609,6 +613,7 @@
       <div class="planning-banner-info">
         <span>🤔</span>
         <span class="planning-banner-status">${escapeHtml(status)}</span>
+        ${profileBadge}
         <span style="color: var(--text-3);">— #${escapeHtml(idShort)} ${escapeHtml(topic)}</span>
       </div>
       <div class="planning-banner-actions">${actionsHtml}</div>
@@ -713,8 +718,10 @@
       const deptInputs = document.querySelectorAll('#planning-departments input[type="checkbox"]:checked');
       const departments = Array.from(deptInputs).map(i => i.value);
       const roundsSel = document.getElementById('planning-rounds-chat');
+      const profileSel = document.getElementById('planning-profile-chat');
       const topicInp = document.getElementById('planning-topic');
       const rounds = roundsSel ? parseInt(roundsSel.value, 10) : 3;
+      const modelProfile = profileSel ? profileSel.value : 'base';
       const topic = topicInp ? topicInp.value.trim() : '';
 
       if (departments.length === 0) {
@@ -735,6 +742,7 @@
             departments,
             topic,
             rounds,
+            model_profile: modelProfile,
             owner_request: topic,
           }),
         });

@@ -659,6 +659,55 @@ def _planning_run_lead(
         return False
 
 
+def _planning_run_dispatch(db_path: Path, session_id: str) -> None:
+    """Запускает Управляющего в dispatch-mode: декомпозиция consolidated_proposal
+    в задачи отделов. Fire-and-forget, вызывается из POST /decision."""
+    session = db.planning_session_get(db_path, session_id)
+    if session is None:
+        log.warning("dispatch: planning %s не найдена", session_id)
+        return
+    thread_id = session.get("thread_id")
+    log.info("dispatch: starting for planning %s thread %s", session_id, thread_id)
+
+    commands_dir = _REPO_ROOT / "commands"
+    script = commands_dir / ("devboard-work.ps1" if sys.platform == "win32" else "devboard-work.sh")
+    if not script.exists():
+        log.error("dispatch: script not found: %s", script)
+        return
+
+    _STRIP_PREFIXES = (
+        "CLAUDE_CODE_", "CLAUDE_AGENT_SDK_", "CLAUDE_EFFORT", "ANTHROPIC_PROMPT_CACHING",
+    )
+    _STRIP_KEYS = {"CLAUDECODE", "CLAUDE_CODE_SESSION_ID", "AI_AGENT"}
+    env = {k: v for k, v in os.environ.items()
+           if k not in _STRIP_KEYS and not any(k.startswith(p) for p in _STRIP_PREFIXES)}
+    env["DEVBOARD_PLANNING_MODE"] = "dispatch"
+    env["DEVBOARD_PLANNING_ID"] = session_id
+    if thread_id:
+        env["DEVBOARD_THREAD_ID"] = thread_id
+
+    cmd = ["bash", str(script), "--role", "managing-director"] if sys.platform != "win32" else \
+          ["pwsh", "-File", str(script), "-Role", "managing-director"]
+
+    log_path = _REPO_ROOT / "data" / f"planning-{session_id[:8]}-dispatch.log"
+    try:
+        with open(log_path, "a") as log_f:
+            log_f.write(f"\n==== dispatch @ {time.strftime('%H:%M:%S')} ====\n")
+            log_f.flush()
+            proc = subprocess.Popen(
+                cmd, cwd=str(_REPO_ROOT), env=env,
+                stdout=log_f, stderr=subprocess.STDOUT,
+            )
+            try:
+                proc.wait(timeout=_PLANNING_LEAD_TIMEOUT_SEC)
+                log.info("dispatch %s done rc=%d", session_id, proc.returncode)
+            except subprocess.TimeoutExpired:
+                log.warning("dispatch %s timeout, killing", session_id)
+                proc.kill()
+    except Exception:  # noqa: BLE001
+        log.exception("dispatch %s failed", session_id)
+
+
 def _planning_resolve_lead_role(db_path: Path, dept_id: str) -> Optional[str]:
     """По dept_id найти slug лида: dev → dev-lead, marketing → marketing-lead, etc.
     Возвращает None если нет роли с подходящим именем."""
@@ -3993,7 +4042,10 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
     @app.post("/api/planning/<session_id>/decision")
     def api_planning_decision(session_id: str) -> Any:
         """Owner ставит решение на финальном отчёте.
-        body: {decision: 'accept'|'reject'|'revise', comment?}"""
+        body: {decision: 'accept'|'reject'|'revise', comment?}
+        Если decision='accept' — fire-and-forget запускает Управляющего в
+        dispatch-режиме (декомпозиция consolidated_proposal в task'и).
+        """
         data = request.get_json(silent=True) or {}
         decision = data.get("decision")
         if decision not in ("accept", "reject", "revise"):
@@ -4011,6 +4063,17 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             decided_at=int(__import__("time").time()),
             decision_comment=(data.get("comment") or "").strip() or None,
         )
+
+        # accept → запускаем Управляющего на dispatch-mode в отдельном потоке,
+        # чтобы не блокировать UI-ответ.
+        if decision == "accept":
+            Thread(
+                target=_planning_run_dispatch,
+                args=(_db(), session_id),
+                daemon=True,
+                name=f"planning-dispatch-{session_id[:6]}",
+            ).start()
+
         return jsonify({"status": "ok", "planning": updated})
 
     @app.get("/api/planning/active")

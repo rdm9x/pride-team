@@ -1046,13 +1046,22 @@ def post_chat_message(
     department_id: Optional[str] = "dev",
 ) -> dict[str, Any]:
     """Постит сообщение в чат. department_id=None → глобальный межотдельный канал."""
-    _allowed = {
+    _base_allowed = {
         "пользователь", "тимлид", "бэкенд", "qa",
         "архитектор", "frontend", "devops", "техписатель",
-        "system",
-        # ADR-009 §2.6: Управляющий — глобальная роль, постит в чаты отделов
-        "managing-director",
+        "system", "managing-director", "owner",
     }
+    _db_roles: set[str] = set()
+    try:
+        _conn = _connect(db_path)
+        try:
+            _rows = _conn.execute("SELECT name FROM roles").fetchall()
+            _db_roles = {r["name"] for r in _rows}
+        finally:
+            _conn.close()
+    except Exception:  # noqa: BLE001
+        pass
+    _allowed = _base_allowed | _db_roles
     if author not in _allowed:
         raise ValueError(f"неизвестный author: {author}")
     if not text or not text.strip():

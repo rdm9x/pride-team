@@ -86,7 +86,58 @@ TEAMLEAD_PROMPT="$(cat "$ROLE_FILE")"
 #   DEVBOARD_PLANNING_ROUND=<n>
 # Для лидов отделов — даём реплику в общем треде.
 # Для managing-director — финальный синтез отчёта.
-if [[ "${DEVBOARD_PLANNING_MODE:-0}" == "1" && "${ROLE_SLUG}" == "managing-director" ]]; then
+if [[ "${DEVBOARD_PLANNING_MODE:-}" == "dispatch" && "${ROLE_SLUG}" == "managing-director" ]]; then
+    PLANNING_ID="${DEVBOARD_PLANNING_ID:-}"
+    THREAD_ID="${DEVBOARD_THREAD_ID:-}"
+    TASK_PROMPT="DISPATCH-режим: декомпозиция планёрки #${PLANNING_ID:0:6} в реальные задачи отделов.
+
+Owner одобрил план — твоя задача превратить consolidated_proposal в карточки
+задач на доске. НЕ запускать никого в работу, только создать todo-карточки.
+
+1) Прочитай отчёт планёрки:
+       curl -s http://127.0.0.1:4999/api/planning/active
+   Найди сессию с id ${PLANNING_ID}, оттуда возьми consolidated_proposal,
+   departments_involved, thread_id, topic. Если не нашёл — прочитай тред:
+       curl -s http://127.0.0.1:4999/api/threads/${THREAD_ID}/messages
+   Твой последний message в треде — это и есть финальный отчёт «Решение по планёрке».
+
+2) Распарси отчёт. В нём блоки:
+   - «Что предлагаем» — список конкретных шагов
+   - «Кому что делать» — кому какой шаг
+
+3) Для каждого шага определи отдел и подходящую роль:
+   - dev → assignee один из: бэкенд, qa, frontend, devops, архитектор, техписатель, dev-lead
+   - marketing → assignee: copywriter, brand-manager, marketing-analyst, seo-specialist, marketing-lead
+   Если непонятно кому — ставь на lead отдела (dev-lead / marketing-lead).
+
+4) Для каждого шага создай задачу через MCP:
+       mcp__devboard-tasks__create_task(
+         title='<краткое название шага>',
+         description='<подробности из плана>',
+         assignee='<роль>',
+         department_id='<отдел>',
+         priority='P2',
+         status='todo',
+         labels=['planning', 'planning:${PLANNING_ID:0:6}']
+       )
+   Если в плане упомянут проект (PRJ-NNN) — добавь его через
+   mcp__devboard-tasks__link_task_to_project(task_id, project_id_or_code).
+
+5) После создания всех задач — короткое сообщение в тред планёрки:
+       curl -X POST http://127.0.0.1:4999/api/threads/${THREAD_ID}/messages \\
+            -H 'Content-Type: application/json' \\
+            -d '{\"author\":\"managing-director\",\"text\":\"📋 Задачи поставлены на доску:\\n- dev: N карточек\\n- marketing: M карточек\\n\\nЛиды отделов возьмут их в работу при следующем запуске команды.\"}'
+
+   Текст подгонишь под реальное число задач и отделов.
+
+6) Заверши сессию. НЕ запускать subagent'ов, НЕ переводить задачи в wip —
+   только создание todo-карточек. Owner сам запустит команду когда захочет.
+
+ЗАПРЕТЫ:
+- НЕ создавать задачи без описания (description) — лид без контекста не сможет работать.
+- НЕ ставить status='wip' или 'review' — только 'todo'.
+- НЕ запускать Task tool (subagent'ов)."
+elif [[ "${DEVBOARD_PLANNING_MODE:-0}" == "1" && "${ROLE_SLUG}" == "managing-director" ]]; then
     PLANNING_ID="${DEVBOARD_PLANNING_ID:-}"
     THREAD_ID="${DEVBOARD_THREAD_ID:-}"
     TASK_PROMPT="Финальный синтез планёрки (planning_session_id=${PLANNING_ID}).

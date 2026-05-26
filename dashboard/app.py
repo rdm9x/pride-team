@@ -577,6 +577,14 @@ _PLANNING_POLL_INTERVAL = 5         # как часто проверяем БД 
 _PLANNING_MAX_WALL_SEC = 30 * 60    # 30 минут на всю планёрку
 _PLANNING_STALE_RECOVERY_SEC = 10 * 60  # running > 10 минут без апдейтов = orphan
 
+# Chat-responder (Stage 5): фоновый монитор сообщений owner-а.
+_CHAT_RESPOND_POLL_INTERVAL = 15      # как часто пробегаем по тредам
+_CHAT_RESPOND_TIMEOUT_SEC = 180       # 3 минуты на ответ Управляющего
+_CHAT_RESPOND_COOLDOWN_SEC = 60       # минимум между запусками в одном треде
+_CHAT_RESPOND_MIN_AGE_SEC = 10        # ждём 10 сек после owner-сообщения (даём дописать)
+_chat_responder_active: dict[str, float] = {}  # thread_id → started_at (running)
+_chat_responder_last_run: dict[str, float] = {}  # thread_id → finished_at (cooldown)
+
 
 def _planning_cost_so_far(db_path: Path, started_at: int) -> float:
     """Сумма total_cost_usd по claude_sessions, начатым после started_at."""
@@ -849,6 +857,116 @@ def _abort_planning(db_path: Path, sid: str, reason: str, thread_id: Optional[st
             db_path, thread_id, "system",
             f"⛔ Планёрка #{sid[:6]} прервана: {reason}",
         )
+
+
+def _chat_responder_run(db_path: Path, thread_id: str) -> None:
+    """Запуск Управляющего для ответа на сообщение owner-а в чате. fire-and-forget."""
+    log.info("chat-responder: starting for thread %s", thread_id)
+    commands_dir = _REPO_ROOT / "commands"
+    script = commands_dir / ("devboard-work.ps1" if sys.platform == "win32" else "devboard-work.sh")
+    if not script.exists():
+        log.error("chat-responder: script not found: %s", script)
+        return
+
+    _STRIP_PREFIXES = (
+        "CLAUDE_CODE_", "CLAUDE_AGENT_SDK_", "CLAUDE_EFFORT", "ANTHROPIC_PROMPT_CACHING",
+    )
+    _STRIP_KEYS = {"CLAUDECODE", "CLAUDE_CODE_SESSION_ID", "AI_AGENT"}
+    env = {k: v for k, v in os.environ.items()
+           if k not in _STRIP_KEYS and not any(k.startswith(p) for p in _STRIP_PREFIXES)}
+    env["DEVBOARD_CHAT_RESPOND"] = "1"
+    env["DEVBOARD_THREAD_ID"] = thread_id
+
+    cmd = ["bash", str(script), "--role", "managing-director"] if sys.platform != "win32" else \
+          ["pwsh", "-File", str(script), "-Role", "managing-director"]
+
+    log_path = _REPO_ROOT / "data" / f"chat-respond-{thread_id[:8]}.log"
+    try:
+        with open(log_path, "a") as log_f:
+            log_f.write(f"\n==== chat-respond @ {time.strftime('%H:%M:%S')} ====\n")
+            log_f.flush()
+            proc = subprocess.Popen(
+                cmd, cwd=str(_REPO_ROOT), env=env,
+                stdout=log_f, stderr=subprocess.STDOUT,
+            )
+            try:
+                proc.wait(timeout=_CHAT_RESPOND_TIMEOUT_SEC)
+                log.info("chat-responder %s done rc=%d", thread_id, proc.returncode)
+            except subprocess.TimeoutExpired:
+                log.warning("chat-responder %s timeout, killing", thread_id)
+                proc.kill()
+    except Exception:  # noqa: BLE001
+        log.exception("chat-responder %s failed", thread_id)
+    finally:
+        _chat_responder_active.pop(thread_id, None)
+        _chat_responder_last_run[thread_id] = time.time()
+
+
+def _chat_responder_loop(db_path: Path = DB_PATH) -> None:
+    """Background thread: подбирает треды где owner написал и Управляющий ещё не ответил.
+    Запускает Управляющего fire-and-forget, по одному на тред."""
+    log.info("chat-responder loop started, polling every %ds", _CHAT_RESPOND_POLL_INTERVAL)
+    while True:
+        try:
+            now = time.time()
+            conn = db._connect(db_path)
+            try:
+                # Для каждого active треда находим last message и определяем нужен ли ответ.
+                rows = conn.execute(
+                    """
+                    SELECT t.id AS thread_id,
+                           (SELECT m.author FROM chat_messages m
+                              WHERE m.thread_id = t.id
+                              ORDER BY m.created_at DESC LIMIT 1) AS last_author,
+                           (SELECT m.created_at FROM chat_messages m
+                              WHERE m.thread_id = t.id
+                              ORDER BY m.created_at DESC LIMIT 1) AS last_created
+                      FROM chat_threads t
+                     WHERE t.status = 'active'
+                    """
+                ).fetchall()
+            finally:
+                conn.close()
+
+            for r in rows:
+                tid = r["thread_id"]
+                last_author = r["last_author"]
+                last_created = r["last_created"] or 0
+                # 1. Последний message должен быть от owner / пользователь.
+                if last_author not in ("owner", "пользователь"):
+                    continue
+                # 2. Прошло хотя бы N сек (даём дописать).
+                if now - last_created < _CHAT_RESPOND_MIN_AGE_SEC:
+                    continue
+                # 3. Не запущена ли уже сессия в этом треде.
+                if tid in _chat_responder_active:
+                    continue
+                # 4. Cooldown с последнего запуска.
+                last_run = _chat_responder_last_run.get(tid, 0)
+                if now - last_run < _CHAT_RESPOND_COOLDOWN_SEC:
+                    continue
+                # 5. Если в треде идёт активная планёрка (running) — пропускаем:
+                #    оркестратор сам управляет диалогом, нечего влезать.
+                conn2 = db._connect(db_path)
+                try:
+                    busy = conn2.execute(
+                        "SELECT 1 FROM planning_sessions "
+                        "WHERE thread_id = ? AND status IN ('pending','running') LIMIT 1",
+                        (tid,),
+                    ).fetchone()
+                finally:
+                    conn2.close()
+                if busy:
+                    continue
+                # Запускаем.
+                _chat_responder_active[tid] = now
+                Thread(
+                    target=_chat_responder_run, args=(db_path, tid),
+                    daemon=True, name=f"chat-responder-{tid[:8]}",
+                ).start()
+        except Exception:  # noqa: BLE001
+            log.exception("chat-responder loop error")
+        time.sleep(_CHAT_RESPOND_POLL_INTERVAL)
 
 
 def _planning_recover_orphans(db_path: Path) -> None:
@@ -1474,6 +1592,9 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         # Phase 3b: оркестратор планёрок — подбирает status='pending' и ведёт раунды.
         Thread(target=_planning_orchestrator_loop, args=(effective_db,),
                daemon=True, name="planning-orchestrator").start()
+        # Stage 5: chat-responder — мониторит owner-сообщения, запускает Управляющего.
+        Thread(target=_chat_responder_loop, args=(effective_db,),
+               daemon=True, name="chat-responder").start()
 
     def _db() -> Path:
         return app.config["DB_PATH"]

@@ -86,7 +86,38 @@ TEAMLEAD_PROMPT="$(cat "$ROLE_FILE")"
 #   DEVBOARD_PLANNING_ROUND=<n>
 # Для лидов отделов — даём реплику в общем треде.
 # Для managing-director — финальный синтез отчёта.
-if [[ "${DEVBOARD_PLANNING_MODE:-}" == "revise" && "${ROLE_SLUG}" == "managing-director" ]]; then
+if [[ "${DEVBOARD_CHAT_RESPOND:-}" == "1" && "${ROLE_SLUG}" == "managing-director" ]]; then
+    THREAD_ID="${DEVBOARD_THREAD_ID:-}"
+    TASK_PROMPT="CHAT-RESPOND-режим: owner написал тебе в чат, ответь одной репликой.
+
+1) Прочитай весь тред:
+       curl -s http://127.0.0.1:4999/api/threads/${THREAD_ID}/messages
+   Найди ПОСЛЕДНЕЕ сообщение от owner (или 'пользователь') — это то, на что нужно
+   ответить. Учти контекст всего треда — что обсуждалось до этого.
+
+2) Если есть смысл — посмотри состояние канбана для контекста:
+   mcp__devboard-tasks__list_all_inboxes() — что в каждом отделе.
+   НО только если последнее сообщение owner про задачи / прогресс / отделы.
+   Если это просто разговор — не лезь в канбан, отвечай по теме.
+
+3) Подумай как Управляющий. Тебе помогает долгосрочная память — если тема
+   неочевидна, ищи в ней:
+   mcp__devboard-tasks__manager_memory_search(query='<ключевые слова темы>', limit=3)
+
+4) Напиши ОДНУ короткую реплику в этот же тред:
+       curl -X POST http://127.0.0.1:4999/api/threads/${THREAD_ID}/messages \\
+            -H 'Content-Type: application/json' \\
+            -d '{\"author\":\"managing-director\",\"text\":\"<твой ответ>\"}'
+
+   Стиль (см. core memory):
+   - Коротко, прямо, без воды и «жду указаний».
+   - 1-5 строк, можно с маркерами.
+   - Если нужна планёрка для проработки — предложи её одной строкой
+     («это лучше через планёрку — собрать dev+marketing?»), не запускай сам.
+
+5) Заверши сессию. НЕ создавать задачи, НЕ запускать subagent'ов, НЕ постить
+   повторно если уже ответил. Один цикл — один ответ."
+elif [[ "${DEVBOARD_PLANNING_MODE:-}" == "revise" && "${ROLE_SLUG}" == "managing-director" ]]; then
     PLANNING_ID="${DEVBOARD_PLANNING_ID:-}"
     THREAD_ID="${DEVBOARD_THREAD_ID:-}"
     TASK_PROMPT="REVISE-режим: owner попросил доработать отчёт планёрки #${PLANNING_ID:0:6}.

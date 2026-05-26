@@ -2860,7 +2860,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         return None
 
     def _get_artifacts_for_project(folder_name: str) -> list[dict[str, Any]]:
-        """Получить артефакты по имени папки проекта (например 'PRJ-001-landing-roofing')."""
+        """Получить артефакты по имени папки проекта (например 'PRJ-001-landing-outdoor')."""
         conn = db._connect(_db())
         try:
             rows = conn.execute(

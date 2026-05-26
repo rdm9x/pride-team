@@ -135,19 +135,19 @@ Subagent сам читает `get_task`, делает работу, отчиты
 # 1. Регистрируй каждый артефакт в workspace/
 register_task_artifact(
     task_id="<твоя_id>",
-    file_path="workspace/landing-roofing-2026/copy.md"
+    file_path="workspace/landing-outdoor-2026/copy.md"
 )
 register_task_artifact(
     task_id="<твоя_id>",
-    file_path="workspace/landing-roofing-2026/copy-review.md"
+    file_path="workspace/landing-outdoor-2026/copy-review.md"
 )
 
 # 2. Затем submit_result с ссылками на them
 submit_result(<parent_task_id>, {
     "статус": "ok",
     "артефакты": [
-        {"тип": "copy", "файл": "workspace/landing-roofing-2026/copy.md", "автор": "copywriter"},
-        {"тип": "brand-review", "файл": "workspace/landing-roofing-2026/copy-review.md", "автор": "brand-manager"},
+        {"тип": "copy", "файл": "workspace/landing-outdoor-2026/copy.md", "автор": "copywriter"},
+        {"тип": "brand-review", "файл": "workspace/landing-outdoor-2026/copy-review.md", "автор": "brand-manager"},
     ],
     "субтаски": ["<id1>", "<id2>"],
     "метрики_ожидания": "CTR ≥ 2.5% на основе аналога Q1",

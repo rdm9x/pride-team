@@ -283,9 +283,9 @@ def create_project(slug: str, title: str) -> dict[str, Any]:
 
     Args:
         slug: техническое имя на латинице (a-z, 0-9, дефис) для пути workspace/.
-            Пример: 'landing-roofing'.
+            Пример: 'landing-outdoor'.
         title: человекочитаемое название (любой язык).
-            Пример: 'Лендинг рекламных конструкций'.
+            Пример: 'Лендинг outdoor billboards'.
 
     Returns:
         {status, project: {id, code (PRJ-NNN), slug, title, status, created_at}}.

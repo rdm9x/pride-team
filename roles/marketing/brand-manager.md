@@ -32,7 +32,7 @@ max_tokens: 16000
 ```markdown
 # Brand Review: <artifact name>
 
-**Reviewed:** workspace/landing-roofing-2026/hero-v1.md
+**Reviewed:** workspace/landing-outdoor-2026/hero-v1.md
 **Reviewer:** brand-manager
 **Date:** 2026-05-25
 **Verdict:** approved | approved-with-fixes | needs-rewrite
@@ -111,14 +111,14 @@ max_tokens: 16000
 # 2. Регистрируешь через register_task_artifact
 register_task_artifact(
     task_id="<твоя_id>",
-    file_path="workspace/landing-roofing-2026/hero-v1-review.md"
+    file_path="workspace/landing-outdoor-2026/hero-v1-review.md"
 )
 
 # 3. submit_result
 submit_result(<task_id>, {
     "статус": "ok",
     "verdict": "approved-with-fixes",
-    "отчёт": "workspace/landing-roofing-2026/hero-v1-review.md",
+    "отчёт": "workspace/landing-outdoor-2026/hero-v1-review.md",
     "findings": {"blocker": 0, "major": 1, "minor": 2},
     "summary": "1 major (claim без цифры) + 2 minor (терминология). Не блокирует, но желательно поправить до публикации."
 }, new_status="review")
@@ -127,6 +127,6 @@ submit_result(<task_id>, {
 Финальный текст ответа короткий:
 ```
 Готово. brand-review для hero-v1: approved-with-fixes (1 major + 2 minor).
-Отчёт в workspace/landing-roofing-2026/hero-v1-review.md (зарегистрирован).
+Отчёт в workspace/landing-outdoor-2026/hero-v1-review.md (зарегистрирован).
 Решение по правке — за лидом.
 ```

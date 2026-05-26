@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "mcp_server"))
 
 # Путь к workspace
 WORKSPACE_ROOT = Path("/Users/dm_pc/Desktop/pride-team-v1.0/workspace")
-LANDING_HTML = WORKSPACE_ROOT / "roofing-company" / "landing.html"
+LANDING_HTML = WORKSPACE_ROOT / "demo-project" / "landing.html"
 
 
 def test_landing_html_file_structure() -> None:
@@ -44,11 +44,11 @@ def test_landing_html_file_structure() -> None:
 
     # Проверяем контент лендинга
     assert "Рекламные конструкции" in content
-    assert "PRIDE" in content
+    assert "Acme" in content
     assert "<header" in content.lower() or "header" in content.lower()
     assert "<nav" in content.lower() or "nav" in content.lower()
     assert "<section" in content.lower() or "section" in content.lower()
-    assert "roofing" in content.lower() or "кровля" in content
+    assert "outdoor" in content.lower() or "кровля" in content
 
     # Проверяем что есть CSS
     assert "<style" in content.lower()
@@ -78,7 +78,7 @@ def test_artifact_registration_with_html() -> None:
         # Регистрируем HTML артефакт
         result = tools.register_task_artifact(
             task_id=task["id"],
-            file_path="workspace/roofing-company/landing.html",
+            file_path="workspace/demo-project/landing.html",
             kind="html",
             db_path=tmp_db,
         )
@@ -96,7 +96,7 @@ def test_artifact_registration_with_html() -> None:
         assert artifact_from_db is not None
         assert artifact_from_db["task_id"] == task["id"]
         assert artifact_from_db["kind"] == "html"
-        assert artifact_from_db["file_path"] == "workspace/roofing-company/landing.html"
+        assert artifact_from_db["file_path"] == "workspace/demo-project/landing.html"
 
         # Проверяем что артефакт в list
         artifacts_list = db.list_artifacts(tmp_db, task["id"])
@@ -127,9 +127,9 @@ def test_multiple_artifacts_per_task() -> None:
 
         # Регистрируем несколько артефактов
         artifacts_to_register = [
-            ("workspace/roofing-company/landing.html", "html"),
-            ("workspace/roofing-company/landing.css", "css"),
-            ("workspace/roofing-company/landing.js", "javascript"),
+            ("workspace/demo-project/landing.html", "html"),
+            ("workspace/demo-project/landing.css", "css"),
+            ("workspace/demo-project/landing.js", "javascript"),
         ]
 
         registered_ids = []
@@ -168,7 +168,7 @@ def test_artifact_kind_types() -> None:
         # Регистрируем как HTML
         result = tools.register_task_artifact(
             task_id=task["id"],
-            file_path="workspace/roofing-company/landing.html",
+            file_path="workspace/demo-project/landing.html",
             kind="html",
             db_path=tmp_db,
         )
@@ -212,7 +212,7 @@ def test_artifact_file_path_validation() -> None:
         # Валидный путь - OK
         result = tools.register_task_artifact(
             task_id=task["id"],
-            file_path="workspace/roofing-company/landing.html",
+            file_path="workspace/demo-project/landing.html",
             kind="html",
             db_path=tmp_db,
         )
@@ -234,7 +234,7 @@ def test_artifact_persistence_across_sessions() -> None:
         task1 = db.insert_task(tmp_db, title="Task 1")
         result1 = tools.register_task_artifact(
             task_id=task1["id"],
-            file_path="workspace/roofing-company/landing.html",
+            file_path="workspace/demo-project/landing.html",
             kind="html",
             db_path=tmp_db,
         )
@@ -248,7 +248,7 @@ def test_artifact_persistence_across_sessions() -> None:
         # Сессия 3: добавляем еще один
         result2 = tools.register_task_artifact(
             task_id=task1["id"],
-            file_path="workspace/roofing-company/landing-v2.html",
+            file_path="workspace/demo-project/landing-v2.html",
             kind="html",
             db_path=tmp_db,
         )
@@ -268,7 +268,7 @@ def test_workspace_directory_structure() -> None:
     # Поддиректории
     assert (WORKSPACE_ROOT / "dev").exists()
     assert (WORKSPACE_ROOT / "marketing").exists()
-    assert (WORKSPACE_ROOT / "roofing-company").exists()
+    assert (WORKSPACE_ROOT / "demo-project").exists()
 
     # Файлы
     assert LANDING_HTML.exists()
@@ -309,7 +309,7 @@ def test_ui_artifact_rendering_mock() -> None:
         {
             "id": "a1b2c3d4e5f6",
             "task_id": "task123",
-            "file_path": "workspace/roofing-company/landing.html",
+            "file_path": "workspace/demo-project/landing.html",
             "kind": "html",
             "created_at": 1621234567,
         }
@@ -340,7 +340,7 @@ def test_ui_artifact_rendering_mock() -> None:
     assert "landing.html" in result
     assert "artifact-open" in result
     assert "🌐" in result  # HTML icon
-    assert "workspace/roofing-company/landing.html" in result
+    assert "workspace/demo-project/landing.html" in result
 
 
 if __name__ == "__main__":

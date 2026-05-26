@@ -23,7 +23,7 @@ Owner сказал: **«Куда смотреть, где результат, к
 Текущее состояние:
 - Главная (`/`) — Kanban доска 5 колонок (todo, wip, needs_approval, review, done).
 - Owner видит **269 задач** со всех отделов и проектов в одной плоскости.
-- Нет группировки по проектам (workspace/landing-roofing/, workspace/marketing-site-v2/ и т.д.).
+- Нет группировки по проектам (workspace/landing-outdoor/, workspace/marketing-site-v2/ и т.д.).
 - Нет быстрого понимания:
   - *«Что готово на проект X?»* — надо искать руками в доске.
   - *«Какие задачи ждут запуска/одобрения на Y?»* — нет call-to-actions.
@@ -60,7 +60,7 @@ Owner сказал: **«Куда смотреть, где результат, к
 │  🏘 ПРОЕКТЫ (группировка по project_slug из workspace/)                     │
 │                                                                              │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │  📦 landing-roofing-2026                                             │   │
+│  │  📦 landing-outdoor-2026                                             │   │
 │  │  ════════════════════════════════════════════════════════════════    │   │
 │  │  3 готово · 2 в работе · 1 ждёт  [████░░░░] 60%                     │   │
 │  │                                                                      │   │
@@ -77,7 +77,7 @@ Owner сказал: **«Куда смотреть, где результат, к
 │  │                                                                      │   │
 │  │  🔗 Файлы (3):                                                       │   │
 │  │    📄 landing.html  · 🎨 style.css  · 📊 seo-report.pdf             │   │
-│  │    → [📂 Открыть папку workspace/landing-roofing-2026/]            │   │
+│  │    → [📂 Открыть папку workspace/landing-outdoor-2026/]            │   │
 │  │                                                                      │   │
 │  │  [💬 История проекта]  [🔄 Обновить статусы]  [⋯ Ещё]              │   │
 │  └──────────────────────────────────────────────────────────────────────┘   │
@@ -201,8 +201,8 @@ GET /api/projects?include_archived=false&include_devboard=true
   "status": "ok",
   "projects": [
     {
-      "project_slug": "landing-roofing-2026",
-      "title": "Лендинг рекламные конструкции",
+      "project_slug": "landing-outdoor-2026",
+      "title": "Лендинг outdoor billboards",
       "status": "active",
       "progress": {
         "done": 3,
@@ -253,7 +253,7 @@ GET /api/projects?include_archived=false&include_devboard=true
       "artifacts": [
         {
           "id": 42,
-          "file_path": "workspace/landing-roofing-2026/a1b2c3d4e5f6/landing.html",
+          "file_path": "workspace/landing-outdoor-2026/a1b2c3d4e5f6/landing.html",
           "task_id": "a1b2c3d4e5f6",
           "kind": "file",
           "mime_type": "text/html",
@@ -261,7 +261,7 @@ GET /api/projects?include_archived=false&include_devboard=true
         },
         {
           "id": 43,
-          "file_path": "workspace/landing-roofing-2026/a1b2c3d4e5f6/style.css",
+          "file_path": "workspace/landing-outdoor-2026/a1b2c3d4e5f6/style.css",
           "task_id": "a1b2c3d4e5f6",
           "kind": "file",
           "mime_type": "text/css",
@@ -269,7 +269,7 @@ GET /api/projects?include_archived=false&include_devboard=true
         }
       ],
       "last_updated_at": 1716669600,
-      "workspace_path": "/Users/dm_pc/Desktop/pride-team-v1.0/workspace/landing-roofing-2026"
+      "workspace_path": "/Users/dm_pc/Desktop/pride-team-v1.0/workspace/landing-outdoor-2026"
     },
     {
       "project_slug": "marketing-site-v2",
@@ -321,7 +321,7 @@ GET /api/projects?include_archived=false&include_devboard=true
 **Запрос:**
 
 ```
-GET /api/projects/landing-roofing-2026
+GET /api/projects/landing-outdoor-2026
 ```
 
 **Ответ (200 OK):**
@@ -332,7 +332,7 @@ GET /api/projects/landing-roofing-2026
   "project": { /* как в /api/projects, но полный набор задач */ },
   "chat_thread": {
     "id": "thread-abc123",
-    "title": "Лендинг рекламные конструкции",
+    "title": "Лендинг outdoor billboards",
     "kind": "planning",
     "messages": [
       {
@@ -361,7 +361,7 @@ Owner принимает (одобряет) задачу в статусе `need
 **Запрос:**
 
 ```json
-POST /api/projects/landing-roofing-2026/accept-task
+POST /api/projects/landing-outdoor-2026/accept-task
 {
   "task_id": "a1b2c3d4e5f6",
   "comment": "Выглядит хорошо"
@@ -385,7 +385,7 @@ Owner запускает задачу со статусом `todo` → пере�
 **Запрос:**
 
 ```json
-POST /api/projects/landing-roofing-2026/start-task
+POST /api/projects/landing-outdoor-2026/start-task
 {
   "task_id": "d4e5f6g7h8i9",
   "role": "qa"
@@ -410,7 +410,7 @@ Owner разблокирует задачу → переводит в `todo` и 
 **Запрос:**
 
 ```json
-POST /api/projects/landing-roofing-2026/unblock
+POST /api/projects/landing-outdoor-2026/unblock
 {
   "task_id": "p6q7r8s9t0u1",
   "reason": "Дизайн завершён, можно делать копирайт"
@@ -436,7 +436,7 @@ POST /api/projects/landing-roofing-2026/unblock
 ```json
 POST /api/open-folder
 {
-  "path": "/Users/dm_pc/Desktop/pride-team-v1.0/workspace/landing-roofing-2026"
+  "path": "/Users/dm_pc/Desktop/pride-team-v1.0/workspace/landing-outdoor-2026"
 }
 ```
 
@@ -445,7 +445,7 @@ POST /api/open-folder
 ```json
 {
   "status": "opened",
-  "path": "/Users/dm_pc/Desktop/pride-team-v1.0/workspace/landing-roofing-2026"
+  "path": "/Users/dm_pc/Desktop/pride-team-v1.0/workspace/landing-outdoor-2026"
 }
 ```
 

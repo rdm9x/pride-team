@@ -1,6 +1,6 @@
 # devboard — Show HN submission package
 
-> Status: DRAFT. Nothing is posted yet. Dmitry reviews this file before any public action.
+> Status: DRAFT. Nothing is posted yet. owner reviews this file before any public action.
 
 ---
 
@@ -28,7 +28,7 @@ Primary is #0 because it is the most concrete and the least hype-coded: it names
 
 ---
 
-## First comment (posted by Dmitry within 60 seconds of submission)
+## First comment (posted by owner within 60 seconds of submission)
 
 Hi HN,
 
@@ -48,7 +48,7 @@ I'd genuinely like feedback on three things:
 Repo: https://github.com/&lt;user&gt;/devboard
 MIT. Solo project, no funding, no waitlist.
 
-— Dmitry
+— owner
 
 (end)
 
@@ -60,7 +60,7 @@ MIT. Solo project, no funding, no waitlist.
 
 - **Day:** Tuesday or Wednesday. Avoid Monday (weekend backlog floods the new page) and Friday (drops off Saturday when traffic dies).
 - **Time:** Submit between 8:00 and 9:00 AM Pacific (15:00–16:00 UTC). The /newest queue moves fastest in that hour and gives the longest possible front-page window if it gains traction. 9:30 AM PT is the latest acceptable submission time.
-- **Day-of availability:** Dmitry needs to be at the keyboard for the next 4–6 hours after submission. Front-page survival on HN is driven by reply velocity in the first 90 minutes — unanswered skeptical comments sink the post.
+- **Day-of availability:** owner needs to be at the keyboard for the next 4–6 hours after submission. Front-page survival on HN is driven by reply velocity in the first 90 minutes — unanswered skeptical comments sink the post.
 - **Cooldown:** if the first attempt flops (< 3 upvotes in 30 min), do not re-submit the same URL within 7 days. Re-attempt with title variant #1 or #2.
 
 ---
@@ -90,9 +90,9 @@ Every destructive operation hits the approval gate as a first-class kanban state
 
 ---
 
-## Approval-gate task (for Dmitry, to be created after this draft is reviewed)
+## Approval-gate task (for owner, to be created after this draft is reviewed)
 
-After Dmitry approves this draft, create a separate task with the following shape. Do not create it now.
+After owner approves this draft, create a separate task with the following shape. Do not create it now.
 
 ```
 title: "Publish Show HN submission"
@@ -114,7 +114,7 @@ description: |
   - stay at keyboard for 4–6 hours, use reply playbook from the same doc
 ```
 
-Do NOT create that task yet. Wait for Dmitry's acceptance of this draft first.
+Do NOT create that task yet. Wait for owner's acceptance of this draft first.
 
 ---
 

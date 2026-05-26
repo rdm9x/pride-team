@@ -222,7 +222,7 @@ def test_create_task_assigned_to_marketing_lead(client, tmp_path: Path) -> None:
 
     task = _db.insert_task(
         db_path,
-        title="Напиши пост про новую линейку рекламных конструкций",
+        title="Напиши пост про новую линейку outdoor billboards",
         description="ЦА: B2B, регионы — Москва, СПб. Tone: уверенный, без жаргона.",
         assignee="marketing-lead",
         reporter="Управляющий",
@@ -236,7 +236,7 @@ def test_create_task_assigned_to_marketing_lead(client, tmp_path: Path) -> None:
     assert task["department_id"] == "marketing"
     assert task["status"] == "todo"
     assert task["reporter"] == "Управляющий"
-    assert "рекламных конструкций" in task["title"]
+    assert "outdoor billboards" in task["title"]
 
     # Проверяем что задача доступна через REST-эндпоинт.
     r1 = client.get(f"/api/tasks/{task['id']}")
@@ -266,7 +266,7 @@ def test_marketing_lead_decomposes_to_2_subtasks(client) -> None:
     # Parent task.
     parent = _db.insert_task(
         db_path,
-        title="Кампания: лендинг + email-цепочка про рекламные конструкции",
+        title="Кампания: лендинг + email-цепочка про outdoor billboards",
         assignee="marketing-lead",
         reporter="Управляющий",
         priority="P2",

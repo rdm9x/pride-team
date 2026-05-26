@@ -1,7 +1,7 @@
 """Q1 (1.6): E2E тесты Phase 1.6 acceptance criteria.
 
 Покрывает:
-  1. Нет ПРАЙД-следов в ролях (B1).
+  1. Нет Acme-следов в ролях (B1).
   2. GET /api/onboarding/company-context → exists=False когда файла нет (B2).
   3. POST + GET company-context endpoint — файл создан (B2).
   4. system_prompt включает company-context (B2 template_loader).
@@ -47,18 +47,18 @@ def client(tmp_path: Path):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Тест 1: Нет ПРАЙД-следов в ролях (B1)
+# Тест 1: Нет Acme-следов в ролях (B1)
 # ─────────────────────────────────────────────────────────────────────────────
 
 
 def test_no_pride_branding_in_roles() -> None:
-    """B1: grep -ri 'ПРАЙД|PRIDE' roles/ не должен находить корпоративный брендинг.
+    """B1: grep -ri 'Acme|Acme' roles/ не должен находить корпоративный брендинг.
 
     Легитимные упоминания вида 'devboard-tasks', 'mcp__pride', 'devboard_tasks',
     'pride_dev' — инструменты, не брендинг — исключены из проверки.
     """
     result = subprocess.run(
-        ["grep", "-ri", "--include=*.md", r"ПРАЙД\|PRIDE", str(_ROLES_DIR)],
+        ["grep", "-ri", "--include=*.md", r"Acme\|Acme", str(_ROLES_DIR)],
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -83,7 +83,7 @@ def test_no_pride_branding_in_roles() -> None:
     ]
 
     assert brand_lines == [], (
-        "Найдены корпоративные ПРАЙД/PRIDE следы в roles/:\n"
+        "Найдены корпоративные Acme/Acme следы в roles/:\n"
         + "\n".join(brand_lines)
     )
 

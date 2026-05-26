@@ -138,13 +138,13 @@ max_tokens: 16000
 # 1. Сохраняешь отчёт в workspace/<project_slug>/
 register_task_artifact(
     task_id="<твоя_id>",
-    file_path="workspace/landing-roofing-2026/roof-pages-seo-audit.md"
+    file_path="workspace/landing-outdoor-2026/roof-pages-seo-audit.md"
 )
 
 # 2. submit_result
 submit_result(<task_id>, {
     "статус": "ok",
-    "отчёт": "workspace/landing-roofing-2026/roof-pages-seo-audit.md",
+    "отчёт": "workspace/landing-outdoor-2026/roof-pages-seo-audit.md",
     "тип": "full site audit",
     "findings": {"blocker": 1, "major": 3, "minor": 7},
     "quick_wins": 4,
@@ -155,6 +155,6 @@ submit_result(<task_id>, {
 
 Финальный текст ответа короткий:
 ```
-Готово. SEO-audit /roof-constructions — workspace/landing-roofing-2026/roof-pages-seo-audit.md (зарегистрирован).
+Готово. SEO-audit /roof-constructions — workspace/landing-outdoor-2026/roof-pages-seo-audit.md (зарегистрирован).
 1 blocker (sitemap), 4 quick wins для dev. Strategic: предложил pillar-page — keyword strategy готова отдельно.
 ```

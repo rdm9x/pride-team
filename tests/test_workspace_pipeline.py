@@ -1,15 +1,15 @@
 """E2E тест workspace + лендинг pipeline (задача a797075f455d).
 
 Покрываемый сценарий (из задачи):
-1. Owner создаёт задачу: «Сделать простой лендинг про рекламные конструкции» (marketing).
-2. Управляющий распознаёт project_slug = `landing-roofing-test`.
+1. Owner создаёт задачу: «Сделать простой лендинг про outdoor billboards» (marketing).
+2. Управляющий распознаёт project_slug = `landing-outdoor-test`.
 3. Управляющий → cross-task для marketing-lead с project_slug.
-4. marketing-lead → копирайтер пишет `workspace/landing-roofing-test/copy.md` + register_task_artifact.
+4. marketing-lead → копирайтер пишет `workspace/landing-outdoor-test/copy.md` + register_task_artifact.
 5. marketing-lead → бренд-менеджер проверяет → comments.
 6. marketing-lead → cross-task для dev-lead (с project_slug + ссылкой на copy.md).
-7. dev-lead → frontend пишет `workspace/landing-roofing-test/index.html` + register_task_artifact.
+7. dev-lead → frontend пишет `workspace/landing-outdoor-test/index.html` + register_task_artifact.
 8. dev-lead reviews.
-9. Owner: открывает задачу → видит бейдж «📎 2» → клик «📂 Открыть» → Finder open `workspace/landing-roofing-test/`.
+9. Owner: открывает задачу → видит бейдж «📎 2» → клик «📂 Открыть» → Finder open `workspace/landing-outdoor-test/`.
 
 Acceptance:
 - Каждый шаг проходит.
@@ -87,7 +87,7 @@ def test_workspace_pipeline_e2e_local(tmp_path: Path) -> None:
 
     parent_task = db.insert_task(
         db_path,
-        title="Сделать простой лендинг про рекламные конструкции",
+        title="Сделать простой лендинг про outdoor billboards",
         description="Создать лендинг страницу с информацией о рекламных конструкциях.",
         department_id="marketing",
         priority="P1",
@@ -95,7 +95,7 @@ def test_workspace_pipeline_e2e_local(tmp_path: Path) -> None:
 
     parent_task_id = parent_task["id"]
     assert parent_task_id, "Не получен ID родительской задачи"
-    assert parent_task["title"] == "Сделать простой лендинг про рекламные конструкции"
+    assert parent_task["title"] == "Сделать простой лендинг про outdoor billboards"
 
     # ========================================================================
     # Шаг 2: Управляющий создаёт cross-task для marketing-lead
@@ -103,7 +103,7 @@ def test_workspace_pipeline_e2e_local(tmp_path: Path) -> None:
 
     marketing_lead_task = db.insert_task(
         db_path,
-        title="[marketing-lead] Координировать лендинг landing-roofing-test",
+        title="[marketing-lead] Координировать лендинг landing-outdoor-test",
         description="Скоординировать создание лендинга: copy.md (копирайтер), review (бренд-менеджер), передать dev.",
         parent_id=parent_task_id,
         assignee="marketing-lead",
@@ -119,7 +119,7 @@ def test_workspace_pipeline_e2e_local(tmp_path: Path) -> None:
     # ========================================================================
 
     # Создаём директорию для проекта
-    project_dir = Path(__file__).parent.parent / "workspace" / "landing-roofing-test"
+    project_dir = Path(__file__).parent.parent / "workspace" / "landing-outdoor-test"
     project_dir.mkdir(parents=True, exist_ok=True)
 
     # Копирайтер создаёт файл
@@ -127,7 +127,7 @@ def test_workspace_pipeline_e2e_local(tmp_path: Path) -> None:
     copy_file.write_text("""# Рекламные конструкции
 
 ## Описание
-Качественные рекламные конструкции для надёжной защиты зданий.
+Качественные outdoor billboards для надёжной защиты зданий.
 
 ## Преимущества
 - Долговечность
@@ -144,7 +144,7 @@ Email: info@example.com
     # Копирайтер регистрирует артефакт
     copy_artifact = tools.register_task_artifact(
         task_id=marketing_lead_id,
-        file_path="workspace/landing-roofing-test/copy.md",
+        file_path="workspace/landing-outdoor-test/copy.md",
         kind="copytext",
         db_path=db_path,
     )
@@ -170,10 +170,10 @@ Email: info@example.com
 
     dev_lead_task = db.insert_task(
         db_path,
-        title="[dev-lead] Разработать лендинг landing-roofing-test",
+        title="[dev-lead] Разработать лендинг landing-outdoor-test",
         description="""Разработать HTML/CSS лендинга на основе copy.md.
-Путь: workspace/landing-roofing-test/index.html
-Copy: workspace/landing-roofing-test/copy.md (от marketing)""",
+Путь: workspace/landing-outdoor-test/index.html
+Copy: workspace/landing-outdoor-test/copy.md (от marketing)""",
         parent_id=parent_task_id,
         assignee="dev-lead",
         priority="P1",
@@ -223,7 +223,7 @@ Copy: workspace/landing-roofing-test/copy.md (от marketing)""",
     # Frontend регистрирует артефакт
     html_artifact = tools.register_task_artifact(
         task_id=dev_lead_id,
-        file_path="workspace/landing-roofing-test/index.html",
+        file_path="workspace/landing-outdoor-test/index.html",
         kind="html",
         db_path=db_path,
     )
@@ -271,12 +271,12 @@ Copy: workspace/landing-roofing-test/copy.md (от marketing)""",
     # Проверяем что артефакты регистрированы правильно
     copy_from_db = db.get_artifact(db_path, copy_artifact_id)
     assert copy_from_db is not None
-    assert copy_from_db["file_path"] == "workspace/landing-roofing-test/copy.md"
+    assert copy_from_db["file_path"] == "workspace/landing-outdoor-test/copy.md"
     assert copy_from_db["kind"] == "copytext"
 
     html_from_db = db.get_artifact(db_path, html_artifact_id)
     assert html_from_db is not None
-    assert html_from_db["file_path"] == "workspace/landing-roofing-test/index.html"
+    assert html_from_db["file_path"] == "workspace/landing-outdoor-test/index.html"
     assert html_from_db["kind"] == "html"
 
     # ========================================================================

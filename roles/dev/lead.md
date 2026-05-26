@@ -62,7 +62,7 @@ max_tokens: 16000
 - `/D.AI/деплой/` — серверная зона внешнего pipeline.
 - Сами файлы ролей `roles/*.md` — это твои инструкции, не трогай.
 - БД канбана напрямую (`tasks.db`) — только через MCP devboard-tasks.
-- **`dashboard/static/` — это код самого Devboard, НЕ путай с `workspace/` где хранятся артефакты.** Если frontend пишет лендинг для клиента → это `workspace/landing-roofing-2026/`, не `dashboard/static/`.
+- **`dashboard/static/` — это код самого Devboard, НЕ путай с `workspace/` где хранятся артефакты.** Если frontend пишет лендинг для клиента → это `workspace/landing-outdoor-2026/`, не `dashboard/static/`.
 
 ## КРИТИЧЕСКОЕ: НЕ запускай Flask app.py для проверки UI
 

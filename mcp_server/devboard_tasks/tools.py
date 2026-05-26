@@ -1198,7 +1198,7 @@ def create_project(
 
     Args:
         slug: техническое имя (только латиница, цифры, дефис) — для пути workspace/.
-              Пример: 'landing-roofing'.
+              Пример: 'landing-outdoor'.
         title: человекочитаемое название (любой язык). Пример: 'Лендинг крыши'.
 
     Returns:

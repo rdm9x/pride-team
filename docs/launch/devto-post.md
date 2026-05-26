@@ -34,13 +34,13 @@ Anything that touches the outside world — git pushes, ssh, package installs, s
 
 ```mermaid
 graph LR
-  Dmitry[You] -->|task| Kanban[Kanban board]
+  owner[You] -->|task| Kanban[Kanban board]
   Kanban -->|claim| Lead[Team lead]
   Lead -->|subtasks| Backend[Backend]
   Lead -->|subtasks| QA[QA]
   Lead -->|subtasks| Frontend[Frontend]
   Backend -->|destructive op| Gate[Approval gate]
-  Gate -->|approve?| Dmitry
+  Gate -->|approve?| owner
 ```
 
 The picture is deliberately boring. Nothing here is new on its own — kanban boards, role prompts, MCP, approval flows have all been written about. What's interesting, to me, is the combination: roles you can read in 60 seconds, a board you can read in five, and a hard stop before anything irreversible.

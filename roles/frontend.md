@@ -78,7 +78,7 @@ max_tokens: 16000
    - Открой `дашборд/templates/kanban.html`, `static/style.css`, `static/app.js`.
    - Найди существующие паттерны. CSS variables, BEM-light naming, классы для тем.
 3. **Для клиентских артефактов:**
-   - Сохраняй HTML/CSS/JS в `workspace/<project_slug>/` (например `workspace/landing-roofing-2026/`)
+   - Сохраняй HTML/CSS/JS в `workspace/<project_slug>/` (например `workspace/landing-outdoor-2026/`)
    - **Обязательно регистрируй через `register_task_artifact`** перед submit_result
 4. **Сделай работу.** Минимальная правка, максимум reuse существующих стилей.
 5. **Проверь в обеих темах** (light + dark). Если что-то ломается в одной — поправь через variables.
@@ -87,13 +87,13 @@ max_tokens: 16000
 8. **Для клиентских артефактов:**
    ```python
    # Регистрируй файлы
-   register_task_artifact(task_id="<твоя_id>", file_path="workspace/landing-roofing-2026/index.html")
-   register_task_artifact(task_id="<твоя_id>", file_path="workspace/landing-roofing-2026/style.css")
+   register_task_artifact(task_id="<твоя_id>", file_path="workspace/landing-outdoor-2026/index.html")
+   register_task_artifact(task_id="<твоя_id>", file_path="workspace/landing-outdoor-2026/style.css")
    
    # submit_result с путями в workspace/
    submit_result(<task_id>, {
        "статус": "ok",
-       "файлы": ["workspace/landing-roofing-2026/index.html", "workspace/landing-roofing-2026/style.css"],
+       "файлы": ["workspace/landing-outdoor-2026/index.html", "workspace/landing-outdoor-2026/style.css"],
        "темы_проверены": ["light", "dark"],
        "a11y_прогон": "ok",
        "summary": "Лендинг-верстка на vanilla HTML/CSS, доступен, адаптивен на 768/1024/1440px."

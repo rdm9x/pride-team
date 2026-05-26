@@ -90,8 +90,8 @@ CREATE TABLE IF NOT EXISTS departments (
 CREATE TABLE IF NOT EXISTS projects (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   code        TEXT UNIQUE NOT NULL,        -- 'PRJ-001'
-  slug        TEXT UNIQUE NOT NULL,        -- 'landing-roofing' (latin)
-  title       TEXT NOT NULL,                -- 'Лендинг рекламных конструкций'
+  slug        TEXT UNIQUE NOT NULL,        -- 'landing-outdoor' (latin)
+  title       TEXT NOT NULL,                -- 'Лендинг outdoor billboards'
   status      TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','completed','archived')),
   created_at  INTEGER NOT NULL,
   archived_at INTEGER

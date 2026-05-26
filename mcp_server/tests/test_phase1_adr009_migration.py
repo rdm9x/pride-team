@@ -142,7 +142,7 @@ def test_manager_fts_search_works(tmp_path: Path) -> None:
         conn.execute(
             "INSERT INTO manager_chunks (user_id, source, text, created_at, updated_at) "
             "VALUES (?, ?, ?, ?, ?)",
-            ("owner", "note", "Дмитрий — директор компании ПРАЙД, наружная реклама.", now, now),
+            ("owner", "note", "owner — директор владельца, наружная реклама.", now, now),
         )
         conn.execute(
             "INSERT INTO manager_chunks (user_id, source, text, created_at, updated_at) "
@@ -152,7 +152,7 @@ def test_manager_fts_search_works(tmp_path: Path) -> None:
         conn.execute(
             "INSERT INTO manager_chunks (user_id, source, text, created_at, updated_at) "
             "VALUES (?, ?, ?, ?, ?)",
-            ("owner", "note", "клиент, клиент — ключевые клиенты.", now, now),
+            ("owner", "note", "Customer A, Customer B — ключевые клиенты.", now, now),
         )
         conn.commit()
 
@@ -161,10 +161,10 @@ def test_manager_fts_search_works(tmp_path: Path) -> None:
             "SELECT c.id, c.text FROM manager_fts f "
             "JOIN manager_chunks c ON c.id = f.rowid "
             "WHERE manager_fts MATCH ? ORDER BY rank",
-            ("ПРАЙД",),
+            ("наружная",),
         ).fetchall()
-        assert len(rows) == 1, f"FTS MATCH 'ПРАЙД' нашёл: {rows}"
-        assert "ПРАЙД" in rows[0][1]
+        assert len(rows) == 1, f"FTS MATCH 'наружная' нашёл: {rows}"
+        assert "наружная" in rows[0][1]
 
         # Ещё один поиск — другое слово.
         rows = conn.execute(
@@ -180,9 +180,9 @@ def test_manager_fts_search_works(tmp_path: Path) -> None:
             "SELECT c.id FROM manager_fts f "
             "JOIN manager_chunks c ON c.id = f.rowid "
             "WHERE manager_fts MATCH ?",
-            ("клиент клиент",),
+            ("Customer A Customer B",),
         ).fetchall()
-        assert len(rows) == 1, "FTS MATCH 'клиент клиент' не нашёл строку"
+        assert len(rows) == 1, "FTS MATCH 'Customer A Customer B' не нашёл строку"
     finally:
         conn.close()
 

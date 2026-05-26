@@ -87,7 +87,7 @@ Owner показал пример типичного сообщения от У�
 ```sql
 CREATE TABLE chat_threads (
   id            TEXT PRIMARY KEY,                              -- uuid
-  title         TEXT NOT NULL,                                 -- "Лендинг рекламные конструкции"
+  title         TEXT NOT NULL,                                 -- "Лендинг outdoor billboards"
   kind          TEXT NOT NULL CHECK (kind IN ('direct','planning')),
   participants  TEXT NOT NULL DEFAULT '[]',                    -- JSON: [{role_slug, joined_at}]
   status        TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','finished','archived')),

@@ -112,7 +112,7 @@ project = "marketing"
 
 # Результат обработки заказа от клиента
 order_report = {
-    "client": "клиент",
+    "client": "Customer A",
     "items_processed": 45,
     "errors": 2,
     "warnings": 8,
@@ -130,7 +130,7 @@ result = register_task_artifact(
     artifact_path="output/order_report.json",
     artifact_type="output",
     metadata={
-        "client": "клиент",
+        "client": "Customer A",
         "processing_time_sec": 23.4,
         "version": "1.0"
     }

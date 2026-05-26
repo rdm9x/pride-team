@@ -15,7 +15,7 @@
 Owner ([handoff §6](../../ПЕРЕДАЧА_СЕССИИ.md), а также текущий вопрос про коннекторы к дашборду) хочет подключать Devboard к внешним сервисам:
 
 - **Telegram** — нотификации о смене статусов, утренние сводки, прямые команды боту (`/inbox`, `/status`).
-- **Bitrix24** — двусторонняя интеграция с CRM компании ПРАЙД (задачи Devboard ↔ задачи Битрикса, сделки → подзадачи).
+- **Bitrix24** — двусторонняя интеграция с CRM владельца (задачи Devboard ↔ задачи Битрикса, сделки → подзадачи).
 - **Email** — daily digest, eскалации, отчёты.
 
 Сейчас в Devboard:
@@ -170,7 +170,7 @@ Endpoint валидирует source (HMAC для TG, IP allowlist для BX), �
 | Channel | Reason |
 |---|---|
 | Bitrix24 | Большая интеграция, отдельная ADR-009 потом. Требует mapping сущностей (deal ↔ task), webhook auth, OAuth refresh. |
-| Slack/Discord | У ПРАЙД нет use-case (нет команды в Slack). Если когда-то — берём openclaw skill `discord/SKILL.md` как референс. |
+| Slack/Discord | У Acme нет use-case (нет команды в Slack). Если когда-то — берём openclaw skill `discord/SKILL.md` как референс. |
 | WhatsApp | Compliance, требует Meta Business API. Откладываем. |
 | Voice/realtime | Overkill для канбана. |
 

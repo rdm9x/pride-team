@@ -1,7 +1,7 @@
 """E2E smoke-тест: marketing артефакты full pipeline (Phase 2.0.5).
 
 Покрываемый сценарий:
-  1. Создать задачу в marketing: "Лендинг рекламных конструкций"
+  1. Создать задачу в marketing: "Лендинг outdoor billboards"
   2. Создать подзадачу для frontend: "Написать HTML лендинга"
   3. Frontend вызывает register_task_artifact() с html-артефактом
   4. Проверить что артефакт сохранен в БД
@@ -88,15 +88,15 @@ def test_e2e_artifacts_marketing_full_pipeline(page: Page, base_url: str) -> Non
         base_url,
         "/api/tasks",
         {
-            "title": "Лендинг рекламных конструкций",
-            "description": "Создать HTML-лендинг для продвижения нашего предложения рекламных конструкций. "
+            "title": "Лендинг outdoor billboards",
+            "description": "Создать HTML-лендинг для продвижения нашего предложения outdoor billboards. "
             "Должен содержать:\n"
             "- Hero секцию с основным предложением\n"
             "- Описание преимуществ\n"
             "- Ценообразование\n"
             "- Контактную форму\n"
             "- Адаптивный дизайн для мобилей\n"
-            "Файл будет размещен в workspace/roofing-company/landing.html",
+            "Файл будет размещен в workspace/demo-project/landing.html",
             "department_id": "marketing",
             "priority": "P1",
         },
@@ -109,7 +109,7 @@ def test_e2e_artifacts_marketing_full_pipeline(page: Page, base_url: str) -> Non
     # Контр-проверка: задача создана
     parent_task_details = _api_get(base_url, f"/api/tasks/{parent_task_id}")
     assert parent_task_details["статус"] == "ok"
-    assert parent_task_details["задача"]["title"] == "Лендинг рекламных конструкций"
+    assert parent_task_details["задача"]["title"] == "Лендинг outdoor billboards"
 
     # ========================================================================
     # Step 2: Создать подзадачу для frontend
@@ -120,8 +120,8 @@ def test_e2e_artifacts_marketing_full_pipeline(page: Page, base_url: str) -> Non
         "/api/tasks",
         {
             "title": "Написать HTML лендинга",
-            "description": "Реализовать HTML/CSS лендинг страницу для лендинга рекламных конструкций. "
-            "Используя шаблон из workspace/roofing-company/landing.html. "
+            "description": "Реализовать HTML/CSS лендинг страницу для лендинга outdoor billboards. "
+            "Используя шаблон из workspace/demo-project/landing.html. "
             "После завершения вызвать register_task_artifact.",
             "parent_id": parent_task_id,
             "assignee": "frontend",
@@ -139,7 +139,7 @@ def test_e2e_artifacts_marketing_full_pipeline(page: Page, base_url: str) -> Non
 
     # Проверяем что файл существует
     landing_file = Path(
-        "/Users/dm_pc/Desktop/pride-team-v1.0/workspace/roofing-company/landing.html"
+        "/Users/dm_pc/Desktop/pride-team-v1.0/workspace/demo-project/landing.html"
     )
     assert landing_file.exists(), f"HTML файл не найден: {landing_file}"
 
@@ -153,7 +153,7 @@ def test_e2e_artifacts_marketing_full_pipeline(page: Page, base_url: str) -> Non
 
     artifact_result = tools.register_task_artifact(
         task_id=subtask_id,
-        file_path="workspace/roofing-company/landing.html",
+        file_path="workspace/demo-project/landing.html",
         kind="html",
         db_path=db_path,
     )
@@ -169,7 +169,7 @@ def test_e2e_artifacts_marketing_full_pipeline(page: Page, base_url: str) -> Non
     artifact_from_db = db.get_artifact(db_path, artifact_id)
     assert artifact_from_db is not None, f"Артефакт не найден в БД: {artifact_id}"
     assert artifact_from_db["task_id"] == subtask_id
-    assert artifact_from_db["file_path"] == "workspace/roofing-company/landing.html"
+    assert artifact_from_db["file_path"] == "workspace/demo-project/landing.html"
     assert artifact_from_db["kind"] == "html"
 
     # Проверить list_artifacts
@@ -195,7 +195,7 @@ def test_e2e_artifacts_marketing_full_pipeline(page: Page, base_url: str) -> Non
 
     # Открываем карточку по кнопке или кликаем на саму карточку
     # Селектор карточки: .card с текстом задачи
-    card = todo_column.locator(".card", has_text="Лендинг рекламных конструкций")
+    card = todo_column.locator(".card", has_text="Лендинг outdoor billboards")
     expect(card).to_be_visible(timeout=10_000)
 
     # Кликаем на карточку чтобы открыть модалку
@@ -260,7 +260,7 @@ def test_e2e_artifacts_marketing_full_pipeline(page: Page, base_url: str) -> Non
     # Проверяем что путь содержит наш файл
     if artifact_path_span.is_visible():
         path_text = artifact_path_span.inner_text()
-        assert "landing.html" in path_text or "roofing-company" in path_text
+        assert "landing.html" in path_text or "demo-project" in path_text
 
     # ========================================================================
     # Step 7: Закрыть задачу (завершить)
@@ -310,13 +310,13 @@ def test_e2e_artifacts_marketing_full_pipeline(page: Page, base_url: str) -> Non
     print(f"  - Главная задача создана: {parent_task_id}")
     print(f"  - Подзадача создана: {subtask_id}")
     print(f"  - Артефакт зарегистрирован: {artifact_id}")
-    print(f"  - Артефакт видим в UI: workspace/roofing-company/landing.html")
+    print(f"  - Артефакт видим в UI: workspace/demo-project/landing.html")
 
 
 def test_e2e_artifacts_file_exists_in_workspace() -> None:
     """Unit-check: убедиться что HTML файл реально существует и имеет корректный размер."""
     landing_file = Path(
-        "/Users/dm_pc/Desktop/pride-team-v1.0/workspace/roofing-company/landing.html"
+        "/Users/dm_pc/Desktop/pride-team-v1.0/workspace/demo-project/landing.html"
     )
 
     assert landing_file.exists(), f"Файл не найден: {landing_file}"
@@ -329,6 +329,6 @@ def test_e2e_artifacts_file_exists_in_workspace() -> None:
     # Проверяем что файл содержит ожидаемые секции
     content = landing_file.read_text("utf-8")
     assert "Рекламные конструкции" in content
-    assert "landing.html" in content or "roofing" in content.lower()
+    assert "landing.html" in content or "outdoor" in content.lower()
     assert "<html" in content.lower()
     print("✓ HTML файл содержит корректный контент")

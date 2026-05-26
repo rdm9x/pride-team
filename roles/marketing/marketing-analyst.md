@@ -118,13 +118,13 @@ max_tokens: 16000
 # 1. Сохраняешь отчёт в workspace/<project_slug>/
 register_task_artifact(
     task_id="<твоя_id>",
-    file_path="workspace/landing-roofing-2026/2026-04-report.md"
+    file_path="workspace/landing-outdoor-2026/2026-04-report.md"
 )
 
 # 2. submit_result
 submit_result(<task_id>, {
     "статус": "ok",
-    "отчёт": "workspace/landing-roofing-2026/2026-04-report.md",
+    "отчёт": "workspace/landing-outdoor-2026/2026-04-report.md",
     "период": "2026-04-01..2026-04-30",
     "метрики_top_line": {"impressions": 1200000, "ctr": 2.1, "conversions": 340, "cac": 4200},
     "рекомендаций": {"high": 1, "medium": 1, "low": 1},
@@ -134,6 +134,6 @@ submit_result(<task_id>, {
 
 Финальный текст ответа короткий:
 ```
-Готово. Performance-report за апрель — workspace/landing-roofing-2026/2026-04-report.md (зарегистрирован).
+Готово. Performance-report за апрель — workspace/landing-outdoor-2026/2026-04-report.md (зарегистрирован).
 Главное: CAC растёт, нужна оптимизация Meta-audience (high-priority).
 ```

@@ -31,7 +31,7 @@ playwright install chromium
 
 ### HTML Лендинг
 
-Файл: `workspace/roofing-company/landing.html` (17KB)
+Файл: `workspace/demo-project/landing.html` (17KB)
 
 Содержит:
 - Hero секция с предложением
@@ -62,7 +62,7 @@ pytest tests/e2e/test_e2e_artifacts_marketing.py::test_e2e_artifacts_file_exists
 ### Что проверяет тест
 
 #### 1. Создание главной задачи
-- POST `/api/tasks` с title="Лендинг рекламных конструкций"
+- POST `/api/tasks` с title="Лендинг outdoor billboards"
 - department_id="marketing"
 - Priority=P1
 - Проверка: получен task_id, статус=ok
@@ -77,7 +77,7 @@ pytest tests/e2e/test_e2e_artifacts_marketing.py::test_e2e_artifacts_file_exists
 from devboard_tasks import tools
 artifact_result = tools.register_task_artifact(
     task_id=subtask_id,
-    file_path="workspace/roofing-company/landing.html",
+    file_path="workspace/demo-project/landing.html",
     kind="html",
     db_path=db_path,
 )
@@ -96,7 +96,7 @@ artifacts_list = db.list_artifacts(db_path, subtask_id)
 #### 5. UI проверка (Playwright)
 - Переход на `http://localhost:5000` (или base_url из fixture)
 - Клик на вид "board" (`.nav-item[data-view="board"]`)
-- Поиск карточки с текстом "Лендинг рекламных конструкций"
+- Поиск карточки с текстом "Лендинг outdoor billboards"
 - Клик на карточку → открытие модалки (`#modal-task`)
 - Поиск блока артефактов (`[id^="artifacts-block-"]`)
 - Проверка:
@@ -116,8 +116,8 @@ artifacts_list = db.list_artifacts(db_path, subtask_id)
 2. Перейдите на вид "Board" (вверху слева)
 3. Нажмите "+ Новая задача"
 4. Заполните:
-   - Title: "Лендинг рекламных конструкций"
-   - Description: "Создать HTML-лендинг для продвижения нашего предложения рекламных конструкций..."
+   - Title: "Лендинг outdoor billboards"
+   - Description: "Создать HTML-лендинг для продвижения нашего предложения outdoor billboards..."
    - Department: "marketing" (если есть selector)
    - Priority: "P1"
 5. Нажмите "Create" или "Сохранить"
@@ -147,7 +147,7 @@ from pathlib import Path
 db_path = Path('.devboard.tasks.db')
 result = tools.register_task_artifact(
     task_id='<SUBTASK_ID>',
-    file_path='workspace/roofing-company/landing.html',
+    file_path='workspace/demo-project/landing.html',
     kind='html',
     db_path=db_path,
 )
@@ -162,7 +162,7 @@ print(result)
   "status": "ok",
   "artifact_id": "a1b2c3d4e5f6",
   "task_id": "<subtask_id>",
-  "file_path": "workspace/roofing-company/landing.html",
+  "file_path": "workspace/demo-project/landing.html",
   "kind": "html",
   "created_at": 1621234567
 }
@@ -184,21 +184,21 @@ for art in artifacts:
 
 Должен вывести:
 ```
-Artifact: a1b2c3d4e5f6, path: workspace/roofing-company/landing.html, kind: html
+Artifact: a1b2c3d4e5f6, path: workspace/demo-project/landing.html, kind: html
 ```
 
 ### Шаг 5: Проверить UI
 
 1. Откройте дашборд свежим браузером (можно в режиме инкогнито)
 2. Перейдите на Board view
-3. Найдите карточку "Лендинг рекламных конструкций"
+3. Найдите карточку "Лендинг outdoor billboards"
 4. Кликните на карточку → откроется модалка
 5. Прокрутите вниз к секции "Artifacts" (📎 Артефакты)
 6. Должны видеть:
    - Иконка типа файла (для HTML: 🌐 или 📄)
    - Имя файла: "landing.html"
    - Кнопка "📂 Открыть" (на desktop)
-   - Путь файла (на мобильных): "workspace/roofing-company/landing.html"
+   - Путь файла (на мобильных): "workspace/demo-project/landing.html"
 
 ### Шаг 6: Завершить задачу
 
@@ -242,7 +242,7 @@ playwright install chromium
 
 **Проверьте:**
 ```bash
-ls -lh workspace/roofing-company/landing.html
+ls -lh workspace/demo-project/landing.html
 # Должен быть 17KB
 ```
 

@@ -83,7 +83,7 @@
 
 ---
 
-## Recording checklist for Dmitry
+## Recording checklist for owner
 
 **Screen capture**
 - Resolution: 1920×1080 (16:9) or 2560×1440 if your camera supports it. Downscale in edit.
@@ -150,4 +150,4 @@ These are intentionally **not** in the video — save for follow-up content:
 - [x] Mobile-readable: subtitles specified, 9:16 vertical cut planned.
 - [x] No fake mockups — real screen capture path described.
 - [x] CTA appears in segments 17 and 18, plus QR for mobile.
-- [x] Ready to hand to Dmitry for recording without further questions.
+- [x] Ready to hand to owner for recording without further questions.

@@ -34,7 +34,7 @@ max_tokens: 16000
 - **Лендинги** — hero + USP + features + social proof + CTA. Структура из `content-creation/SKILL.md`.
 - **Пресс-релизы** — заголовок, lead-абзац, тело, контакты. Inverted pyramid.
 
-**Хранение артефактов (ADR-010)**: Каждый файл сохраняешь в `workspace/<project_slug>/` — где `project_slug` передан в описании задачи от лида (например `landing-roofing-2026`). Имя файла — slug-style: `hero-v1.md`, `copy-full.md`, `email-sequence.md`.
+**Хранение артефактов (ADR-010)**: Каждый файл сохраняешь в `workspace/<project_slug>/` — где `project_slug` передан в описании задачи от лида (например `landing-outdoor-2026`). Имя файла — slug-style: `hero-v1.md`, `copy-full.md`, `email-sequence.md`.
 
 ## Workflow
 
@@ -93,14 +93,14 @@ max_tokens: 16000
 # (project_slug передан в описании задачи от лида)
 
 # 2. Регистрируешь каждый файл
-register_task_artifact(task_id="<твоя_id>", file_path="workspace/landing-roofing-2026/hero-v1.md")
-register_task_artifact(task_id="<твоя_id>", file_path="workspace/landing-roofing-2026/hero-v2.md")
-register_task_artifact(task_id="<твоя_id>", file_path="workspace/landing-roofing-2026/hero-v3.md")
+register_task_artifact(task_id="<твоя_id>", file_path="workspace/landing-outdoor-2026/hero-v1.md")
+register_task_artifact(task_id="<твоя_id>", file_path="workspace/landing-outdoor-2026/hero-v2.md")
+register_task_artifact(task_id="<твоя_id>", file_path="workspace/landing-outdoor-2026/hero-v3.md")
 
 # 3. submit_result с путями в workspace/
 submit_result(<task_id>, {
     "статус": "ok",
-    "файлы": ["workspace/landing-roofing-2026/hero-v1.md", "workspace/landing-roofing-2026/hero-v2.md", "workspace/landing-roofing-2026/hero-v3.md"],
+    "файлы": ["workspace/landing-outdoor-2026/hero-v1.md", "workspace/landing-outdoor-2026/hero-v2.md", "workspace/landing-outdoor-2026/hero-v3.md"],
     "вариантов": 3,
     "длина_слов": [11, 9, 13],
     "summary": "3 hero-варианта для лендинга. v1 — упор на ключевую выгоду, v2 — на гарантию, v3 — на ROI. Жду выбор лида и бренд-ревью."
@@ -109,6 +109,6 @@ submit_result(<task_id>, {
 
 Финальный текст ответа лиду короткий:
 ```
-Готово. 3 hero-варианта в workspace/landing-roofing-2026/. Артефакты зарегистрированы через register_task_artifact.
+Готово. 3 hero-варианта в workspace/landing-outdoor-2026/. Артефакты зарегистрированы через register_task_artifact.
 Выбери предпочтительный — отдам в бренд-ревью.
 ```

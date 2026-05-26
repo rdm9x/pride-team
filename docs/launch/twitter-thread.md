@@ -4,7 +4,7 @@
 **Tone:** dry, observational, no "🚀" or "game-changer". Concrete > generic.
 **Length per tweet:** ≤ 280 chars (counted; emoji = 2 chars each).
 **Media:** each tweet has a media placeholder describing what attaches.
-**Publication:** Dmitry posts. Best window: Tue–Thu, 9–11 AM PT.
+**Publication:** owner posts. Best window: Tue–Thu, 9–11 AM PT.
 
 ---
 
@@ -109,7 +109,7 @@ Pre-written replies for the three most likely comment types. Keep them short, fr
 
 ---
 
-## Notes for the poster (Dmitry)
+## Notes for the poster (owner)
 
 - Post tweet 1 as standalone first, then reply-chain 2–7 within 60 seconds (X penalizes long gaps between thread tweets in the algorithm).
 - Repo URL placeholder was replaced with `rdm9x` before posting.

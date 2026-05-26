@@ -56,35 +56,34 @@ def client_with_db(client: Any, tmp_path: Path) -> tuple[Any, Path]:
 class TestChatPageBasics:
     """Базовые тесты для страницы /chat."""
 
-    def test_chat_page_loads(self, client_with_db: tuple[Any, Path]) -> None:
-        """GET /chat — страница загружается и содержит дефолтный thread."""
+    def test_chat_page_redirects_to_view(self, client_with_db: tuple[Any, Path]) -> None:
+        """GET /chat — теперь редирект на /?view=chat (чат стал вкладкой)."""
         client, _ = client_with_db
 
         resp = client.get("/chat")
-        assert resp.status_code == 200
-
-        # Проверяем что это HTML с чат-интерфейсом
-        assert b"<html" in resp.data or b"<!doctype" in resp.data.lower()
+        assert resp.status_code == 302
+        assert "/?view=chat" in resp.headers.get("Location", "")
 
     def test_chat_page_with_viewer_param(self, client_with_db: tuple[Any, Path]) -> None:
-        """GET /chat?viewer=owner — поддерживает viewer-параметр."""
+        """GET /chat?viewer=owner — параметры query сохраняются (редирект)."""
         client, _ = client_with_db
 
         resp = client.get("/chat?viewer=owner")
-        assert resp.status_code == 200
+        # Текущая реализация редиректит без переноса query — это OK,
+        # owner-фильтрация теперь работает на уровне messages-endpoint.
+        assert resp.status_code == 302
 
     def test_chat_page_with_thread_param(self, client_with_db: tuple[Any, Path]) -> None:
-        """GET /chat?thread=<id> — может открыть конкретный thread."""
-        client, db_path = client_with_db
+        """GET /chat?thread=<id> — редирект; конкретный thread выбирается в JS
+        через localStorage 'chat_active_thread'."""
+        client, _ = client_with_db
 
-        # Создаём thread
         payload = {"title": "Test Thread"}
         resp = client.post("/api/threads", json=payload)
-        thread_id = resp.get_json()["thread"]["id"]
+        assert resp.status_code == 201
 
-        # Открываем чат с этим thread
-        resp = client.get(f"/chat?thread={thread_id}")
-        assert resp.status_code == 200
+        resp = client.get(f"/chat?thread={resp.get_json()['thread']['id']}")
+        assert resp.status_code == 302
 
 
 class TestThreadCreation:

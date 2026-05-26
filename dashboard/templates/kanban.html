@@ -5,6 +5,7 @@
 <title data-i18n="page.title">devboard · малая команда</title>
 <link rel="stylesheet" href="/static/style.css">
 <link rel="stylesheet" href="/static/css/tour.css">
+<link rel="stylesheet" href="/static/css/chat.css">
 </head>
 <body>
 
@@ -18,13 +19,10 @@
     </div>
 
     <nav class="nav">
-      <!-- F3: Owner Dashboard главная страница (новая) -->
-      <button class="nav-item" onclick="window.location.href='/home'">
-        <span class="ico">🏠</span>
-        <span class="lbl" data-i18n="nav.home">Главная</span>
-      </button>
+      <!-- «Главная» (Owner Dashboard) скрыта до завершения её доработки.
+           Маршрут /home работает по прямой ссылке. -->
 
-      <button class="nav-item" id="btn-nav-chat" title="Go to chat">
+      <button class="nav-item" data-view="chat" title="Chat">
         <span class="ico">💬</span>
         <span class="lbl" data-i18n="nav.chat">Чат</span>
       </button>
@@ -649,6 +647,114 @@
         </div>
 
       </div><!-- /.settings-page -->
+    </section>
+
+    <!-- View: Chat (трёхколонная вкладка чата, ADR-011) -->
+    <section class="view view-chat" data-view="chat" hidden>
+
+      <!-- LEFT: список тредов -->
+      <div class="chat-threads">
+        <div class="chat-threads-header" data-i18n="chat.threads.title">💬 Threads</div>
+
+        <input type="text"
+               id="threads-search"
+               class="chat-threads-search"
+               placeholder="Search…"
+               data-i18n-attr="placeholder:chat.threads.search_placeholder">
+
+        <div class="chat-threads-list" id="threads-active-list">
+          <div class="loading" data-i18n="common.loading">Загрузка…</div>
+        </div>
+
+        <div class="thread-archive-section">
+          <div id="archive-toggle" class="thread-archive-toggle">
+            <span id="archive-icon" class="thread-archive-icon">▶</span>
+            <span data-i18n="chat.archive.title">📁 Archive</span>
+            <span id="archive-count" class="thread-archive-count">(0)</span>
+          </div>
+          <div id="threads-archive-list" class="thread-archive-list" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- CENTER: активный thread -->
+      <div class="chat-center">
+        <div class="chat-header">
+          <h2 data-i18n="chat.conversation.title">Conversation</h2>
+        </div>
+        <div class="chat-messages" id="chat-messages">
+          <div class="message-placeholder" data-i18n="chat.messages.empty">Выберите тред слева</div>
+        </div>
+        <div class="chat-input-area">
+          <textarea id="message-input"
+                    class="chat-message-input"
+                    placeholder="Type message… (Cmd/Ctrl+Enter to send)"
+                    data-i18n-attr="placeholder:chat.input_placeholder"></textarea>
+          <button id="btn-send-message" class="primary"
+                  data-i18n="chat.send_button"
+                  title="Send message (Cmd/Ctrl+Enter)">Send</button>
+          <button id="btn-start-session" class="secondary"
+                  data-i18n="chat.start_session_button"
+                  title="Start team session with this thread context">🚀 Start Session</button>
+        </div>
+      </div>
+
+      <!-- RIGHT: планёрка + задачи Управляющего -->
+      <div class="chat-right">
+
+        <div class="chat-right-block">
+          <div class="chat-right-block-header">
+            📋 <span data-i18n="planning.create.title">Собрать планёрку</span>
+          </div>
+          <div class="chat-right-block-content">
+            <form id="form-planning-create" class="planning-create-form">
+              <div class="form-group">
+                <label class="form-label" data-i18n="planning.create.departments_label">Отделы</label>
+                <div class="departments-checkboxes" id="planning-departments">
+                  <p class="loading" data-i18n="planning.loading">Загрузка…</p>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="planning-rounds-chat"
+                       data-i18n="planning.create.rounds_label">Раундов</label>
+                <select id="planning-rounds-chat" name="rounds" class="form-control">
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3" selected>3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="planning-topic"
+                       data-i18n="planning.create.topic_label">Тема</label>
+                <input type="text" id="planning-topic" name="topic" class="form-control"
+                       placeholder="Введи тему планёрки…"
+                       data-i18n-attr="placeholder:planning.create.topic_placeholder">
+              </div>
+              <button type="button" class="primary"
+                      id="btn-planning-create"
+                      title="Phase 3b"
+                      data-i18n-attr="title:planning.create.button_disabled_hint"
+                      data-i18n="planning.create.button"
+                      disabled>Создать планёрку</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="chat-right-block">
+          <div class="chat-right-block-header">
+            📌 <span data-i18n="managing_director_tasks.title">Задачи Управляющего</span>
+          </div>
+          <div class="chat-right-block-content">
+            <div id="tasks-list" class="tasks-list">
+              <p class="loading" data-i18n="managing_director_tasks.loading">Загрузка…</p>
+            </div>
+            <button id="btn-add-managing-director-task" class="secondary"
+                    data-i18n="managing_director_tasks.add_button">+ Добавить задачу</button>
+          </div>
+        </div>
+
+      </div>
     </section>
 
     <!-- View: Roles -->
@@ -1783,6 +1889,7 @@
 </style>
 
 <script src="/static/app.js"></script>
+<script src="/static/js/chat.js"></script>
 <script src="/static/js/i18n.js"></script>
 <script src="/static/js/locale-switcher.js" defer></script>
 <script src="/static/js/tour.js" defer></script>

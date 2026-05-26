@@ -32,7 +32,7 @@ _REPO_ROOT_EARLY = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT_EARLY) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT_EARLY))
 
-from flask import Flask, Response, jsonify, render_template, request  # noqa: E402
+from flask import Flask, Response, jsonify, redirect, render_template, request  # noqa: E402
 
 from devboard_tasks import db, tools  # noqa: E402
 
@@ -1134,8 +1134,10 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         return render_template("home.html")
 
     @app.get("/chat")
-    def chat() -> str:
-        return render_template("chat.html")
+    def chat() -> Any:
+        # Чат теперь вкладка внутри главной страницы (data-view="chat"),
+        # старый url остаётся как redirect — для совместимости со старыми ссылками.
+        return redirect("/?view=chat", code=302)
 
     @app.get("/docs/<path:filename>")
     def serve_docs(filename: str) -> Any:

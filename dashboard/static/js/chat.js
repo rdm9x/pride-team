@@ -104,9 +104,18 @@
       // Initialize archive toggle
       initArchiveToggle();
 
-      // Auto-select first active thread
-      if (allThreads.active.length > 0) {
-        selectThread({ id: allThreads.active[0].id, title: allThreads.active[0].title });
+      // Восстанавливаем последний выбранный thread (если он ещё активен),
+      // иначе — auto-select первый.
+      let restored = null;
+      try {
+        const savedId = localStorage.getItem('chat_active_thread');
+        if (savedId) {
+          restored = allThreads.active.find(t => t.id === savedId);
+        }
+      } catch (_) { /* localStorage недоступен — пропускаем */ }
+      const pick = restored || allThreads.active[0];
+      if (pick) {
+        selectThread({ id: pick.id, title: pick.title });
       }
     } catch (error) {
       console.error('Error loading threads:', error);
@@ -240,6 +249,7 @@
     if (!threadData || !threadData.id) return;
 
     currentThreadId = threadData.id;
+    try { localStorage.setItem('chat_active_thread', threadData.id); } catch (_) { /* ignore */ }
 
     // Remove active from all threads (active + archived)
     document.querySelectorAll('.thread-item, .archive-thread-item').forEach((item) => {

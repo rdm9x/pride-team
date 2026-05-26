@@ -127,28 +127,29 @@
   //   scrollToBottom(false);
   // });
 
-  // ===================== Chat button in sidebar (F5) =====================
-  const btnNavChat = document.getElementById("btn-nav-chat");
-  if (btnNavChat) {
-    btnNavChat.addEventListener("click", () => {
-      // Check if this is the first time clicking Chat button (onboarding)
-      const chatVisitedKey = "f5-chat-visited";
-      const chatVisited = localStorage.getItem(chatVisitedKey);
-
-      if (!chatVisited) {
-        localStorage.setItem(chatVisitedKey, "1");
-        // Show onboarding tooltip
-        showChatOnboardingTooltip();
-      }
-
-      window.location.href = "/chat";
-    });
-  }
+  // Чат теперь обычная вкладка (data-view="chat"). Старый handler с
+  // редиректом на /chat больше не нужен — кнопка попадает в общий
+  // обработчик nav-item ниже.
 
   // ===================== Views & navigation =====================
 
   const _defaultView = "board";
-  let currentView = localStorage.getItem("last_view") || _defaultView;
+  // Приоритет: ?view=... в URL → localStorage → дефолт.
+  function _initialView() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const v = params.get("view");
+      if (v) {
+        // Чистим query-параметр из адресной строки чтобы не висел.
+        const url = new URL(window.location.href);
+        url.searchParams.delete("view");
+        window.history.replaceState({}, "", url.pathname + url.hash);
+        return v;
+      }
+    } catch (_) { /* URLSearchParams недоступен — пропускаем */ }
+    return localStorage.getItem("last_view") || _defaultView;
+  }
+  let currentView = _initialView();
 
   function switchView(name) {
     currentView = name;
@@ -5280,57 +5281,6 @@
     window.closeCompanyContextModal = closeCompanyContextModal;
     setTimeout(checkCompanyContextOnLoad, 100);
   })();
-
-  // ===================== F5: Chat onboarding tooltip =====================
-  function showChatOnboardingTooltip() {
-    const btnNavChat = document.getElementById("btn-nav-chat");
-    if (!btnNavChat) return;
-
-    // Create tooltip element
-    const tooltip = document.createElement("div");
-    tooltip.className = "chat-onboarding-tooltip";
-    tooltip.role = "tooltip";
-    tooltip.textContent = i18n("onboarding.chat_moved");
-
-    // Style the tooltip
-    const style = document.createElement("style");
-    style.textContent = `
-      .chat-onboarding-tooltip {
-        position: fixed;
-        background: var(--text);
-        color: var(--surface);
-        padding: 10px 14px;
-        border-radius: 8px;
-        font-size: 13px;
-        font-weight: 500;
-        z-index: 1000;
-        max-width: 240px;
-        line-height: 1.4;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        animation: chatTooltipFadeIn 0.22s ease;
-      }
-      @keyframes chatTooltipFadeIn {
-        from { opacity: 0; transform: translateY(-8px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-    `;
-    document.head.appendChild(style);
-    document.body.appendChild(tooltip);
-
-    // Position tooltip below the button
-    const rect = btnNavChat.getBoundingClientRect();
-    tooltip.style.left = (rect.left + rect.width / 2 - 120) + "px";
-    tooltip.style.top = (rect.bottom + 10) + "px";
-
-    // Auto-hide after 4 seconds
-    setTimeout(() => {
-      tooltip.style.animation = "chatTooltipFadeIn 0.22s ease reverse";
-      setTimeout(() => {
-        tooltip.remove();
-        style.remove();
-      }, 220);
-    }, 4000);
-  }
 
   // ===================== F4: Right panel (Planning + Managing Director Tasks) =====================
 

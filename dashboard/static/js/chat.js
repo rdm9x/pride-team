@@ -719,9 +719,11 @@
       const departments = Array.from(deptInputs).map(i => i.value);
       const roundsSel = document.getElementById('planning-rounds-chat');
       const profileSel = document.getElementById('planning-profile-chat');
+      const costSel = document.getElementById('planning-cost-limit-chat');
       const topicInp = document.getElementById('planning-topic');
       const rounds = roundsSel ? parseInt(roundsSel.value, 10) : 3;
       const modelProfile = profileSel ? profileSel.value : 'base';
+      const costLimitUsd = costSel ? parseFloat(costSel.value) : 10;
       const topic = topicInp ? topicInp.value.trim() : '';
 
       if (departments.length === 0) {
@@ -743,6 +745,7 @@
             topic,
             rounds,
             model_profile: modelProfile,
+            cost_limit_usd: costLimitUsd,
             owner_request: topic,
           }),
         });

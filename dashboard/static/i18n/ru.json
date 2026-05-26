@@ -796,6 +796,7 @@
       "profile_label": "Режим",
       "profile_base": "Обычный (Sonnet)",
       "profile_deep": "Глубокий (Opus на синтезе)",
+      "cost_limit_label": "Лимит расходов",
       "topic_label": "Тема",
       "topic_placeholder": "Введи тему планёрки…",
       "button": "Создать планёрку",

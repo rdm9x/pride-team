@@ -737,6 +737,17 @@
                 </select>
               </div>
               <div class="form-group">
+                <label class="form-label" for="planning-cost-limit-chat"
+                       data-i18n="planning.create.cost_limit_label">Лимит расходов</label>
+                <select id="planning-cost-limit-chat" name="cost_limit_usd" class="form-control">
+                  <option value="5">$5</option>
+                  <option value="10" selected>$10</option>
+                  <option value="25">$25</option>
+                  <option value="50">$50</option>
+                  <option value="100">$100</option>
+                </select>
+              </div>
+              <div class="form-group">
                 <label class="form-label" for="planning-topic"
                        data-i18n="planning.create.topic_label">Тема</label>
                 <input type="text" id="planning-topic" name="topic" class="form-control"
@@ -1898,7 +1909,7 @@
 </style>
 
 <script src="/static/app.js"></script>
-<script src="/static/js/chat.js?v=4"></script>
+<script src="/static/js/chat.js?v=5"></script>
 <script src="/static/js/i18n.js"></script>
 <script src="/static/js/locale-switcher.js" defer></script>
 <script src="/static/js/tour.js" defer></script>

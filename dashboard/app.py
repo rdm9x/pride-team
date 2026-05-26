@@ -264,6 +264,46 @@ def _trim(value, n: int = 60) -> str:
     return (s[:n] + "…") if len(s) > n else s
 
 
+def _parse_and_record_session_from_log(log_path: Path) -> Optional[float]:
+    """Найти последний stream-json result-event в логе субпроцесса claude
+    и записать сессию в claude_sessions. Возвращает total_cost_usd или None
+    если result не найден. Тихо игнорирует все ошибки (best-effort).
+
+    Используется для planning lead/synthesis/dispatch/revise/chat-responder
+    subprocess'ов — они стримят stream-json в файл, а не в asyncio queue.
+    """
+    if not log_path.exists():
+        return None
+    try:
+        size = log_path.stat().st_size
+        # Result event обычно близко к концу — читаем последние ~256KB.
+        with open(log_path, "rb") as f:
+            if size > 256 * 1024:
+                f.seek(size - 256 * 1024)
+                f.readline()  # выкинуть «обрезанную» первую строку
+            tail_bytes = f.read()
+        tail = tail_bytes.decode("utf-8", errors="replace")
+    except Exception:  # noqa: BLE001
+        return None
+
+    for raw in reversed(tail.splitlines()):
+        line = raw.strip()
+        if not line or not line.startswith("{"):
+            continue
+        try:
+            ev = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(ev, dict) or ev.get("type") != "result":
+            continue
+        try:
+            _record_session_from_result(ev, ev.get("usage") or {})
+        except Exception:  # noqa: BLE001
+            log.exception("failed to record session from log %s", log_path)
+        return ev.get("total_cost_usd")
+    return None
+
+
 def _record_session_from_result(ev: dict, usage: dict) -> None:
     """Сохраняет stream-json result-событие в claude_sessions.
 
@@ -685,6 +725,7 @@ def _planning_run_lead(
 
     # Лог в data/planning-<session>.log — полезно для диагностики.
     log_path = _REPO_ROOT / "data" / f"planning-{session_id[:8]}.log"
+    ok = False
     try:
         with open(log_path, "a") as log_f:
             log_f.write(f"\n==== {role} round {round_n} @ {time.strftime('%H:%M:%S')} ====\n")
@@ -697,14 +738,14 @@ def _planning_run_lead(
                 proc.wait(timeout=_PLANNING_LEAD_TIMEOUT_SEC)
                 ok = proc.returncode == 0
                 log.info("planning: lead %s round %d done rc=%d", role, round_n, proc.returncode)
-                return ok
             except subprocess.TimeoutExpired:
                 log.warning("planning: lead %s timeout (%ss), killing", role, _PLANNING_LEAD_TIMEOUT_SEC)
                 proc.kill()
-                return False
     except Exception:  # noqa: BLE001
         log.exception("planning: failed to launch lead %s", role)
         return False
+    _parse_and_record_session_from_log(log_path)
+    return ok
 
 
 def _planning_run_dispatch(db_path: Path, session_id: str) -> None:
@@ -757,6 +798,8 @@ def _planning_run_dispatch(db_path: Path, session_id: str) -> None:
                 proc.kill()
     except Exception:  # noqa: BLE001
         log.exception("dispatch %s failed", session_id)
+        return
+    _parse_and_record_session_from_log(log_path)
 
 
 def _planning_run_revise(db_path: Path, session_id: str) -> None:
@@ -816,6 +859,8 @@ def _planning_run_revise(db_path: Path, session_id: str) -> None:
                 proc.kill()
     except Exception:  # noqa: BLE001
         log.exception("revise %s failed", session_id)
+        return
+    _parse_and_record_session_from_log(log_path)
 
 
 def _planning_resolve_lead_role(db_path: Path, dept_id: str) -> Optional[str]:
@@ -945,6 +990,10 @@ def _chat_responder_run(db_path: Path, thread_id: str) -> None:
     except Exception:  # noqa: BLE001
         log.exception("chat-responder %s failed", thread_id)
     finally:
+        try:
+            _parse_and_record_session_from_log(log_path)
+        except Exception:  # noqa: BLE001
+            log.exception("chat-responder %s cost parse failed", thread_id)
         _chat_responder_active.pop(thread_id, None)
         _chat_responder_last_run[thread_id] = time.time()
 
@@ -4240,6 +4289,10 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         rounds = int(data.get("rounds") or 3)
         owner_request = (data.get("owner_request") or topic or "").strip()
         model_profile = (data.get("model_profile") or "base").strip().lower()
+        try:
+            cost_limit_usd = float(data.get("cost_limit_usd") or 10.0)
+        except (TypeError, ValueError):
+            cost_limit_usd = 10.0
 
         if not owner_request:
             return jsonify({
@@ -4256,6 +4309,11 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
                 "статус": "error", "status": "error",
                 "причина": "model_profile должен быть base|deep",
             }), 400
+        if not (0.5 <= cost_limit_usd <= 500.0):
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": "cost_limit_usd должен быть от $0.5 до $500",
+            }), 400
 
         res = tools.start_planning_session(
             owner_request=owner_request,
@@ -4263,7 +4321,7 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             thread_id=thread_id,
             topic=topic,
             total_rounds=rounds,
-            cost_limit_usd=2.0,
+            cost_limit_usd=cost_limit_usd,
             model_profile=model_profile,
             _bypass_role=True,
             db_path=_db(),

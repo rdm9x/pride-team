@@ -784,6 +784,7 @@
       "profile_label": "Mode",
       "profile_base": "Regular (Sonnet)",
       "profile_deep": "Deep (Opus on synthesis)",
+      "cost_limit_label": "Cost limit",
       "topic_label": "Topic",
       "topic_placeholder": "Enter planning topic…",
       "button": "Create planning session",

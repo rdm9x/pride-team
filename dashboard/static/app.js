@@ -2411,8 +2411,11 @@
   document.getElementById('btn-demo-clear')?.addEventListener('click', clearDemoData);
 
   // ===================== Team controls =====================
+  // Активные роли — кэш для btn-stop handler (стопаем то что реально работает).
+  let _activeRunningRoles = [];
+
   async function refreshTeamStatus() {
-    const r = await fetch("/api/team/status");
+    const r = await fetch("/api/team/status-all");
     if (!r.ok) return;
     const s = await r.json();
     const badge = $("#team-status");
@@ -2424,28 +2427,42 @@
     autoLabel.classList.toggle("on", !!s.auto_mode);
     if (s.auto_mode) {
       autoLabel.title = (s.auto_pause_reason ? i18n("team.auto.paused") : i18n("team.auto.enabled"))
-        .replace("{n}", s.starts_last_hour)
+        .replace("{n}", "—")
         .replace("{reason}", s.auto_pause_reason || "");
     } else {
       autoLabel.title = i18n("topbar.auto_title");
     }
 
-    // Статус команды
+    // Собираем все running-роли. Ключи не-роли — auto_mode, auto_pause_reason — пропускаем.
+    const META_KEYS = new Set(["auto_mode", "auto_pause_reason",
+                               "auto_cost_last_hour", "auto_cost_limit_hour"]);
+    const running = Object.entries(s)
+      .filter(([k, v]) => !META_KEYS.has(k) && v && typeof v === "object" && v.status === "running")
+      .map(([k]) => k);
+    _activeRunningRoles = running;
+
     const startGroup = document.getElementById("start-btn-group");
     const startedAs  = document.getElementById("team-started-as");
-    if (s.status === "running") {
+
+    if (running.length > 0) {
+      // Хотя бы одна роль активна → бейдж «running» + лейбл с ролями.
       badge.textContent = i18n("team.status.running");
       badge.className = "status running";
       if (startGroup) startGroup.hidden = true;
       $("#btn-stop").hidden = false;
-      // F1 (1.6): показываем роль активной сессии
       if (startedAs) {
-        const roleSlug = s.role || "managing-director";
-        const roleName = roleSlug === "managing-director"
-          ? (i18n("managingDirector.label") || "Управляющий")
-          : displayRole(roleSlug);
-        const label = i18n("team.started_as").replace("{role}", roleName)
-          || ("Запущен: " + roleName);
+        let label;
+        if (running.length === 1) {
+          const roleName = running[0] === "managing-director"
+            ? (i18n("managingDirector.label") || "Управляющий")
+            : displayRole(running[0]);
+          label = (i18n("team.started_as") || "Запущен: {role}").replace("{role}", roleName);
+        } else {
+          const names = running.map((r) => r === "managing-director"
+            ? (i18n("managingDirector.label") || "Управляющий")
+            : displayRole(r)).join(", ");
+          label = `${running.length}: ${names}`;
+        }
         startedAs.textContent = label;
         startedAs.hidden = false;
       }
@@ -2511,23 +2528,23 @@
     refreshTeamStatus();
   }
 
-  // Рендер popup-меню ролей на основе _departmentsCache + Управляющий
+  // Рендер popup-меню ролей: только лиды отделов.
+  // Управляющий запускается автоматически (планёрка + chat-responder), не из этого меню.
   function renderStartRolePopup() {
     const popup = document.getElementById("start-role-popup");
     if (!popup) return;
     popup.innerHTML = "";
 
-    // 1) Управляющий (default, всегда первый)
-    const mdBtn = document.createElement("button");
-    mdBtn.type = "button";
-    mdBtn.className = "start-role-item default-role";
-    mdBtn.setAttribute("role", "menuitem");
-    mdBtn.innerHTML = `<span class="role-ico">🏛</span><span class="role-lbl">${escapeHtml(i18n("managingDirector.label") || "Управляющий")}</span>`;
-    mdBtn.addEventListener("click", () => { closeStartRolePopup(); _teamStart("managing-director"); });
-    popup.appendChild(mdBtn);
-
-    // 2) Активные отделы из _departmentsCache
     const depts = _departmentsCache || [];
+    if (depts.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "start-role-empty";
+      empty.style.cssText = "padding:8px 10px; font-size:11px; color:var(--text-3);";
+      empty.textContent = i18n("topbar.no_departments") || "Нет отделов";
+      popup.appendChild(empty);
+      return;
+    }
+
     depts.forEach((d) => {
       const btn = document.createElement("button");
       btn.type = "button";
@@ -2557,8 +2574,20 @@
     if (chevron) chevron.setAttribute("aria-expanded", "false");
   }
 
-  // Main start button → всегда managing-director (default)
-  $("#btn-start").addEventListener("click", () => _teamStart("managing-director"));
+  // Main start button:
+  //  - 0 отделов → ничего (disabled);
+  //  - 1 отдел   → запускаем его сразу;
+  //  - 2+ отделов → открываем popup, owner выбирает какой именно.
+  // Управляющий из этого меню убран — он стартует автоматически (планёрка + chat-responder).
+  $("#btn-start").addEventListener("click", () => {
+    const depts = _departmentsCache || [];
+    if (depts.length === 0) return;
+    if (depts.length === 1) {
+      _teamStart(depts[0].id);
+    } else {
+      openStartRolePopup();
+    }
+  });
 
   // Chevron → открываем popup
   const _startDropdownBtn = document.getElementById("btn-start-dropdown");
@@ -2590,7 +2619,16 @@
   });
 
   $("#btn-stop").addEventListener("click", async () => {
-    await fetch("/api/team/stop", { method: "POST" });
+    // Стопаем все активные роли последовательно — у нас может быть и dev-lead,
+    // и marketing-lead параллельно.
+    const targets = _activeRunningRoles.length > 0 ? _activeRunningRoles.slice() : ["managing-director"];
+    for (const role of targets) {
+      await fetch("/api/team/stop", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      }).catch(() => {});
+    }
     refreshTeamStatus();
   });
 

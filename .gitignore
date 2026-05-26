@@ -101,6 +101,10 @@ tasks.db
 tasks.db-shm
 tasks.db-wal
 tasks.db.lock
+# ВАЖНО: бэкапы БД содержат историю чатов с потенциально личными данными.
+# Никогда не коммитить (см. CLAUDE.md «Правило №1»).
+tasks.db.bak*
+data/tasks.db.bak*
 data/*.db
 data/*.db-shm
 data/*.db-wal

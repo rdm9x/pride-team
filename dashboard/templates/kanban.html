@@ -5,7 +5,7 @@
 <title data-i18n="page.title">devboard · малая команда</title>
 <link rel="stylesheet" href="/static/style.css">
 <link rel="stylesheet" href="/static/css/tour.css">
-<link rel="stylesheet" href="/static/css/chat.css?v=3">
+<link rel="stylesheet" href="/static/css/chat.css?v=4">
 </head>
 <body>
 
@@ -681,6 +681,8 @@
         <div class="chat-header">
           <h2 data-i18n="chat.conversation.title">Conversation</h2>
         </div>
+        <!-- Planning banner — показывается JS-ом если у треда есть активная/недавняя планёрка. -->
+        <div id="planning-banner" class="planning-banner" hidden></div>
         <div class="chat-messages" id="chat-messages">
           <div class="message-placeholder" data-i18n="chat.messages.empty">Выберите тред слева</div>
         </div>

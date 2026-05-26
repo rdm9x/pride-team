@@ -270,7 +270,11 @@ CREATE TABLE IF NOT EXISTS planning_sessions (
   current_round         INTEGER NOT NULL DEFAULT 0,
   status                TEXT NOT NULL DEFAULT 'pending',  -- pending|running|aborted|done
   cost_limit_usd        REAL NOT NULL DEFAULT 2.0,
-  cost_so_far_usd       REAL NOT NULL DEFAULT 0
+  cost_so_far_usd       REAL NOT NULL DEFAULT 0,
+  -- Owner-decision на финальном отчёте Управляющего.
+  decision              TEXT,                    -- 'accept'|'reject'|'revise'|NULL
+  decided_at            INTEGER,
+  decision_comment      TEXT
 );
 
 -- Активные планёрки — самый частый запрос Управляющего при старте сессии.
@@ -539,6 +543,9 @@ def _ensure_planning_sessions_columns(conn: sqlite3.Connection) -> None:
             "status":           "TEXT NOT NULL DEFAULT 'pending'",
             "cost_limit_usd":   "REAL NOT NULL DEFAULT 2.0",
             "cost_so_far_usd":  "REAL NOT NULL DEFAULT 0",
+            "decision":         "TEXT",
+            "decided_at":       "INTEGER",
+            "decision_comment": "TEXT",
         }
         for col, col_def in expected.items():
             if col not in existing:
@@ -2327,6 +2334,9 @@ def _row_to_planning_session(row: sqlite3.Row) -> dict[str, Any]:
         "status":                row["status"] if "status" in keys else "pending",
         "cost_limit_usd":        row["cost_limit_usd"] if "cost_limit_usd" in keys else 2.0,
         "cost_so_far_usd":       row["cost_so_far_usd"] if "cost_so_far_usd" in keys else 0.0,
+        "decision":              row["decision"] if "decision" in keys else None,
+        "decided_at":            row["decided_at"] if "decided_at" in keys else None,
+        "decision_comment":      row["decision_comment"] if "decision_comment" in keys else None,
     }
 
 
@@ -2420,6 +2430,10 @@ _PLANNING_ALLOWED_UPDATE_FIELDS = {
     "current_round",
     "status",
     "cost_so_far_usd",
+    # Stage 3 — owner decision на финальном отчёте.
+    "decision",
+    "decided_at",
+    "decision_comment",
 }
 
 

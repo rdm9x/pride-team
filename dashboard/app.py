@@ -3969,6 +3969,50 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         )
         return jsonify({"status": "ok", "session": updated})
 
+    @app.get("/api/threads/<thread_id>/planning")
+    def api_thread_planning(thread_id: str) -> Any:
+        """Активная или последняя планёрка треда (для UI-индикатора).
+        Возвращает {planning: <session>|null} — последнюю по started_at."""
+        if db.get_chat_thread(_db(), thread_id) is None:
+            return jsonify({"status": "not_found"}), 404
+        conn = db._connect(_db())
+        try:
+            row = conn.execute(
+                "SELECT id FROM planning_sessions "
+                "WHERE thread_id = ? "
+                "ORDER BY started_at DESC LIMIT 1",
+                (thread_id,),
+            ).fetchone()
+        finally:
+            conn.close()
+        if row is None:
+            return jsonify({"status": "ok", "planning": None})
+        return jsonify({"status": "ok",
+                        "planning": db.planning_session_get(_db(), row["id"])})
+
+    @app.post("/api/planning/<session_id>/decision")
+    def api_planning_decision(session_id: str) -> Any:
+        """Owner ставит решение на финальном отчёте.
+        body: {decision: 'accept'|'reject'|'revise', comment?}"""
+        data = request.get_json(silent=True) or {}
+        decision = data.get("decision")
+        if decision not in ("accept", "reject", "revise"):
+            return jsonify({"status": "error",
+                            "причина": "decision должно быть accept|reject|revise"}), 400
+        session = db.planning_session_get(_db(), session_id)
+        if session is None:
+            return jsonify({"status": "not_found"}), 404
+        if session.get("status") != "done":
+            return jsonify({"status": "error",
+                            "причина": "решение можно ставить только на завершённую планёрку"}), 400
+        updated = db.planning_session_update(
+            _db(), session_id,
+            decision=decision,
+            decided_at=int(__import__("time").time()),
+            decision_comment=(data.get("comment") or "").strip() or None,
+        )
+        return jsonify({"status": "ok", "planning": updated})
+
     @app.get("/api/planning/active")
     def api_planning_active() -> Any:
         """Список активных планёрок (phase != 'done').

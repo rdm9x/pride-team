@@ -250,6 +250,8 @@
 
     currentThreadId = threadData.id;
     try { localStorage.setItem('chat_active_thread', threadData.id); } catch (_) { /* ignore */ }
+    // Stage 3: обновляем planning-баннер для нового треда.
+    if (typeof _fetchAndRenderPlanning === 'function') _fetchAndRenderPlanning();
 
     // Remove active from all threads (active + archived)
     document.querySelectorAll('.thread-item, .archive-thread-item').forEach((item) => {
@@ -550,6 +552,121 @@
   }
 
   // ============================================================
+  // Planning banner (Stage 3) — индикатор прогресса в треде +
+  // кнопки accept/reject/revise когда планёрка завершена.
+  // ============================================================
+
+  let _planningPollTimer = null;
+
+  function _humanPlanningStatus(p) {
+    if (!p) return '';
+    if (p.status === 'pending') return 'Ждёт запуска…';
+    if (p.status === 'running') {
+      const r = p.current_round || 1;
+      const t = p.total_rounds || 3;
+      const phase = p.phase === 'consolidation' ? 'Управляющий синтезирует' : `Раунд ${r} из ${t}`;
+      return phase;
+    }
+    if (p.status === 'aborted') return 'Прервана';
+    if (p.status === 'done') {
+      if (p.decision === 'accept') return 'Принято owner-ом ✓';
+      if (p.decision === 'reject') return 'Отклонено owner-ом';
+      if (p.decision === 'revise') return 'Owner попросил доработать';
+      return 'Завершена — жду твоего решения';
+    }
+    return p.status;
+  }
+
+  function renderPlanningBanner(planning) {
+    const el = document.getElementById('planning-banner');
+    if (!el) return;
+    if (!planning) {
+      el.hidden = true;
+      el.innerHTML = '';
+      return;
+    }
+    el.hidden = false;
+    el.className = 'planning-banner';
+    if (planning.status === 'done') el.classList.add('done');
+    if (planning.status === 'aborted') el.classList.add('aborted');
+
+    const topic = (planning.topic || planning.owner_request || '').slice(0, 80);
+    const status = _humanPlanningStatus(planning);
+    const idShort = (planning.id || '').slice(0, 6);
+
+    let actionsHtml = '';
+    if (planning.status === 'running' || planning.status === 'pending') {
+      actionsHtml = `<button data-action="stop" data-id="${planning.id}">⛔ Остановить</button>`;
+    } else if (planning.status === 'done' && !planning.decision) {
+      actionsHtml = `
+        <button class="primary" data-action="accept" data-id="${planning.id}">Принять</button>
+        <button data-action="revise" data-id="${planning.id}">Доработать</button>
+        <button data-action="reject" data-id="${planning.id}">Отклонить</button>
+      `;
+    }
+
+    el.innerHTML = `
+      <div class="planning-banner-info">
+        <span>🤔</span>
+        <span class="planning-banner-status">${escapeHtml(status)}</span>
+        <span style="color: var(--text-3);">— #${escapeHtml(idShort)} ${escapeHtml(topic)}</span>
+      </div>
+      <div class="planning-banner-actions">${actionsHtml}</div>
+    `;
+
+    // Привязываем клик-обработчики к новым кнопкам.
+    el.querySelectorAll('button[data-action]').forEach(b => {
+      b.addEventListener('click', () => _onPlanningAction(b.dataset.action, b.dataset.id));
+    });
+  }
+
+  async function _fetchAndRenderPlanning() {
+    if (!currentThreadId) { renderPlanningBanner(null); return; }
+    try {
+      const r = await fetch(`/api/threads/${encodeURIComponent(currentThreadId)}/planning`);
+      if (!r.ok) { renderPlanningBanner(null); return; }
+      const data = await r.json();
+      renderPlanningBanner(data.planning);
+    } catch (_) { /* ignore */ }
+  }
+
+  async function _onPlanningAction(action, id) {
+    if (!id) return;
+    if (action === 'stop') {
+      if (!confirm('Остановить активную планёрку?')) return;
+      await fetch(`/api/planning/${encodeURIComponent(id)}/stop`, {method: 'POST'});
+    } else if (action === 'accept' || action === 'reject' || action === 'revise') {
+      let comment = null;
+      if (action === 'revise' || action === 'reject') {
+        comment = prompt(action === 'revise'
+          ? 'Что доработать? (необязательно)'
+          : 'Причина отклонения? (необязательно)');
+        if (comment === null) return; // отмена prompt
+      }
+      const resp = await fetch(`/api/planning/${encodeURIComponent(id)}/decision`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({decision: action, comment}),
+      });
+      if (!resp.ok) {
+        const j = await resp.json().catch(() => ({}));
+        alert('Не удалось сохранить решение: ' + (j.причина || j.reason || resp.statusText));
+        return;
+      }
+    }
+    await _fetchAndRenderPlanning();
+    if (currentThreadId) await loadAndRenderMessages(currentThreadId);
+  }
+
+  function initPlanningBannerPoll() {
+    if (_planningPollTimer) clearInterval(_planningPollTimer);
+    _fetchAndRenderPlanning();
+    _planningPollTimer = setInterval(_fetchAndRenderPlanning, 5000);
+  }
+
+  // Перерисовка баннера при смене треда — вызывается из selectThread напрямую.
+
+  // ============================================================
   // Create Planning Session (Phase 3b — Этап 1)
   // ============================================================
 
@@ -695,6 +812,7 @@
     loadPlanningDepartments();
     loadManagingDirectorTasks();
     initPlanningCreate();
+    initPlanningBannerPoll();
 
     console.log('Chat page initialized');
   });

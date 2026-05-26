@@ -104,6 +104,12 @@
       // Initialize archive toggle
       initArchiveToggle();
 
+      // Если archive section уже развёрнут — перерисовать (после archive/restore).
+      const archiveList = document.getElementById('threads-archive-list');
+      if (archiveList && archiveList.style.display === 'flex') {
+        renderArchiveThreads(allThreads.archived);
+      }
+
       // Восстанавливаем последний выбранный thread (если он ещё активен),
       // иначе — auto-select первый.
       let restored = null;
@@ -139,6 +145,7 @@
       return;
     }
 
+    const archiveTitle = (window.t && window.t('chat.threads.archive_action')) || 'Архивировать';
     container.innerHTML = threads
       .map((thread) => {
         const icon = thread.kind === 'planning' ? '🤔' : '📌';
@@ -153,6 +160,10 @@
                 <div style="font-weight: 500; color: inherit; word-break: break-word; white-space: normal;">${escapeHtml(thread.title)}</div>
                 <div style="font-size: 10px; color: var(--text-3); margin-top: 2px;">${timestamp}</div>
               </div>
+              <button type="button" class="thread-row-action" data-action="archive"
+                      data-thread-id="${escapeHtml(thread.id)}"
+                      title="${escapeHtml(archiveTitle)}"
+                      aria-label="${escapeHtml(archiveTitle)}">🗄</button>
             </div>
           </div>
         `;
@@ -161,13 +172,59 @@
 
     // Attach click handlers
     container.querySelectorAll('.thread-item').forEach((item) => {
-      item.addEventListener('click', () => {
+      item.addEventListener('click', (e) => {
+        if (e.target.closest('.thread-row-action')) return;  // клик по кнопке — не открывать тред
         selectThread({
           id: item.dataset.threadId,
           title: item.dataset.threadTitle,
         });
       });
     });
+    container.querySelectorAll('.thread-row-action[data-action="archive"]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        archiveThread(btn.dataset.threadId);
+      });
+    });
+  }
+
+  async function archiveThread(threadId) {
+    if (!threadId) return;
+    const confirmMsg = (window.t && window.t('chat.threads.archive_confirm')) || 'Архивировать этот чат?';
+    if (!confirm(confirmMsg)) return;
+    try {
+      const resp = await fetch(`/api/threads/${encodeURIComponent(threadId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'archived' }),
+      });
+      if (!resp.ok) throw new Error('archive failed');
+      // Если архивируем активный тред — снять selection (loadThreads подберёт другой)
+      if (threadId === currentThreadId) {
+        try { localStorage.removeItem('chat_active_thread'); } catch (_) { /* ignore */ }
+        currentThreadId = null;
+      }
+      await loadThreads();
+    } catch (err) {
+      console.error('archive thread failed', err);
+      alert('Не удалось архивировать тред');
+    }
+  }
+
+  async function restoreThread(threadId) {
+    if (!threadId) return;
+    try {
+      const resp = await fetch(`/api/threads/${encodeURIComponent(threadId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'active' }),
+      });
+      if (!resp.ok) throw new Error('restore failed');
+      await loadThreads();
+    } catch (err) {
+      console.error('restore thread failed', err);
+      alert('Не удалось восстановить тред');
+    }
   }
 
   // ============================================================
@@ -210,6 +267,7 @@
       return;
     }
 
+    const restoreTitle = (window.t && window.t('chat.threads.restore_action')) || 'Восстановить';
     container.innerHTML = threads
       .map((thread) => {
         const icon = thread.kind === 'planning' ? '🤔' : '📌';
@@ -224,6 +282,10 @@
                 <div style="font-weight: 500; color: inherit; word-break: break-word; white-space: normal;">${escapeHtml(thread.title)}</div>
                 <div style="font-size: 10px; color: var(--text-3); margin-top: 2px;">${timestamp}</div>
               </div>
+              <button type="button" class="thread-row-action" data-action="restore"
+                      data-thread-id="${escapeHtml(thread.id)}"
+                      title="${escapeHtml(restoreTitle)}"
+                      aria-label="${escapeHtml(restoreTitle)}">↺</button>
             </div>
           </div>
         `;
@@ -232,11 +294,18 @@
 
     // Attach click handlers
     container.querySelectorAll('.archive-thread-item').forEach((item) => {
-      item.addEventListener('click', () => {
+      item.addEventListener('click', (e) => {
+        if (e.target.closest('.thread-row-action')) return;
         selectThread({
           id: item.dataset.threadId,
           title: item.dataset.threadTitle,
         });
+      });
+    });
+    container.querySelectorAll('.thread-row-action[data-action="restore"]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        restoreThread(btn.dataset.threadId);
       });
     });
   }

@@ -517,6 +517,11 @@
     "archive": {
       "title": "Архив"
     },
+    "threads": {
+      "archive_action": "Архивировать",
+      "archive_confirm": "Архивировать этот чат? Можно восстановить из архива.",
+      "restore_action": "Восстановить"
+    },
     "title": "Чат с командой",
     "input_placeholder": "Напиши сообщение… (Cmd/Ctrl+Enter для отправки)",
     "send_button": "Отправить",

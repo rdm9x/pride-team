@@ -517,6 +517,11 @@
     "archive": {
       "title": "Archive"
     },
+    "threads": {
+      "archive_action": "Archive",
+      "archive_confirm": "Archive this chat? You can restore it from Archive.",
+      "restore_action": "Restore"
+    },
     "title": "Chat with team",
     "input_placeholder": "Type message… (Cmd/Ctrl+Enter to send)",
     "send_button": "Send",

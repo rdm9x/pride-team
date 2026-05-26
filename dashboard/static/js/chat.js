@@ -690,10 +690,6 @@
         alert('Введи тему планёрки');
         return;
       }
-      if (!currentThreadId) {
-        alert('Открой какой-нибудь thread слева — планёрка будет связана с ним');
-        return;
-      }
 
       btn.disabled = true;
       try {
@@ -701,7 +697,6 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            thread_id: currentThreadId,
             departments,
             topic,
             rounds,
@@ -717,8 +712,13 @@
         // Очищаем форму
         if (topicInp) topicInp.value = '';
         document.querySelectorAll('#planning-departments input[type="checkbox"]').forEach(i => i.checked = false);
-        // Перезагрузить сообщения треда — там должно появиться приглашение
-        await loadAndRenderMessages(currentThreadId);
+        // Новая планёрка = новый thread. Перезагружаем список тредов
+        // и переключаемся на свежий, чтобы owner сразу увидел диалог.
+        const newThreadId = data?.сессия?.thread_id || data?.session?.thread_id;
+        await loadThreads();  // обновит правую панель тредов
+        if (newThreadId) {
+          selectThread({ id: newThreadId, title: topic });
+        }
       } catch (e) {
         console.error('planning start failed', e);
         alert('Ошибка сети при создании планёрки');

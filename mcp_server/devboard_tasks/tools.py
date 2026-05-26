@@ -868,10 +868,26 @@ def start_planning_session(
         if dept is None:
             return {"статус": "error", "status": "error", "причина": f"отдел {dept_id!r} не существует", "reason": f"отдел {dept_id!r} не существует"}
 
-    # Если передан thread_id — проверяем что такой тред есть.
-    if thread_id is not None and db.get_chat_thread(path_db, thread_id) is None:
-        reason = f"thread {thread_id!r} не существует"
-        return {"статус": "error", "status": "error", "причина": reason, "reason": reason}
+    # Если передан thread_id — проверяем что такой тред есть; иначе создаём
+    # новый тред-«купе» под эту планёрку (kind='planning').
+    if thread_id is not None:
+        if db.get_chat_thread(path_db, thread_id) is None:
+            reason = f"thread {thread_id!r} не существует"
+            return {"статус": "error", "status": "error", "причина": reason, "reason": reason}
+    else:
+        try:
+            thread_title = (topic or owner_request).strip()[:80] or "Планёрка"
+            participants = ["owner", "managing-director"] + [f"{d}-lead" for d in departments]
+            new_thread = db.create_chat_thread(
+                path_db,
+                title=thread_title,  # без префикса-emoji — JS уже рендерит 🤔 по kind='planning'
+                kind="planning",
+                participants=participants,
+            )
+            thread_id = new_thread["id"]
+        except Exception as exc:  # noqa: BLE001
+            reason = f"не удалось создать thread: {exc}"
+            return {"статус": "error", "status": "error", "причина": reason, "reason": reason}
 
     # Создаём запись планёрки.
     try:

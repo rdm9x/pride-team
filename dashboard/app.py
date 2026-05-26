@@ -708,6 +708,62 @@ def _planning_run_dispatch(db_path: Path, session_id: str) -> None:
         log.exception("dispatch %s failed", session_id)
 
 
+def _planning_run_revise(db_path: Path, session_id: str) -> None:
+    """Запускает Управляющего в revise-mode: пересборка финального отчёта на
+    основе owner-feedback. Fire-and-forget из POST /decision."""
+    session = db.planning_session_get(db_path, session_id)
+    if session is None:
+        log.warning("revise: planning %s не найдена", session_id)
+        return
+    thread_id = session.get("thread_id")
+    log.info("revise: starting for planning %s thread %s", session_id, thread_id)
+
+    commands_dir = _REPO_ROOT / "commands"
+    script = commands_dir / ("devboard-work.ps1" if sys.platform == "win32" else "devboard-work.sh")
+    if not script.exists():
+        log.error("revise: script not found: %s", script)
+        return
+
+    _STRIP_PREFIXES = (
+        "CLAUDE_CODE_", "CLAUDE_AGENT_SDK_", "CLAUDE_EFFORT", "ANTHROPIC_PROMPT_CACHING",
+    )
+    _STRIP_KEYS = {"CLAUDECODE", "CLAUDE_CODE_SESSION_ID", "AI_AGENT"}
+    env = {k: v for k, v in os.environ.items()
+           if k not in _STRIP_KEYS and not any(k.startswith(p) for p in _STRIP_PREFIXES)}
+    env["DEVBOARD_PLANNING_MODE"] = "revise"
+    env["DEVBOARD_PLANNING_ID"] = session_id
+    if thread_id:
+        env["DEVBOARD_THREAD_ID"] = thread_id
+
+    cmd = ["bash", str(script), "--role", "managing-director"] if sys.platform != "win32" else \
+          ["pwsh", "-File", str(script), "-Role", "managing-director"]
+
+    log_path = _REPO_ROOT / "data" / f"planning-{session_id[:8]}-revise.log"
+    try:
+        with open(log_path, "a") as log_f:
+            log_f.write(f"\n==== revise @ {time.strftime('%H:%M:%S')} ====\n")
+            log_f.flush()
+            proc = subprocess.Popen(
+                cmd, cwd=str(_REPO_ROOT), env=env,
+                stdout=log_f, stderr=subprocess.STDOUT,
+            )
+            try:
+                proc.wait(timeout=_PLANNING_LEAD_TIMEOUT_SEC)
+                log.info("revise %s done rc=%d", session_id, proc.returncode)
+                # Управляющий сам сбросил decision=null через PATCH; если нет —
+                # делаем это здесь, чтобы баннер вернул кнопки accept/reject/revise.
+                cur = db.planning_session_get(db_path, session_id)
+                if cur and cur.get("decision") == "revise":
+                    db.planning_session_update(
+                        db_path, session_id, decision=None, decision_comment=None,
+                    )
+            except subprocess.TimeoutExpired:
+                log.warning("revise %s timeout, killing", session_id)
+                proc.kill()
+    except Exception:  # noqa: BLE001
+        log.exception("revise %s failed", session_id)
+
+
 def _planning_resolve_lead_role(db_path: Path, dept_id: str) -> Optional[str]:
     """По dept_id найти slug лида: dev → dev-lead, marketing → marketing-lead, etc.
     Возвращает None если нет роли с подходящим именем."""
@@ -4064,8 +4120,8 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
             decision_comment=(data.get("comment") or "").strip() or None,
         )
 
-        # accept → запускаем Управляющего на dispatch-mode в отдельном потоке,
-        # чтобы не блокировать UI-ответ.
+        # accept → fire-and-forget запуск Управляющего в dispatch-mode
+        # (декомпозиция в задачи).
         if decision == "accept":
             Thread(
                 target=_planning_run_dispatch,
@@ -4073,7 +4129,32 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
                 daemon=True,
                 name=f"planning-dispatch-{session_id[:6]}",
             ).start()
+        # revise → fire-and-forget запуск Управляющего на пересборку отчёта.
+        elif decision == "revise":
+            Thread(
+                target=_planning_run_revise,
+                args=(_db(), session_id),
+                daemon=True,
+                name=f"planning-revise-{session_id[:6]}",
+            ).start()
 
+        return jsonify({"status": "ok", "planning": updated})
+
+    @app.patch("/api/planning/<session_id>")
+    def api_planning_patch(session_id: str) -> Any:
+        """Точечное обновление полей планёрки (используется Управляющим при revise).
+
+        body: {consolidated_proposal?, decision?: null, ...} — только из
+        _PLANNING_ALLOWED_UPDATE_FIELDS.
+        """
+        data = request.get_json(silent=True) or {}
+        allowed = {"consolidated_proposal", "decision", "decision_comment"}
+        fields = {k: v for k, v in data.items() if k in allowed}
+        if not fields:
+            return jsonify({"status": "error", "причина": "нет полей для обновления"}), 400
+        if db.planning_session_get(_db(), session_id) is None:
+            return jsonify({"status": "not_found"}), 404
+        updated = db.planning_session_update(_db(), session_id, **fields)
         return jsonify({"status": "ok", "planning": updated})
 
     @app.get("/api/planning/active")

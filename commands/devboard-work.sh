@@ -86,7 +86,51 @@ TEAMLEAD_PROMPT="$(cat "$ROLE_FILE")"
 #   DEVBOARD_PLANNING_ROUND=<n>
 # Для лидов отделов — даём реплику в общем треде.
 # Для managing-director — финальный синтез отчёта.
-if [[ "${DEVBOARD_PLANNING_MODE:-}" == "dispatch" && "${ROLE_SLUG}" == "managing-director" ]]; then
+if [[ "${DEVBOARD_PLANNING_MODE:-}" == "revise" && "${ROLE_SLUG}" == "managing-director" ]]; then
+    PLANNING_ID="${DEVBOARD_PLANNING_ID:-}"
+    THREAD_ID="${DEVBOARD_THREAD_ID:-}"
+    TASK_PROMPT="REVISE-режим: owner попросил доработать отчёт планёрки #${PLANNING_ID:0:6}.
+
+1) Прочитай состояние планёрки и feedback owner-а:
+       curl -s http://127.0.0.1:4999/api/threads/${THREAD_ID}/messages
+   Последний твой отчёт в треде — это «## Решение по планёрке…». Owner-feedback
+   мог прийти двумя способами: (а) как новое сообщение в треде после твоего отчёта;
+   (б) в decision_comment планёрки — посмотри через GET /api/planning/active или
+   разбери последнее сообщение от owner.
+
+2) Учитывай только feedback owner-а. **Не запускай лидов снова** — их реплики
+   уже в треде, можешь к ним обращаться. Подумай: что именно owner хочет
+   изменить? Уточнить шаг? Поменять отдел? Убрать пункт? Добавить новый?
+
+3) Напиши **новую версию** отчёта в тред с пометкой «(версия 2)»:
+
+   ## Решение по планёрке #${PLANNING_ID:0:6} (версия 2)
+
+   **Учтено замечание owner-а:** <кратко 1 строкой что меняешь>
+
+   **Что предлагаем:**
+   - <обновлённый шаг 1>
+   - …
+
+   **Кому что делать:**
+   - …
+
+   Постишь через REST:
+       curl -X POST http://127.0.0.1:4999/api/threads/${THREAD_ID}/messages \\
+            -H 'Content-Type: application/json' \\
+            -d '{\"author\":\"managing-director\",\"text\":\"<отчёт версии 2>\"}'
+
+4) Обнови consolidated_proposal в БД, чтобы при следующем accept декомпозиция
+   взяла **новую** версию:
+       curl -X PATCH http://127.0.0.1:4999/api/planning/${PLANNING_ID} \\
+            -H 'Content-Type: application/json' \\
+            -d '{\"consolidated_proposal\":\"<текст версии 2>\",\"decision\":null,\"decision_comment\":null}'
+
+   После сброса decision=null баннер у owner вернёт кнопки accept/reject/revise.
+
+5) Заверши сессию. Не создавай задачи, не запускай subagent'ов — только новый
+   отчёт в треде и обновление БД."
+elif [[ "${DEVBOARD_PLANNING_MODE:-}" == "dispatch" && "${ROLE_SLUG}" == "managing-director" ]]; then
     PLANNING_ID="${DEVBOARD_PLANNING_ID:-}"
     THREAD_ID="${DEVBOARD_THREAD_ID:-}"
     TASK_PROMPT="DISPATCH-режим: декомпозиция планёрки #${PLANNING_ID:0:6} в реальные задачи отделов.

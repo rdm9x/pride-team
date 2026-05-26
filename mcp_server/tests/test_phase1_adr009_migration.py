@@ -378,19 +378,21 @@ def test_migration_on_live_db_copy_preserves_data(tmp_path: Path) -> None:
         assert _object_exists(conn_after, "trigger", "manager_chunks_ai")
         assert _object_exists(conn_after, "index", "idx_planning_phase")
 
-        # FTS работает.
+        # FTS работает. Используем уникальный маркер чтобы не пересечься
+        # с возможными seed-чанками core knowledge в live-db.
+        marker = "ftsmarkerXyZqWv42"
         now = int(time.time())
         conn_after.execute(
             "INSERT INTO manager_chunks (user_id, source, text, created_at, updated_at) "
             "VALUES (?, ?, ?, ?, ?)",
-            ("owner", "note", "test memory chunk for live-db", now, now),
+            ("owner", "note", f"test chunk {marker}", now, now),
         )
         conn_after.commit()
         rows = conn_after.execute(
             "SELECT c.id FROM manager_fts f "
             "JOIN manager_chunks c ON c.id = f.rowid "
             "WHERE manager_fts MATCH ?",
-            ("memory",),
+            (marker,),
         ).fetchall()
         assert len(rows) == 1
     finally:

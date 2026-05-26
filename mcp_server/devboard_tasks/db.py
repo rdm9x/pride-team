@@ -2104,13 +2104,14 @@ def manager_chunk_search(
     *,
     query: str,
     source: Optional[str] = None,
+    tag: Optional[str] = None,
     limit: int = 10,
     user_id: str = "owner",
 ) -> list[dict[str, Any]]:
     """FTS5-поиск чанков. Возвращает список с полем `score` (= bm25, меньше = релевантнее).
 
     Пустой query → пустой список (FTS5 не любит пустую строку).
-    Игнорирует архивные чанки. Может фильтровать по source.
+    Игнорирует архивные чанки. Может фильтровать по source и/или tag.
     """
     if not query or not query.strip():
         return []
@@ -2118,8 +2119,6 @@ def manager_chunk_search(
         raise ValueError(f"неизвестный source: {source!r}")
     limit = max(1, min(int(limit), 100))
 
-    # bm25(<fts-table>) даёт ranking-score: меньше = лучше. Мы возвращаем
-    # его как есть; tools-слой может перевернуть знак при необходимости.
     sql = (
         "SELECT c.*, bm25(manager_fts) AS bm25_score "
         "FROM manager_fts "
@@ -2132,6 +2131,11 @@ def manager_chunk_search(
     if source is not None:
         sql += " AND c.source = ?"
         args.append(source)
+    if tag is not None:
+        # tags хранится как JSON-массив, ищем substring `"<tag>"` (с кавычками,
+        # чтобы не зацепить префиксы).
+        sql += " AND c.tags LIKE ?"
+        args.append(f'%"{tag}"%')
     sql += " ORDER BY bm25(manager_fts) ASC LIMIT ?"
     args.append(limit)
 
@@ -2141,8 +2145,6 @@ def manager_chunk_search(
             cur = conn.execute(sql, args)
             rows = cur.fetchall()
         except sqlite3.OperationalError:
-            # Невалидный FTS5-запрос (например спецсимволы) — возвращаем пусто
-            # вместо exception. tools-слой может сообщить ошибку при желании.
             return []
         return [_row_to_manager_chunk(r, score=float(r["bm25_score"])) for r in rows]
     finally:
@@ -2153,10 +2155,14 @@ def manager_chunk_recent(
     db_path: Path,
     *,
     source: Optional[str] = None,
+    tag: Optional[str] = None,
     limit: int = 20,
     user_id: str = "owner",
 ) -> list[dict[str, Any]]:
-    """Последние N не-архивных чанков, отсортированные по updated_at DESC."""
+    """Последние N не-архивных чанков, отсортированные по updated_at DESC.
+
+    Можно фильтровать по source и/или tag (точное совпадение элемента JSON-массива tags).
+    """
     if source is not None and source not in _MANAGER_VALID_SOURCES:
         raise ValueError(f"неизвестный source: {source!r}")
     limit = max(1, min(int(limit), 200))
@@ -2169,6 +2175,9 @@ def manager_chunk_recent(
     if source is not None:
         sql += " AND source = ?"
         args.append(source)
+    if tag is not None:
+        sql += " AND tags LIKE ?"
+        args.append(f'%"{tag}"%')
     sql += " ORDER BY updated_at DESC, id DESC LIMIT ?"
     args.append(limit)
 
@@ -2178,6 +2187,33 @@ def manager_chunk_recent(
         return [_row_to_manager_chunk(r) for r in cur.fetchall()]
     finally:
         conn.close()
+
+
+def manager_chunks_archive_by_tag(
+    db_path: Path,
+    *,
+    tag: str,
+    user_id: str = "owner",
+) -> int:
+    """Архивировать все не-архивные чанки с заданным тегом. Возвращает количество.
+
+    Используется при archive_project — все заметки с тегом 'project:<code>'
+    уходят в архив одним вызовом.
+    """
+    now = int(time.time())
+    with write_lock(db_path):
+        conn = _connect(db_path)
+        try:
+            cur = conn.execute(
+                "UPDATE manager_chunks "
+                "SET archived_at = ?, updated_at = ? "
+                "WHERE archived_at IS NULL AND user_id = ? AND tags LIKE ?",
+                (now, now, user_id, f'%"{tag}"%'),
+            )
+            conn.commit()
+            return cur.rowcount
+        finally:
+            conn.close()
 
 
 def manager_chunk_archive(db_path: Path, chunk_id: int) -> bool:

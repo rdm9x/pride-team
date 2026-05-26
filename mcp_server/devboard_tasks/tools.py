@@ -668,6 +668,7 @@ def manager_memory_add(
 def manager_memory_search(
     query: str,
     source: Optional[str] = None,
+    tag: Optional[str] = None,
     limit: int = 10,
     *,
     caller_role: Optional[str] = None,
@@ -675,8 +676,8 @@ def manager_memory_search(
 ) -> dict[str, Any]:
     """FTS5-поиск чанков. Возвращает отсортированный по bm25-score список.
 
-    Меньший score = более релевантный (стандарт FTS5). Архивные чанки
-    исключаются. Пустой query → пустой список без ошибки.
+    Меньший score = более релевантный. Архивные чанки исключаются.
+    Можно фильтровать по source и/или tag (например tag='core').
     """
     deny = _check_manager_memory_role(caller_role)
     if deny is not None:
@@ -690,7 +691,7 @@ def manager_memory_search(
     path_db = _resolve_db_path(db_path)
     try:
         chunks = db.manager_chunk_search(
-            path_db, query=query, source=source, limit=limit
+            path_db, query=query, source=source, tag=tag, limit=limit
         )
     except ValueError as exc:
         return {"статус": "error", "status": "error", "причина": str(exc), "reason": str(exc)}
@@ -719,12 +720,17 @@ def manager_memory_get(
 
 def manager_memory_recent(
     source: Optional[str] = None,
+    tag: Optional[str] = None,
     limit: int = 20,
     *,
     caller_role: Optional[str] = None,
     db_path: Optional[Path] = None,
 ) -> dict[str, Any]:
-    """Последние N чанков (updated_at DESC). Используется в bootstrap-режиме."""
+    """Последние N чанков (updated_at DESC). Используется в bootstrap-режиме.
+
+    Bootstrap pattern: вызвать с tag='core' и небольшим limit (~10), чтобы
+    подтянуть только структурные факты, не всю историю.
+    """
     deny = _check_manager_memory_role(caller_role)
     if deny is not None:
         return deny
@@ -736,7 +742,7 @@ def manager_memory_recent(
 
     path_db = _resolve_db_path(db_path)
     try:
-        chunks = db.manager_chunk_recent(path_db, source=source, limit=limit)
+        chunks = db.manager_chunk_recent(path_db, source=source, tag=tag, limit=limit)
     except ValueError as exc:
         return {"статус": "error", "status": "error", "причина": str(exc), "reason": str(exc)}
     return {"статус": "ok", "всего": len(chunks), "чанки": chunks}
@@ -1286,7 +1292,11 @@ def archive_project(
     *,
     db_path: Optional[Path] = None,
 ) -> dict[str, Any]:
-    """Архивировать проект (status='archived')."""
+    """Архивировать проект (status='archived'). Каскадно архивирует
+    связанные заметки Управляющего с тегом 'project:<code>'.
+
+    Папка workspace/<code>-<slug>/ не удаляется — артефакты остаются на диске.
+    """
     db_path_resolved = _resolve_db_path(db_path)
     project = db.get_project(db_path_resolved, project_id_or_code)
     if project is None:
@@ -1306,8 +1316,19 @@ def archive_project(
         conn.commit()
     finally:
         conn.close()
+
+    # Каскадная архивация заметок: всё с тегом 'project:<code>' уходит из
+    # активной памяти Управляющего (не удаляется, только archived_at).
+    chunks_archived = db.manager_chunks_archive_by_tag(
+        db_path_resolved, tag=f"project:{project['code']}"
+    )
+
     updated = db.get_project(db_path_resolved, project["id"])
-    return {"статус": "ok", "status": "ok", "project": updated}
+    return {
+        "статус": "ok", "status": "ok",
+        "project": updated,
+        "memory_chunks_archived": chunks_archived,
+    }
 
 
 def register_task_artifact(

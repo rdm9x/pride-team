@@ -3702,6 +3702,59 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
     # Read-only HTTP-проекция planning_sessions для UI-индикатора в общем чате.
     # MCP-tools (start/collect/finalize) живут в mcp_server — UI их не дёргает.
 
+    @app.post("/api/planning/start")
+    def api_planning_start() -> Any:
+        """POST /api/planning/start {thread_id, departments, topic, rounds?, owner_request?}
+        → создать planning_session + пригласить лидов в чаты отделов.
+
+        Owner вызывает через UI; mcp role-gate обходится через _bypass_role.
+        Оркестратор отдельно подберёт сессию по status='pending' и поведёт её.
+        """
+        data = request.get_json(silent=True) or {}
+        thread_id = data.get("thread_id")
+        departments = data.get("departments") or []
+        topic = (data.get("topic") or "").strip() or None
+        rounds = int(data.get("rounds") or 3)
+        owner_request = (data.get("owner_request") or topic or "").strip()
+
+        if not owner_request:
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": "owner_request или topic обязательны",
+            }), 400
+        if not isinstance(departments, list) or not departments:
+            return jsonify({
+                "статус": "error", "status": "error",
+                "причина": "departments должен быть непустым списком",
+            }), 400
+
+        res = tools.start_planning_session(
+            owner_request=owner_request,
+            departments=list(departments),
+            thread_id=thread_id,
+            topic=topic,
+            total_rounds=rounds,
+            cost_limit_usd=2.0,
+            _bypass_role=True,
+            db_path=_db(),
+        )
+        if res.get("статус") != "ok":
+            return jsonify(res), 400
+        return jsonify(res), 201
+
+    @app.post("/api/planning/<session_id>/stop")
+    def api_planning_stop(session_id: str) -> Any:
+        """Остановить активную планёрку (status='aborted')."""
+        session = db.planning_session_get(_db(), session_id)
+        if session is None:
+            return jsonify({"status": "not_found"}), 404
+        updated = db.planning_session_update(
+            _db(), session_id,
+            status="aborted",
+            finished_at=int(__import__("time").time()),
+        )
+        return jsonify({"status": "ok", "session": updated})
+
     @app.get("/api/planning/active")
     def api_planning_active() -> Any:
         """Список активных планёрок (phase != 'done').

@@ -550,6 +550,68 @@
   }
 
   // ============================================================
+  // Create Planning Session (Phase 3b — Этап 1)
+  // ============================================================
+
+  function initPlanningCreate() {
+    const btn = document.getElementById('btn-planning-create');
+    if (!btn) return;
+
+    btn.addEventListener('click', async () => {
+      const deptInputs = document.querySelectorAll('#planning-departments input[type="checkbox"]:checked');
+      const departments = Array.from(deptInputs).map(i => i.value);
+      const roundsSel = document.getElementById('planning-rounds-chat');
+      const topicInp = document.getElementById('planning-topic');
+      const rounds = roundsSel ? parseInt(roundsSel.value, 10) : 3;
+      const topic = topicInp ? topicInp.value.trim() : '';
+
+      if (departments.length === 0) {
+        alert('Выбери хотя бы один отдел для планёрки');
+        return;
+      }
+      if (!topic) {
+        alert('Введи тему планёрки');
+        return;
+      }
+      if (!currentThreadId) {
+        alert('Открой какой-нибудь thread слева — планёрка будет связана с ним');
+        return;
+      }
+
+      btn.disabled = true;
+      try {
+        const resp = await fetch('/api/planning/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            thread_id: currentThreadId,
+            departments,
+            topic,
+            rounds,
+            owner_request: topic,
+          }),
+        });
+        const data = await resp.json();
+        if (!resp.ok || data.статус !== 'ok') {
+          const reason = data.причина || data.reason || resp.statusText;
+          alert('Не удалось создать планёрку: ' + reason);
+          return;
+        }
+        // Очищаем форму
+        if (topicInp) topicInp.value = '';
+        document.querySelectorAll('#planning-departments input[type="checkbox"]').forEach(i => i.checked = false);
+        // Перезагрузить сообщения треда — там должно появиться приглашение
+        await loadAndRenderMessages(currentThreadId);
+      } catch (e) {
+        console.error('planning start failed', e);
+        alert('Ошибка сети при создании планёрки');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+
+  // ============================================================
   // Load Managing Director Tasks (F4)
   // ============================================================
 
@@ -632,6 +694,7 @@
     // F4: Load planning departments and managing director tasks
     loadPlanningDepartments();
     loadManagingDirectorTasks();
+    initPlanningCreate();
 
     console.log('Chat page initialized');
   });

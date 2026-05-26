@@ -1360,6 +1360,17 @@ def _start_team_process(triggered_by: str = "user", role: str = "managing-direct
         if not work_script.exists():
             return {"ok": False, "reason": "missing_script", "path": str(work_script)}
 
+        # Anti-recursion guard: если Flask сам запущен внутри Claude Code
+        # сессии (env содержит CLAUDECODE=1, CLAUDE_CODE_*, CLAUDE_AGENT_SDK_*),
+        # дочерний `claude` мгновенно exit без вывода — он считает что его
+        # уже вызвали из Claude Code. Чистим эти переменные перед стартом.
+        _STRIP_PREFIXES = (
+            "CLAUDE_CODE_", "CLAUDE_AGENT_SDK_", "CLAUDE_EFFORT", "ANTHROPIC_PROMPT_CACHING",
+        )
+        _STRIP_KEYS = {"CLAUDECODE", "CLAUDE_CODE_SESSION_ID", "AI_AGENT"}
+        clean_env = {k: v for k, v in os.environ.items()
+                     if k not in _STRIP_KEYS and not any(k.startswith(p) for p in _STRIP_PREFIXES)}
+
         new_proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
@@ -1370,7 +1381,7 @@ def _start_team_process(triggered_by: str = "user", role: str = "managing-direct
             bufsize=1,
             cwd=str(_REPO_ROOT),
             env={
-                **os.environ,
+                **clean_env,
                 **extra_env,
             },
         )

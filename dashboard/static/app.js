@@ -2573,7 +2573,10 @@
       const ico = d.icon || "🗂";
       const name = deptDisplayName(d);
       btn.innerHTML = `<span class="role-ico">${escapeHtml(ico)}</span><span class="role-lbl">${escapeHtml(name)}</span>`;
-      btn.addEventListener("click", () => { closeStartRolePopup(); _teamStart(d.id); });
+      // Запускаем лида отдела (slug = "<dept>-lead"). devboard-work.sh
+      // резолвит его в roles/<dept>/lead.md. Передавать просто d.id нельзя —
+      // нет файла roles/dev.md, есть только roles/dev/lead.md.
+      btn.addEventListener("click", () => { closeStartRolePopup(); _teamStart(`${d.id}-lead`); });
       popup.appendChild(btn);
     });
   }
@@ -2594,15 +2597,14 @@
     if (chevron) chevron.setAttribute("aria-expanded", "false");
   }
 
-  // Main start button: ЗАПУСКАЕТ ВСЕ ОТДЕЛЫ параллельно. Точечный запуск
-  // отдельного отдела — через chevron-dropdown справа.
+  // Main start button: ЗАПУСКАЕТ ВСЕХ ЛИДОВ ОТДЕЛОВ параллельно. Точечный
+  // запуск отдельного — через chevron-dropdown справа.
   // Управляющий из меню убран — он стартует автоматически (планёрка + chat-responder).
   $("#btn-start").addEventListener("click", async () => {
     const depts = _departmentsCache || [];
     if (depts.length === 0) return;
-    // Параллельный старт всех отделов. Игнорируем ошибки отдельных запусков —
-    // _teamStart сам покажет alert если что-то конкретно сломалось.
-    await Promise.all(depts.map((d) => _teamStart(d.id).catch(() => {})));
+    // slug роли = "<dept>-lead" (см. devboard-work.sh role resolver).
+    await Promise.all(depts.map((d) => _teamStart(`${d.id}-lead`).catch(() => {})));
   });
 
   // Chevron → открываем popup

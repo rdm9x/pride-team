@@ -905,6 +905,25 @@ def start_planning_session(
         except ValueError as exc:
             invitations.append({"dept_id": dept_id, "error": str(exc)})
 
+    # Если планёрка привязана к thread — добавляем туда же системное сообщение,
+    # чтобы owner сразу видел подтверждение в активном чате.
+    if thread_id is not None:
+        try:
+            depts_str = ", ".join(departments)
+            summary_text = (
+                f"🤔 **Планёрка #{session['id'][:6]}** запущена\n\n"
+                f"**Тема:** {(topic or owner_request).strip()}\n"
+                f"**Отделы:** {depts_str}\n"
+                f"**Раундов:** {session['total_rounds']}\n"
+                f"**Лимит:** ${session['cost_limit_usd']:.2f}\n\n"
+                f"Лиды отделов сейчас в чатах своих отделов — жду их ответов."
+            )
+            db.add_chat_message_to_thread(
+                path_db, thread_id, "managing-director", summary_text
+            )
+        except Exception:  # noqa: BLE001 — не валим планёрку из-за чата
+            pass
+
     return {
         "статус": "ok",
         "session_id": session["id"],

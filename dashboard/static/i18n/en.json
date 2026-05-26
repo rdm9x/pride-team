@@ -237,7 +237,7 @@
     "theme_dark": "Dark theme",
     "auto_label": "🤖 Auto",
     "auto_title": "Auto mode: the team-lead starts the next session on their own when there's work",
-    "btn_start": "▶ Start team",
+    "btn_start": "▶ Start all departments",
     "btn_start_role_aria": "Select role to start",
     "btn_stop": "⏹ Stop",
     "locale_aria": "Interface language",

@@ -2594,19 +2594,15 @@
     if (chevron) chevron.setAttribute("aria-expanded", "false");
   }
 
-  // Main start button:
-  //  - 0 отделов → ничего (disabled);
-  //  - 1 отдел   → запускаем его сразу;
-  //  - 2+ отделов → открываем popup, owner выбирает какой именно.
-  // Управляющий из этого меню убран — он стартует автоматически (планёрка + chat-responder).
-  $("#btn-start").addEventListener("click", () => {
+  // Main start button: ЗАПУСКАЕТ ВСЕ ОТДЕЛЫ параллельно. Точечный запуск
+  // отдельного отдела — через chevron-dropdown справа.
+  // Управляющий из меню убран — он стартует автоматически (планёрка + chat-responder).
+  $("#btn-start").addEventListener("click", async () => {
     const depts = _departmentsCache || [];
     if (depts.length === 0) return;
-    if (depts.length === 1) {
-      _teamStart(depts[0].id);
-    } else {
-      openStartRolePopup();
-    }
+    // Параллельный старт всех отделов. Игнорируем ошибки отдельных запусков —
+    // _teamStart сам покажет alert если что-то конкретно сломалось.
+    await Promise.all(depts.map((d) => _teamStart(d.id).catch(() => {})));
   });
 
   // Chevron → открываем popup

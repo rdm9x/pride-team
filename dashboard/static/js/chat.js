@@ -62,8 +62,8 @@
   // ============================================================
 
   function initTheme() {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    document.documentElement.setAttribute('data-theme', savedTheme);
+    // Темой управляет app.js (ключ 'devboard-theme', дефолт 'dark').
+    // Здесь оставлен no-op чтобы не перетирать data-theme своим дефолтом.
   }
 
   // ============================================================

@@ -4,14 +4,16 @@
    Все цвета — через CSS-переменные общей темы (см. style.css).
    ============================================================ */
 
-.view-chat {
+/* Чат — особый view: убираем наследуемый padding из .view, занимаем всю высоту main. */
+.view.view-chat {
   display: grid;
   grid-template-columns: 240px 1fr 320px;
+  grid-template-rows: 1fr;
   gap: 1px;
   background: var(--border);
-  height: 100%;
-  min-height: 0;
+  padding: 0;
   overflow: hidden;
+  min-height: 0;
 }
 
 /* === LEFT: список тредов ============================================== */

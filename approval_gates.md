@@ -27,13 +27,13 @@ Subagent (бэкенд, QA, или сам тимлид) **никогда не в
 | `git push --force` | Любой force-push | Удаление истории |
 | `ssh root@<vps>` или `ssh <user>@prod-host` любые изменения | Перезапуск сервиса, миграция БД | Прод-инфра |
 | `systemctl restart <service>` | Останов работающего сервиса | Прерывание пользователей |
-| Создание/удаление/изменение прав user'ов в Bitrix24 | Изменение состава ботов | Бизнес-операция |
+| Создание/удаление/изменение прав user'ов во внешнем сервисе | Изменение состава ботов | Бизнес-операция |
 | Удаление файлов вне `devboard/data/` | `rm -rf` на боевые директории | Безопасность |
 | Удаление таблиц БД, `DROP TABLE` | Потеря данных | Данные |
 | Изменение API-ключей, secret'ов | Ротация токенов | Security |
 | Создание новых OAuth client'ов | Расширение доступа | Security |
 | `pip install` глобально или с правами root | Изменение системного Python | Стабильность |
-| Деплой новых ботов в Bitrix24 | Расширение производственного отдела | Бизнес-стратегия |
+| Деплой новых ботов во внешний сервис | Расширение производственного отдела | Бизнес-стратегия |
 
 **Что НЕ требует approval (всё остальное):**
 - Чтение любых файлов.
@@ -41,7 +41,7 @@ Subagent (бэкенд, QA, или сам тимлид) **никогда не в
 - Запуск тестов (pytest и т.п.).
 - SQLite read/write в локальной БД канбана.
 - Создание/обновление задач в канбане.
-- Запросы к Bitrix24 REST API на чтение.
+- Запросы к внешнему REST API на чтение.
 - `git commit` (без push).
 - Локальная установка зависимостей в venv проекта.
 
@@ -52,12 +52,12 @@ Subagent (бэкенд, QA, или сам тимлид) **никогда не в
 Когда subagent определяет что нужна критичная операция (например, git push), он делает MCP-вызов:
 
 ```python
-mcp_pride_tasks.create_task(
+mcp_devboard_tasks.create_task(
     title="git push origin main для коммита fd9ecdb",
     description="Загрузить новый код большой системы на GitLab. "
-                "Коммит содержит: webhook-приёмник + bitrix24_client.py.\n\n"
+                "Коммит содержит: webhook-приёмник + api_client.py.\n\n"
                 "Команда: git push origin main\n"
-                "Файлы: pride_dev/webhook.py, pride_dev/bitrix.py\n"
+                "Файлы: service_dev/webhook.py, service_dev/api.py\n"
                 "Тесты: 14/14 зелёные",
     assignee="тимлид",           # или "пользователь" если эскалация
     parent_id=<id текущей задачи>,
@@ -85,10 +85,10 @@ mcp_pride_tasks.create_task(
 │ Бэкенд просит подтвердить:                                  │
 │                                                             │
 │   Команда:     git push origin main                         │
-│   Файлы:       pride_dev/webhook.py, pride_dev/bitrix.py    │
-│   Коммит:      fd9ecdb «Webhook-приёмник Bitrix24»          │
+│   Файлы:       service_dev/webhook.py, service_dev/api.py   │
+│   Коммит:      fd9ecdb «Webhook-приёмник внешнего сервиса»  │
 │   Тесты:       14/14 зелёные                                │
-│   Origin:      git@gitlab.com:rdm9x-group/pride-dev.git     │
+│   Origin:      git@gitlab.com:example/dev-service.git       │
 │                                                             │
 │ Что произойдёт после approve:                               │
 │ - GitLab получит код                                        │

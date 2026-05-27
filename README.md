@@ -191,7 +191,7 @@ You ── kanban form ──► Flask dashboard ── SQLite (tasks.db) ◄─
 - **E5** — `docker-compose` packaging
 - **E6** — CI / GitHub Actions
 - **E7** — Multi-model fallback (OpenAI, Ollama)
-- **E8** — Bitrix24 bridge → `devboard-dev-department`
+- **E8** — External CRM/PM bridge (connector plugin) → `devboard-dev-department`
 - **E9** — Video demo + landing page
 
 ## Contributing

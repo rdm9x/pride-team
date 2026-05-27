@@ -166,6 +166,10 @@
         <span class="muted" id="inbox-total-hint" data-i18n="inbox.total.zero">0 задач требуют тебя</span>
       </div>
       <div class="inbox-groups">
+        <div class="inbox-group" data-group="reports">
+          <h4><span class="ico">📄</span> <span data-i18n="inbox.group.reports">Отчёты по проектам</span> <span class="g-count" data-gcount="reports">0</span></h4>
+          <div class="inbox-list" data-list="reports"></div>
+        </div>
         <div class="inbox-group" data-group="approvals">
           <h4><span class="ico">⚠</span> <span data-i18n="inbox.group.approvals">Нужно одобрение</span> <span class="g-count" data-gcount="approvals">0</span></h4>
           <div class="inbox-list" data-list="approvals"></div>
@@ -1915,7 +1919,7 @@
 .settings-btn-danger:hover { background: rgba(224, 82, 82, 0.08) !important; }
 </style>
 
-<script src="/static/app.js?v=5"></script>
+<script src="/static/app.js?v=6"></script>
 <script src="/static/js/chat.js?v=9"></script>
 <script src="/static/js/i18n.js"></script>
 <script src="/static/js/locale-switcher.js" defer></script>

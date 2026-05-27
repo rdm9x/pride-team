@@ -4768,11 +4768,29 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
                 continue
             if t["status"] in ("todo", "needs_approval"):
                 questions.append(t)
+        # Reports: проекты с готовым report.html — быстрый доступ «на стол».
+        # Не привязаны к отделу (отчёт по всему проекту), фильтр dept не применяем.
+        reports: list = []
+        try:
+            for p in db.list_projects(_db(), include_archived=False):
+                rep = _project_report_path(_db(), p)
+                if rep is not None and rep.exists():
+                    reports.append({
+                        "project_id": p["id"],
+                        "code": p.get("code"),
+                        "title": p.get("title"),
+                        "report_path": str(rep.relative_to(_REPO_ROOT)),
+                        "mtime": int(rep.stat().st_mtime),
+                    })
+            reports.sort(key=lambda r: r["mtime"], reverse=True)
+        except Exception:  # noqa: BLE001
+            reports = []
         total = len(approval_tasks) + len(review_tasks) + len(questions)
         return jsonify({
             "approvals": approval_tasks,
             "reviews": review_tasks,
             "questions": questions,
+            "reports": reports,
             "total": total,
         })
 

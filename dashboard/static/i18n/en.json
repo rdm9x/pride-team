@@ -325,8 +325,11 @@
     "group": {
       "approvals": "Needs approval",
       "reviews": "Accept work",
-      "questions": "Team questions"
+      "questions": "Team questions",
+      "reports": "Project reports"
     },
+    "reports_empty": "Reports appear when all project tasks are done",
+    "report_ready": "Report ready — what's done and what you need to do",
     "notify": {
       "approvals": "⚠ Needs approval",
       "reviews": "📋 Accept work",
@@ -340,7 +343,8 @@
       "accept": "✓ Accept",
       "rework": "↻ Rework",
       "reply": "Reply",
-      "open": "Open"
+      "open": "Open",
+      "open_report": "Open report"
     },
     "reply": {
       "title": "Reply to «{title}»",

@@ -3235,6 +3235,53 @@
       { label: i18n("inbox.action.reply"), cls: "ok", action: "reply" },
       { label: i18n("inbox.action.open"), cls: "", action: "open" },
     ]);
+    renderReportsGroup(inbox.reports || []);
+  }
+
+  // Отчёты по проектам — особый рендер (не задачи, а ссылки на report.html).
+  function renderReportsGroup(reports) {
+    const container = document.querySelector('[data-list="reports"]');
+    const gcount = document.querySelector('[data-gcount="reports"]');
+    if (gcount) gcount.textContent = reports.length;
+    if (!container) return;
+    container.innerHTML = "";
+    if (reports.length === 0) {
+      const hint = document.createElement("div");
+      hint.className = "inbox-empty-hint";
+      hint.textContent = i18n("inbox.reports_empty") || "Отчёты появятся когда все задачи проекта завершены";
+      container.appendChild(hint);
+      return;
+    }
+    reports.forEach((rep) => {
+      const item = document.createElement("div");
+      item.className = "inbox-item";
+      item.innerHTML = `
+        <div class="ttl">📄 ${escapeHtml(rep.code || "")} · ${escapeHtml(rep.title || "")}</div>
+        <div class="meta"><span>${i18n("inbox.report_ready") || "Отчёт готов — что сделано и что нужно от вас"}</span></div>
+        <div class="inbox-actions"></div>
+      `;
+      const box = item.querySelector(".inbox-actions");
+      const btn = document.createElement("button");
+      btn.className = "ok";
+      btn.textContent = i18n("inbox.action.open_report") || "Открыть отчёт";
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        try {
+          const r = await fetch("/api/open-file", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: rep.report_path }),
+          });
+          if (!r.ok) {
+            const j = await r.json().catch(() => ({}));
+            await (window.customAlert || alert)("Не удалось открыть отчёт: " + (j.reason || r.status));
+          }
+        } catch (_) {
+          await (window.customAlert || alert)("Ошибка при открытии отчёта");
+        }
+      });
+      box.appendChild(btn);
+    });
   }
 
   function renderInboxGroup(group, tasks, actionsFn) {

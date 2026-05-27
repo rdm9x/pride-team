@@ -1619,15 +1619,48 @@
       const block = document.getElementById("artifacts-block-" + escapeAttr(taskId));
       if (block) {
         block.innerHTML = renderArtifacts(artifacts);
-        // Привязываем обработчики для кнопок открытия файлов на десктопе
+        // Открыть файл в дефолтном приложении (index.html → браузер, .md → редактор).
+        // Через backend /api/open-file (нативный `open`), НЕ через file:// —
+        // браузер блокирует file:// из http-страницы.
         block.querySelectorAll(".artifact-open").forEach((btn) => {
-          btn.addEventListener("click", (e) => {
+          btn.addEventListener("click", async (e) => {
             e.preventDefault();
             const path = btn.dataset.artifactPath;
-            if (path) {
-              // На десктопе открываем файл через file:// протокол
-              const fileUrl = "file:///" + path.split("\\").join("/");
-              window.open(fileUrl, "_blank");
+            if (!path) return;
+            try {
+              const r = await fetch("/api/open-file", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ path }),
+              });
+              if (!r.ok) {
+                const j = await r.json().catch(() => ({}));
+                await (window.customAlert || alert)("Не удалось открыть файл: " + (j.reason || r.status));
+              }
+            } catch (_) {
+              await (window.customAlert || alert)("Ошибка при открытии файла");
+            }
+          });
+        });
+        // Открыть папку артефакта в Finder/Explorer.
+        block.querySelectorAll(".artifact-folder").forEach((btn) => {
+          btn.addEventListener("click", async (e) => {
+            e.preventDefault();
+            const path = btn.dataset.artifactPath;
+            if (!path) return;
+            const folder = path.split(/[\\/]/).slice(0, -1).join("/");
+            try {
+              const r = await fetch("/api/open-folder", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ path: folder }),
+              });
+              if (!r.ok) {
+                const j = await r.json().catch(() => ({}));
+                await (window.customAlert || alert)("Не удалось открыть папку: " + (j.reason || r.status));
+              }
+            } catch (_) {
+              await (window.customAlert || alert)("Ошибка при открытии папки");
             }
           });
         });
@@ -1783,6 +1816,7 @@
           <span class="artifact-icon">${icon}</span>
           <span class="artifact-name" title="${escapeAttr(a.file_path)}">${escapeHtml(fileName)}</span>
           <button class="artifact-open" data-artifact-path="${escapeAttr(a.file_path)}" title="${i18n("task.artifact.open_tooltip")}">${i18n("task.artifact.open_btn")}</button>
+          <button class="artifact-folder" data-artifact-path="${escapeAttr(a.file_path)}" title="Открыть папку в Finder">📁</button>
         </div>`;
       } else {
         return `<div class="artifact-item">

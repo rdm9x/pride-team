@@ -86,7 +86,49 @@ TEAMLEAD_PROMPT="$(cat "$ROLE_FILE")"
 #   DEVBOARD_PLANNING_ROUND=<n>
 # Для лидов отделов — даём реплику в общем треде.
 # Для managing-director — финальный синтез отчёта.
-if [[ "${DEVBOARD_CHAT_RESPOND:-}" == "1" && "${ROLE_SLUG}" == "managing-director" ]]; then
+if [[ "${DEVBOARD_REPORT_MODE:-}" == "1" && "${ROLE_SLUG}" == "managing-director" ]]; then
+    PROJECT_ID="${DEVBOARD_PROJECT_ID:-}"
+    PROJECT_CODE="${DEVBOARD_PROJECT_CODE:-}"
+    PROJECT_SLUG="${DEVBOARD_PROJECT_SLUG:-}"
+    REPORT_PATH="workspace/${PROJECT_CODE}-${PROJECT_SLUG}/report.html"
+    TASK_PROMPT="REPORT-режим: собери HTML-отчёт по проекту ${PROJECT_CODE} для owner-а.
+Owner — НЕ технический. Пиши просто, без жаргона, по делу.
+
+Контекст:
+- project_id: ${PROJECT_ID}, code: ${PROJECT_CODE}
+- Файл отчёта (Write СЮДА): ${REPORT_PATH}
+
+Шаги (один проход):
+
+1) Прочитай ВСЕ задачи проекта:
+       curl -s 'http://127.0.0.1:4999/api/tasks?status=review' и '?status=done'
+   ИЛИ mcp__devboard-tasks__list_tasks — отфильтруй те где project_id=${PROJECT_ID}.
+   Для каждой возьми: title, status, result (что сделано), artifacts (файлы).
+   Артефакты задачи: curl -s http://127.0.0.1:4999/api/tasks/<id>/artifacts
+
+2) Напиши САМОДОСТАТОЧНЫЙ HTML-файл (inline CSS, русский) через Write в ${REPORT_PATH}.
+   Структура:
+   - Заголовок: название проекта.
+   - Секция «✅ Что сделано» — по каждой задаче простым языком ЧТО готово +
+     путь к файлам-артефактам (если есть). Без технических деталей.
+   - Секция «🙋 Что нужно от вас» — САМОЕ ВАЖНОЕ. Перечисли КОНКРЕТНЫЕ ручные
+     действия которые команда физически НЕ могла сделать сама. Анализируй
+     результаты задач и пойми что осталось на человека. Типичное:
+       * Залить реальные фото вместо placeholder (откуда взять, куда положить).
+       * Написать блогерам — УКАЖИ каким именно (если в задаче есть имена/ниши)
+         и по каким контактам; если контактов нет — честно «нужно найти контакты».
+       * Зарегистрировать/оплатить домен и хостинг.
+       * Дать доступы / API-ключи (Telegram-бот токен, VK/метрика аккаунты).
+       * Проверить и одобрить тексты/дизайн.
+     Каждый пункт — что сделать, зачем, и если возможно — как/где.
+   - В самом верху HTML: <button onclick=\"window.print()\" class=\"no-print\">🖨 Сохранить как PDF</button>
+   - Добавь <style>@media print { .no-print { display:none } }</style> + приятную типографику.
+
+3) Заверши. НЕ меняй задачи, НЕ запускай subagent, НЕ трогай канбан.
+
+Цель: owner открывает report.html, читает что сделано и что ему надо доделать
+руками, печатает в PDF если нужно."
+elif [[ "${DEVBOARD_CHAT_RESPOND:-}" == "1" && "${ROLE_SLUG}" == "managing-director" ]]; then
     THREAD_ID="${DEVBOARD_THREAD_ID:-}"
     TASK_PROMPT="CHAT-RESPOND-режим: owner написал тебе в чат, ответь одной репликой.
 

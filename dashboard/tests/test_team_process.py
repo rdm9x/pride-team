@@ -686,3 +686,43 @@ def test_parse_log_no_result_event_returns_none(tmp_path, monkeypatch) -> None:
     assert cost is None
     summary = _db.usage_summary(db_path)
     assert summary["last_5h"]["sessions"] == 0
+
+
+# === _project_needs_report ===
+
+
+def test_project_needs_report_all_done(tmp_path, monkeypatch) -> None:
+    """Все задачи проекта в review/done, отчёта нет → нужен отчёт."""
+    from devboard_tasks import db as _db
+    db_path = tmp_path / "x.db"
+    _db.init_db(db_path)
+    monkeypatch.setattr(app_module, "_REPO_ROOT", tmp_path)
+    proj = _db.create_project(db_path, slug="land", title="Лендинг")
+    t1 = _db.insert_task(db_path, title="a", project_id=proj["id"])
+    t2 = _db.insert_task(db_path, title="b", project_id=proj["id"])
+    _db.update_task(db_path, t1["id"], status="review")
+    _db.update_task(db_path, t2["id"], status="done")
+    assert app_module._project_needs_report(db_path, proj) is True
+
+
+def test_project_needs_report_has_todo(tmp_path, monkeypatch) -> None:
+    """Есть незавершённая (todo) задача → отчёт не нужен."""
+    from devboard_tasks import db as _db
+    db_path = tmp_path / "x.db"
+    _db.init_db(db_path)
+    monkeypatch.setattr(app_module, "_REPO_ROOT", tmp_path)
+    proj = _db.create_project(db_path, slug="land2", title="Лендинг 2")
+    t1 = _db.insert_task(db_path, title="a", project_id=proj["id"])
+    _db.update_task(db_path, t1["id"], status="review")
+    _db.insert_task(db_path, title="b", project_id=proj["id"])  # остаётся todo
+    assert app_module._project_needs_report(db_path, proj) is False
+
+
+def test_project_needs_report_empty(tmp_path, monkeypatch) -> None:
+    """Проект без задач → отчёт не нужен."""
+    from devboard_tasks import db as _db
+    db_path = tmp_path / "x.db"
+    _db.init_db(db_path)
+    monkeypatch.setattr(app_module, "_REPO_ROOT", tmp_path)
+    proj = _db.create_project(db_path, slug="empty", title="Пусто")
+    assert app_module._project_needs_report(db_path, proj) is False

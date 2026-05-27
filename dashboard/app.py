@@ -1682,6 +1682,122 @@ def _list_adr_files(adr_dir: Path = _ADR_DIR) -> list[dict[str, Any]]:
     return result
 
 
+# === Project report (auto-generated HTML when all tasks done/review) ===
+
+_REPORT_POLL_INTERVAL = 30        # как часто проверяем проекты на завершённость
+_REPORT_TIMEOUT_SEC = 180         # лимит на генерацию отчёта Управляющим
+_report_running: set[str] = set()  # project_id (str) сейчас генерируются
+
+
+def _project_report_path(db_path: Path, project: dict) -> Optional[Path]:
+    """Путь к report.html проекта: workspace/<code>-<slug>/report.html."""
+    code = project.get("code")
+    slug = project.get("slug")
+    if not code or not slug:
+        return None
+    return _REPO_ROOT / "workspace" / f"{code}-{slug}" / "report.html"
+
+
+def _project_needs_report(db_path: Path, project: dict) -> bool:
+    """True если ВСЕ задачи проекта завершены (review/done, total>0) и отчёт
+    отсутствует или устарел (mtime отчёта < макс. updated_at задач)."""
+    pid = project.get("id")
+    if pid is None:
+        return False
+    conn = db._connect(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT status, updated_at FROM tasks WHERE project_id = ? AND enabled = 1",
+            (pid,),
+        ).fetchall()
+    except Exception:  # noqa: BLE001
+        return False
+    finally:
+        conn.close()
+    if not rows:
+        return False
+    statuses = [r["status"] for r in rows]
+    if any(s not in ("review", "done") for s in statuses):
+        return False  # ещё не всё завершено
+    report = _project_report_path(db_path, project)
+    if report is None:
+        return False
+    if report.exists():
+        max_updated = max((r["updated_at"] or 0) for r in rows)
+        if report.stat().st_mtime >= max_updated:
+            return False  # отчёт актуален
+    return True
+
+
+def _project_report_run(db_path: Path, project_id: int) -> None:
+    """Запускает Управляющего в report-режиме: читает задачи проекта,
+    пишет человекочитаемый HTML-отчёт в workspace/<code>-<slug>/report.html.
+    Fire-and-forget из _project_report_loop."""
+    pid_str = str(project_id)
+    try:
+        project = db.get_project(db_path, project_id)
+        if project is None:
+            return
+        commands_dir = _REPO_ROOT / "commands"
+        script = commands_dir / ("devboard-work.ps1" if sys.platform == "win32" else "devboard-work.sh")
+        if not script.exists():
+            log.error("report: script not found: %s", script)
+            return
+
+        _STRIP_PREFIXES = (
+            "CLAUDE_CODE_", "CLAUDE_AGENT_SDK_", "CLAUDE_EFFORT", "ANTHROPIC_PROMPT_CACHING",
+        )
+        _STRIP_KEYS = {"CLAUDECODE", "CLAUDE_CODE_SESSION_ID", "AI_AGENT"}
+        env = {k: v for k, v in os.environ.items()
+               if k not in _STRIP_KEYS and not any(k.startswith(p) for p in _STRIP_PREFIXES)}
+        env["DEVBOARD_REPORT_MODE"] = "1"
+        env["DEVBOARD_PROJECT_ID"] = pid_str
+        env["DEVBOARD_PROJECT_CODE"] = project.get("code") or ""
+        env["DEVBOARD_PROJECT_SLUG"] = project.get("slug") or ""
+        env["DEVBOARD_TEAM_MODEL"] = "sonnet"  # отчёт — структурный текст, sonnet ок
+
+        cmd = ["bash", str(script), "--role", "managing-director"] if sys.platform != "win32" else \
+              ["pwsh", "-File", str(script), "-Role", "managing-director"]
+
+        log_path = _REPO_ROOT / "data" / f"report-{pid_str}.log"
+        with open(log_path, "a") as log_f:
+            log_f.write(f"\n==== report PRJ#{pid_str} @ {time.strftime('%H:%M:%S')} ====\n")
+            log_f.flush()
+            proc = subprocess.Popen(cmd, cwd=str(_REPO_ROOT), env=env,
+                                    stdout=log_f, stderr=subprocess.STDOUT)
+            try:
+                proc.wait(timeout=_REPORT_TIMEOUT_SEC)
+                log.info("report PRJ#%s done rc=%d", pid_str, proc.returncode)
+            except subprocess.TimeoutExpired:
+                log.warning("report PRJ#%s timeout, killing", pid_str)
+                proc.kill()
+        _parse_and_record_session_from_log(log_path)
+    except Exception:  # noqa: BLE001
+        log.exception("report PRJ#%s failed", pid_str)
+    finally:
+        _report_running.discard(pid_str)
+
+
+def _project_report_loop(db_path: Path = DB_PATH) -> None:
+    """Background: проверяет active-проекты; когда все задачи проекта в
+    review/done — генерит HTML-отчёт (один раз, пока задачи не изменятся)."""
+    log.info("project-report loop started, polling every %ds", _REPORT_POLL_INTERVAL)
+    while True:
+        try:
+            projects = db.list_projects(db_path, include_archived=False)
+            for p in projects:
+                pid_str = str(p.get("id"))
+                if pid_str in _report_running:
+                    continue
+                if _project_needs_report(db_path, p):
+                    _report_running.add(pid_str)
+                    Thread(target=_project_report_run, args=(db_path, p["id"]),
+                           daemon=True, name=f"report-{pid_str}").start()
+        except Exception:  # noqa: BLE001
+            log.exception("project-report loop error")
+        time.sleep(_REPORT_POLL_INTERVAL)
+
+
 # === Flask app ===
 
 
@@ -1722,6 +1838,9 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         # Stage 5: chat-responder — мониторит owner-сообщения, запускает Управляющего.
         Thread(target=_chat_responder_loop, args=(effective_db,),
                daemon=True, name="chat-responder").start()
+        # Project-report: авто-генерация HTML-отчёта когда все задачи проекта завершены.
+        Thread(target=_project_report_loop, args=(effective_db,),
+               daemon=True, name="project-report").start()
 
     def _db() -> Path:
         return app.config["DB_PATH"]
@@ -3697,6 +3816,21 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         include_archived = request.args.get("include_archived") in ("1", "true", "yes")
         projects = db.list_projects(_db(), include_archived=include_archived)
         return jsonify({"статус": "ok", "projects": projects})
+
+    @app.get("/api/projects/<int:project_id>/report")
+    def api_project_report(project_id: int) -> Any:
+        """Есть ли сгенерированный HTML-отчёт по проекту. Возвращает
+        {exists, path} — path относительный (для /api/open-file)."""
+        project = db.get_project(_db(), project_id)
+        if project is None:
+            return jsonify({"статус": "not_found"}), 404
+        report = _project_report_path(_db(), project)
+        if report is not None and report.exists():
+            rel = report.relative_to(_REPO_ROOT)
+            return jsonify({"статус": "ok", "exists": True,
+                            "path": str(rel),
+                            "mtime": int(report.stat().st_mtime)})
+        return jsonify({"статус": "ok", "exists": False})
 
     @app.post("/api/projects")
     def api_create_project() -> Any:

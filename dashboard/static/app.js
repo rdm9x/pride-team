@@ -1694,8 +1694,46 @@
 
     // Загружаем артефакты асинхронно
     loadTaskArtifacts(id);
+    // Если у проекта задачи есть готовый отчёт — показываем кнопку открытия.
+    loadProjectReport(t);
 
     $("#modal-task").hidden = false;
+  }
+
+  // Кнопка «📄 Отчёт проекта» в модалке — если по проекту задачи сгенерён report.html.
+  async function loadProjectReport(t) {
+    if (!t || !t.project_id) return;
+    try {
+      const r = await fetch(`/api/projects/${t.project_id}/report`);
+      if (!r.ok) return;
+      const data = await r.json();
+      if (!data.exists || !data.path) return;
+      const body = $("#modal-task-body");
+      if (!body) return;
+      const bar = document.createElement("div");
+      bar.className = "project-report-bar";
+      bar.style.cssText = "margin:10px 0;padding:10px;border:1px solid var(--accent);border-radius:6px;background:var(--accent-soft);";
+      const btn = document.createElement("button");
+      btn.className = "primary";
+      btn.textContent = "📄 " + (i18n("task.project_report_open") || "Открыть отчёт по проекту");
+      btn.addEventListener("click", async () => {
+        try {
+          const resp = await fetch("/api/open-file", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: data.path }),
+          });
+          if (!resp.ok) {
+            const j = await resp.json().catch(() => ({}));
+            await (window.customAlert || alert)("Не удалось открыть отчёт: " + (j.reason || resp.status));
+          }
+        } catch (_) {
+          await (window.customAlert || alert)("Ошибка при открытии отчёта");
+        }
+      });
+      bar.appendChild(btn);
+      body.insertBefore(bar, body.firstChild);
+    } catch (_) { /* нет отчёта — молча */ }
   }
 
   /**

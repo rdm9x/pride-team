@@ -1746,7 +1746,8 @@ def _list_adr_files(adr_dir: Path = _ADR_DIR) -> list[dict[str, Any]]:
 # === Project report (auto-generated HTML when all tasks done/review) ===
 
 _REPORT_POLL_INTERVAL = 30        # как часто проверяем проекты на завершённость
-_REPORT_TIMEOUT_SEC = 180         # лимит на генерацию отчёта Управляющим
+_REPORT_TIMEOUT_SEC = 420         # лимит на генерацию отчёта (7 мин — большие
+                                  # проекты с 10+ задачами не успевали за 180с)
 _report_running: set[str] = set()  # project_id (str) сейчас генерируются
 
 

@@ -15,7 +15,7 @@ Three role-bots — **Team Lead**, **Backend**, **QA** — share one local kanba
 ## Quick Start (recommended)
 
 ```bash
-git clone https://github.com/rdm9x/devboard.git
+git clone https://github.com/your-org/devboard.git
 cd devboard
 cp .env.example .env
 # Open .env and set ANTHROPIC_API_KEY
@@ -54,10 +54,10 @@ The launcher installs dependencies on first run, starts the Flask dashboard, and
 ### Option B — shell
 
 ```bash
-git clone https://github.com/rdm9x/devboard.git
+git clone https://github.com/your-org/devboard.git
 cd devboard
 python3 setup.py            # one-time: creates venvs, installs deps
-./команды/devboard-start.sh
+./commands/devboard-start.sh
 open http://127.0.0.1:4999
 ```
 
@@ -136,17 +136,17 @@ Upgrading from v1.x? See the **[v2 migration guide](docs/migration-v2.md)** — 
 
 ## Roles
 
-Each role lives as a system prompt in [`роли/`](роли/):
+Each role lives as a system prompt in [`roles/`](roles/):
 
 | File | Role | Tools |
 |---|---|---|
 | `roles/dev/lead.md` | Dev Lead — plans, decomposes, reviews, escalates | MCP `devboard-tasks` + Task (subagents) + Read / Bash / Edit |
-| `роли/бэкенд.md` | Backend — writes code, unit tests | Read / Write / Edit, Bash, MCP `devboard-tasks` (read + comment + submit) |
-| `роли/qa.md` | QA — runs tests, finds regressions, writes new tests | Read, Bash, MCP `devboard-tasks` |
-| `роли/архитектор.md` | Architect (optional) | Read, MCP `devboard-tasks` |
-| `роли/frontend.md` | Frontend (optional) | Read / Write / Edit, Bash |
-| `роли/devops.md` | DevOps (optional) | Read, Bash, approval-gated shell |
-| `роли/техписатель.md` | Tech Writer (optional) | Read / Write / Edit on docs only |
+| `roles/бэкенд.md` | Backend — writes code, unit tests | Read / Write / Edit, Bash, MCP `devboard-tasks` (read + comment + submit) |
+| `roles/qa.md` | QA — runs tests, finds regressions, writes new tests | Read, Bash, MCP `devboard-tasks` |
+| `roles/архитектор.md` | Architect (optional) | Read, MCP `devboard-tasks` |
+| `roles/frontend.md` | Frontend (optional) | Read / Write / Edit, Bash |
+| `roles/devops.md` | DevOps (optional) | Read, Bash, approval-gated shell |
+| `roles/техписатель.md` | Tech Writer (optional) | Read / Write / Edit on docs only |
 
 Architecture details live in [ARCHITECTURE.md](ARCHITECTURE.md) (added in **E4.3**).
 

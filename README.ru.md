@@ -29,16 +29,16 @@ devboard/
     tasks.db.lock             — fcntl-lock файл
     dashboard.log             — лог Flask
     team.log                  — live-лог сессий тимлида
-  mcp_сервер/                 — MCP-сервер pride-tasks (8 tools)
-    pride_tasks/{db,tools,models,server}.py
+  mcp_server/                 — MCP-сервер devboard-tasks (8 tools)
+    devboard_tasks/{db,tools,models,server}.py
     tests/                    — 51 тест
-  дашборд/                    — Flask
+  dashboard/                    — Flask
     app.py
     templates/kanban.html
     static/{style.css,app.js}
     tests/                    — 16 тестов
-  роли/                       — системные промты тимлида/бэкенда/qa
-  команды/
+  roles/                      — системные промты тимлида/бэкенда/qa
+  commands/
     devboard-start.sh       — запуск дашборда
     devboard-stop.sh        — остановка всего
     devboard-work.sh        — внутренний: запускает claude как тимлида
@@ -60,7 +60,7 @@ devboard/
 ## Быстрый старт (рекомендуется)
 
 ```bash
-git clone https://github.com/rdm9x/devboard.git
+git clone https://github.com/your-org/devboard.git
 cd devboard
 cp .env.example .env
 # Открой .env и пропиши ANTHROPIC_API_KEY
@@ -89,7 +89,7 @@ docker compose up
 руками ничего делать не нужно. Если хочется убедиться заранее:
 
 ```bash
-cd /Users/dm_pc/Desktop/pride-team-v1.0/mcp_server
+cd ~/devboard/mcp_server
 uv venv && uv pip install -e ".[dev]"
 
 cd ../dashboard
@@ -99,12 +99,12 @@ uv venv && uv pip install -e . && uv pip install pytest
 ## Запуск
 
 ```bash
-cd /Users/dm_pc/Desktop/pride-team-v1.0
+cd ~/devboard
 ./commands/devboard-start.sh
 ```
 
 Откроется на **http://127.0.0.1:4999** (порт меняется через
-`PRIDE_DASHBOARD_PORT=5001 ./команды/devboard-start.sh`).
+`DEVBOARD_DASHBOARD_PORT=5001 ./commands/devboard-start.sh`).
 
 Язык интерфейса, режим тимлида и выбор модели настраиваются в **вкладке «Настройки»** прямо в дашборде.
 
@@ -134,7 +134,7 @@ cd /Users/dm_pc/Desktop/pride-team-v1.0
 ## Остановка
 
 ```bash
-./команды/devboard-stop.sh
+./commands/devboard-stop.sh
 ```
 
 Если хочется только остановить тимлида (но дашборд оставить) — нажми
@@ -152,7 +152,7 @@ cd /Users/dm_pc/Desktop/pride-team-v1.0
 ## Прогон тестов
 
 ```bash
-cd /Users/dm_pc/Desktop/pride-team-v1.0
+cd ~/devboard
 
 # MCP-сервер: 51 тест
 ./mcp_server/.venv/bin/pytest mcp_server/tests/ -v
@@ -164,7 +164,7 @@ cd /Users/dm_pc/Desktop/pride-team-v1.0
 Или одной командой (используя venv MCP-сервера, в нём pytest точно есть):
 
 ```bash
-PYTHONPATH=mcp_сервер ./mcp_сервер/.venv/bin/pytest mcp_сервер/tests/ дашборд/tests/
+PYTHONPATH=mcp_server ./mcp_server/.venv/bin/pytest mcp_server/tests/ dashboard/tests/
 ```
 
 Ожидаемо: **67 тестов зелёные** (51 + 16).
@@ -198,22 +198,20 @@ PYTHONPATH=mcp_сервер ./mcp_сервер/.venv/bin/pytest mcp_сервер
 
 ## Как добавить новую роль (на будущее)
 
-1. Создай `роли/<имя>.md` по образцу `роли/бэкенд.md`.
-2. В `mcp_сервер/pride_tasks/db.py` добавь роль в `_DEFAULT_ROLES`
+1. Создай `roles/<имя>.md` по образцу `roles/бэкенд.md`.
+2. В `mcp_server/devboard_tasks/db.py` добавь роль в `_DEFAULT_ROLES`
    (или вставь в БД вручную через `tools.list_roles` + миграция).
-3. В `mcp_сервер/pride_tasks/models.py` добавь имя в кортеж `ROLES`.
+3. В `mcp_server/devboard_tasks/models.py` добавь имя в кортеж `ROLES`.
 4. Обнови промт тимлида (`roles/dev/lead.md` §«Кто у тебя в команде»).
 5. Прогон тестов: `pytest`.
 
 ## Архитектурные заметки
 
 - **Атомарность записи в канбан.** Используется fcntl-lock на `data/tasks.db.lock`
-  + SQLite `BEGIN IMMEDIATE`. Паттерн скопирован из
-  `/D.AI/SKILLS/skills/client-card/scripts/client_card.py`. Покрыт
-  параллельным тестом на 8 writer'ов.
+  + SQLite `BEGIN IMMEDIATE`. Покрыт параллельным тестом на 8 writer'ов.
 - **MCP-сервер** запускается как stdio-процесс из самой сессии claude через
   `.mcp.json`. Отдельный демон не нужен.
-- **Дашборд** работает с тем же SQLite напрямую через `pride_tasks.tools` —
+- **Дашборд** работает с тем же SQLite напрямую через `devboard_tasks.tools` —
   не через MCP. Для MVP это проще; в production можно перевести на MCP-клиент.
 - **`devboard-work.sh`** запускает `claude --print` (one-shot) с
   `permission-mode=bypassPermissions`. Безопасность держится на promt'ах ролей,

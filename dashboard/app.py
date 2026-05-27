@@ -2972,6 +2972,36 @@ def create_app(db_path: Optional[Path] = None) -> Flask:
         tools.add_comment(task_id, "пользователь", f"REJECTED: {reason}", db_path=_db())
         return jsonify({"статус": "ok", "задача": upd["задача"]})
 
+    @app.post("/api/tasks/<task_id>/rework")
+    def api_rework(task_id: str) -> Any:
+        """Вернуть задачу на доработку: result обнуляется, status→todo,
+        добавляется коммент-маркер «🔄 НА ДОРАБОТКУ».
+
+        Без обнуления result исполнитель видит готовые файлы/result и считает
+        задачу выполненной — просто возвращает в review, не переделывая.
+        Маркер-коммент сигнализирует лиду что нужна переделка с нуля.
+        """
+        existing = db.get_task(_db(), task_id)
+        if existing is None:
+            return jsonify({"статус": "not_found", "task_id": task_id}), 404
+        comment = (request.get_json(silent=True) or {}).get("comment") \
+            or (request.get_json(silent=True) or {}).get("text") or ""
+        comment = comment.strip()
+        # Обнуляем result + возвращаем в очередь.
+        updated = db.update_task(_db(), task_id, status="todo", result="")
+        if updated is None:
+            return jsonify({"статус": "not_found", "task_id": task_id}), 404
+        marker = f"🔄 НА ДОРАБОТКУ: {comment}" if comment else \
+            "🔄 НА ДОРАБОТКУ — прошлый результат не подошёл, переделать заново."
+        tools.add_comment(task_id, "пользователь", marker, db_path=_db())
+        # Зеркалим в чат чтобы лид увидел при следующем запуске.
+        try:
+            db.post_chat_message(_db(), "пользователь",
+                                 f"[доработка #{task_id[:6]}] {comment or 'переделать заново'}")
+        except Exception:  # noqa: BLE001
+            pass
+        return jsonify({"статус": "ok", "задача": updated})
+
     @app.post("/api/tasks/<task_id>/dependencies")
     def api_add_dependency(task_id: str) -> Any:
         data = request.get_json(silent=True) or {}

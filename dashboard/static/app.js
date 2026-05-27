@@ -1963,9 +1963,9 @@
     }
     if (t.status === "review") {
       buttons.push(`<button class="approve" data-action="status" data-value="done">${i18n("task.btn.accept")}</button>`);
-      // «Доработать» → возвращаем в todo (в очередь), чтобы лид/auto подобрали
-      // и переделали. wip = тупик: задачу никто не берёт (она «уже в работе»).
-      buttons.push(`<button data-action="status" data-value="todo">${i18n("task.btn.rework")}</button>`);
+      // «Доработать» → /rework: обнуляет result, status→todo, коммент-маркер.
+      // Иначе исполнитель видит готовый result/файлы и закрывает не переделав.
+      buttons.push(`<button data-action="rework">${i18n("task.btn.rework")}</button>`);
     }
     if (t.status === "done") {
       buttons.push(`<button data-action="status" data-value="wip">${i18n("task.btn.reopen")}</button>`);
@@ -2044,6 +2044,16 @@
           });
         } else if (action === "approve") {
           await fetch("/api/tasks/" + t.id + "/approve", { method: "POST" });
+        } else if (action === "rework") {
+          const comment = await customPrompt(i18n("inbox.rework.title"), {
+            placeholder: i18n("inbox.rework.placeholder"),
+          });
+          if (comment === null) return; // отмена
+          await fetch("/api/tasks/" + t.id + "/rework", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ comment: comment.trim() }),
+          });
         } else if (action === "reject") {
           await fetch("/api/tasks/" + t.id + "/reject", { method: "POST" });
         } else if (action === "delete") {
@@ -3276,18 +3286,13 @@
         placeholder: i18n("inbox.rework.placeholder"),
       });
       if (comment === null) return;
-      if (comment.trim()) {
-        await fetch(`/api/tasks/${t.id}/comment`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ author: "пользователь", text: comment.trim() }),
-        });
-      }
-      // «На доработку» → todo (в очередь), не wip. wip никто не подбирает.
-      await fetch(`/api/tasks/${t.id}`, {
-        method: "PATCH",
+      // «На доработку» → /rework: обнуляет result, status→todo, коммент-маркер.
+      // (Раньше был raw PATCH status=todo — но он не чистил result, и исполнитель
+      // закрывал задачу не переделав.)
+      await fetch(`/api/tasks/${t.id}/rework`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "todo" }),
+        body: JSON.stringify({ comment: comment.trim() }),
       });
     }
     refresh();

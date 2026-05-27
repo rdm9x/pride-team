@@ -742,6 +742,7 @@ _ALLOWED_UPDATE_FIELDS = {
     "requires_approval",
     "model_hint",  # S15.2 (ADR-006): hint для роутера
     "enabled",     # F2.1: чекбокс на todo-карточке
+    "result",      # для rework: обнуление результата при возврате на доработку
 }
 
 

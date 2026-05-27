@@ -126,6 +126,24 @@ def test_reject_flow(client) -> None:
     assert t["status"] == "done"
 
 
+def test_rework_flow(client) -> None:
+    """«Доработать»: review → todo, result обнуляется, добавляется коммент-маркер."""
+    tid = client.post(
+        "/api/tasks",
+        json={"title": "landing", "status": "review"},
+    ).get_json()["задача"]["id"]
+    r = client.post(f"/api/tasks/{tid}/rework", json={"comment": "это напиток, не собаки"})
+    assert r.status_code == 200
+    t = client.get(f"/api/tasks/{tid}").get_json()["задача"]
+    assert t["status"] == "todo"
+    assert not t.get("result")  # result обнулён — исполнитель не сочтёт готовой
+
+
+def test_rework_not_found(client) -> None:
+    r = client.post("/api/tasks/nonexistent/rework", json={"comment": "x"})
+    assert r.status_code == 404
+
+
 def test_delete(client) -> None:
     tid = client.post("/api/tasks", json={"title": "x"}).get_json()["задача"]["id"]
     r = client.delete(f"/api/tasks/{tid}")

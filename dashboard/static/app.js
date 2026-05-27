@@ -3281,6 +3281,7 @@
         }
       });
       box.appendChild(btn);
+      container.appendChild(item);
     });
   }
 

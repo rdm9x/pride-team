@@ -1424,6 +1424,10 @@ def _start_team_process(triggered_by: str = "user", role: str = "managing-direct
                 **clean_env,
                 **extra_env,
             },
+            # Своя process group: claude порождает subagent'ов (Task tool) и
+            # MCP-сервер. При «Остановить» убиваем ВСЮ группу через killpg,
+            # иначе дети остаются сиротами и работа «едет в фоне».
+            start_new_session=(sys.platform != "win32"),
         )
         team_state["process"] = new_proc
         now = int(time.time())
@@ -1463,16 +1467,33 @@ def _stop_team_process(role: str = "managing-director") -> dict[str, Any]:
         proc = team_state["process"]
         if proc is None or proc.poll() is not None:
             return {"ok": False, "reason": "not_running"}
-        # Windows не понимает SIGTERM для не-консольного дочернего процесса;
-        # используем terminate() — он шлёт CTRL_BREAK_EVENT либо TerminateProcess.
-        if sys.platform == "win32":
-            proc.terminate()
-        else:
-            proc.send_signal(signal.SIGTERM)
+
+        def _signal_group(sig: int) -> None:
+            """Послать сигнал всей process group (claude + subagent'ы + MCP).
+            Fallback на одиночный процесс если группа недоступна."""
+            if sys.platform == "win32":
+                proc.terminate()
+                return
+            try:
+                os.killpg(os.getpgid(proc.pid), sig)
+            except (ProcessLookupError, PermissionError, OSError, TypeError):
+                # Группа уже мертва или недоступна — пробуем сам процесс.
+                try:
+                    proc.send_signal(sig)
+                except Exception:  # noqa: BLE001
+                    pass
+
+        # Сначала мягко (SIGTERM всей группе), даём 5 сек.
+        _signal_group(signal.SIGTERM)
         try:
             proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
-            proc.kill()
+            # Не завершились — жёстко (SIGKILL всей группе).
+            _signal_group(signal.SIGKILL)
+            try:
+                proc.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                proc.kill()
         team_state["process"] = None
         if role == "managing-director" and _PID_FILE.exists():
             _PID_FILE.unlink()

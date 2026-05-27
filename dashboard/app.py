@@ -950,6 +950,26 @@ def _planning_run_session(db_path: Path, session: dict) -> None:
         role="managing-director", round_n=total_rounds + 1,  # маркер «synth»
     )
 
+    # Баг-фикс: synthesis постит отчёт в тред, но мог не записать его в БД-колонку.
+    # Берём последнее сообщение managing-director из треда и сохраняем как
+    # consolidated_proposal — dispatch при accept читает именно его.
+    if thread_id:
+        try:
+            msgs = db.get_thread_messages(db_path, thread_id, viewer=None)
+            md_reports = [
+                m["text"] for m in msgs
+                if m.get("author") == "managing-director"
+                and "Решение по планёрке" in (m.get("text") or "")
+            ]
+            if md_reports:
+                db.planning_session_update(
+                    db_path, sid, consolidated_proposal=md_reports[-1],
+                )
+            else:
+                log.warning("planning %s: synthesis report not found in thread", sid)
+        except Exception:  # noqa: BLE001
+            log.exception("planning %s: failed to capture consolidated_proposal", sid)
+
     finished_at = int(time.time())
     spent = _planning_cost_so_far(db_path, int(wall_start))
     db.planning_session_update(db_path, sid,
@@ -988,6 +1008,26 @@ def _chat_responder_run(db_path: Path, thread_id: str) -> None:
     env["DEVBOARD_THREAD_ID"] = thread_id
     # Chat-responder = короткая реплика owner-у, всегда haiku (быстро/дёшево).
     env["DEVBOARD_TEAM_MODEL"] = _CHAT_RESPOND_MODEL
+
+    # Если тред связан с завершённой планёркой, которую owner ещё не принял —
+    # передаём её id, чтобы Управляющий мог запустить accept по команде owner-а
+    # («приступай»/«запускай»), а не врать что задачи готовы.
+    try:
+        conn_p = db._connect(db_path)
+        try:
+            row = conn_p.execute(
+                "SELECT id FROM planning_sessions "
+                "WHERE thread_id = ? AND status = 'done' "
+                "AND (decision IS NULL OR decision != 'accept') "
+                "ORDER BY started_at DESC LIMIT 1",
+                (thread_id,),
+            ).fetchone()
+        finally:
+            conn_p.close()
+        if row:
+            env["DEVBOARD_PLANNING_ID"] = row["id"]
+    except Exception:  # noqa: BLE001
+        pass
 
     cmd = ["bash", str(script), "--role", "managing-director"] if sys.platform != "win32" else \
           ["pwsh", "-File", str(script), "-Role", "managing-director"]

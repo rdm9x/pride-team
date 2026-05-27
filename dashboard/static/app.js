@@ -1963,7 +1963,9 @@
     }
     if (t.status === "review") {
       buttons.push(`<button class="approve" data-action="status" data-value="done">${i18n("task.btn.accept")}</button>`);
-      buttons.push(`<button data-action="status" data-value="wip">${i18n("task.btn.rework")}</button>`);
+      // «Доработать» → возвращаем в todo (в очередь), чтобы лид/auto подобрали
+      // и переделали. wip = тупик: задачу никто не берёт (она «уже в работе»).
+      buttons.push(`<button data-action="status" data-value="todo">${i18n("task.btn.rework")}</button>`);
     }
     if (t.status === "done") {
       buttons.push(`<button data-action="status" data-value="wip">${i18n("task.btn.reopen")}</button>`);
@@ -3281,10 +3283,11 @@
           body: JSON.stringify({ author: "пользователь", text: comment.trim() }),
         });
       }
+      // «На доработку» → todo (в очередь), не wip. wip никто не подбирает.
       await fetch(`/api/tasks/${t.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "wip" }),
+        body: JSON.stringify({ status: "todo" }),
       });
     }
     refresh();

@@ -396,7 +396,9 @@
 
 .chat-right {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) minmax(0, 2fr);
+  /* Планёрка — основное действие, отдаём ей больше места.
+     Задачи Управляющего — справочный блок, ужимаем. */
+  grid-template-rows: minmax(0, 3fr) minmax(0, 1fr);
   gap: 1px;
   background: var(--border);
   min-height: 0;
@@ -469,6 +471,14 @@
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* Поле «Тема» — растягиваемый textarea, чтобы влез длинный промпт. */
+.planning-topic-textarea {
+  resize: vertical;
+  min-height: 90px;
+  font-family: inherit;
+  line-height: 1.45;
 }
 
 .view-chat .departments-checkboxes {

@@ -5,7 +5,7 @@
 <title data-i18n="page.title">devboard · малая команда</title>
 <link rel="stylesheet" href="/static/style.css">
 <link rel="stylesheet" href="/static/css/tour.css">
-<link rel="stylesheet" href="/static/css/chat.css?v=6">
+<link rel="stylesheet" href="/static/css/chat.css?v=7">
 </head>
 <body>
 
@@ -761,9 +761,10 @@
               <div class="form-group">
                 <label class="form-label" for="planning-topic"
                        data-i18n="planning.create.topic_label">Тема</label>
-                <input type="text" id="planning-topic" name="topic" class="form-control"
-                       placeholder="Введи тему планёрки…"
-                       data-i18n-attr="placeholder:planning.create.topic_placeholder">
+                <textarea id="planning-topic" name="topic" class="form-control planning-topic-textarea"
+                          rows="6"
+                          placeholder="Опиши задачу подробно: что нужно сделать, какие требования, ЦА, тон…"
+                          data-i18n-attr="placeholder:planning.create.topic_placeholder"></textarea>
               </div>
               <button type="button" class="primary"
                       id="btn-planning-create"

@@ -524,7 +524,7 @@ The ADR template is short on purpose: Context → Decision → Consequences → 
 
 ```text
 команда/
-├── README.md, README.ru.md, NOTICE, LICENSE
+├── README.md, NOTICE, LICENSE
 ├── ARCHITECTURE.md            ← you are here
 ├── approval_gates.md          ← the risky-ops list (Flow 3)
 ├── .mcp.json                  ← claude CLI ↔ MCP server wiring

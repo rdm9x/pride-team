@@ -1,199 +1,193 @@
 # devboard
 
-> An AI dev team in your kanban.
+**ИИ-команда разработки в твоём канбане.**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Stars](https://img.shields.io/github/stars/rdm9x/devboard?style=social)](https://github.com/rdm9x/devboard)
+Семь ролей-ботов — тимлид, бэкенд, QA, архитектор, фронтенд, девопс,
+техписатель — работают на одной локальной доске и выпускают настоящий код,
+пока ты смотришь на канбан. Ты пишешь задачу; тимлид берёт её, раскладывает
+на подзадачи, раздаёт специалистам, проверяет результат — и возвращает тебе
+на приёмку. К тебе команда приходит только тогда, когда это действительно
+нужно: рискованные операции проходят через ворота одобрения.
 
-Seven role-bots — **Team Lead**, **Backend**, **QA**, **Architect**, **Frontend**, **DevOps**, **Tech Writer** — share one local kanban and ship real code while you watch the board. You write the task; they pick it up, decompose it, write the code, run the tests, and hand it back for approval.
+> **Честно о проекте.** Это рабочий личный инструмент автора, опубликован
+> как есть под MIT. Метод «человек ставит задачи и принимает результат,
+> ИИ-роли исполняют» отработан здесь и применяется автором во всех его
+> следующих системах.
 
-## Quick Start (recommended)
+## Быстрый старт
 
 ```bash
 git clone https://github.com/rdm9x/devboard.git
 cd devboard
 cp .env.example .env
-# Open .env and set ANTHROPIC_API_KEY
+# в .env вписать ANTHROPIC_API_KEY
 docker compose up
-# Open http://localhost:4999
+# открыть http://localhost:4999
 ```
 
-Works the same on **Windows / macOS / Linux**. Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+Одинаково работает на Windows / macOS / Linux, нужен
+[Docker Desktop](https://www.docker.com/products/docker-desktop/).
+Данные живут в `./data` и переживают перезапуски и пересборки образа.
 
-Data lives in `./data` (bind-mounted into the container) and survives restarts and image rebuilds.
+Без Docker: двойной клик по `Запустить devboard.command` (macOS/Linux) или
+`Запустить devboard.bat` (Windows) — установит зависимости и откроет браузер.
+Либо руками: `python3 setup.py && ./commands/devboard-start.sh`
+(Python 3.11+, подписка Anthropic с CLI `claude`). Полный гид по развёртыванию
+на сервере — [DEPLOYMENT.md](DEPLOYMENT.md).
 
-Once the dashboard is up:
+## Как выглядит работа
 
-1. Click **+ New task**, fill the form, save — the task lands in **TO DO**.
-2. Click **▶ Run team** in the header. The Team Lead picks up the task, decomposes it, delegates subtasks to Backend and QA, and streams live output to the bottom panel.
-3. When a task moves to **REVIEW**, open the card and click **Accept** or **Send back**.
-4. When you see a task in **NEEDS APPROVAL ⚠**, open it, read what the agent wants to do, and click **Approve** or **Reject**.
+1. **+ Новая задача** → форма → задача падает в **TO DO**.
+2. **▶ Запустить команду** — тимлид берёт задачу, раскладывает, делегирует
+   бэкенду и QA; живой лог их работы льётся в нижнюю панель.
+3. Задача дошла до **REVIEW** — открываешь карточку, жмёшь **Принять**
+   или **Вернуть**.
+4. Задача в **NEEDS APPROVAL ⚠** — агент просит разрешения на рискованную
+   операцию (`git push`, `ssh`, перезапуск службы): читаешь, что именно он
+   хочет сделать, и решаешь — **Одобрить** или **Отклонить**.
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for a full VPS guide.
+<p align="center">
+  <img src="docs/screenshots/01-kanban.png" alt="Канбан-доска: колонки TODO / WIP / NEEDS APPROVAL / REVIEW / DONE" width="49%"/>
+  <img src="docs/screenshots/02-chat.png" alt="Чат — прямой разговор с тимлидом" width="49%"/>
+</p>
+<p align="center">
+  <img src="docs/screenshots/03-approval-gate.png" alt="Ворота одобрения перед рискованной операцией" width="49%"/>
+  <img src="docs/screenshots/04-new-task.png" alt="Форма новой задачи" width="49%"/>
+</p>
 
----
+## Почему так
 
-## Manual install (without Docker)
+Большинство кодинг-агентов — один цикл в терминале. devboard устроен как
+**маленькая организация**: лид делит работу, делегирует специалистам,
+проверяет результат и поднимает к человеку только то, что того стоит.
+Всё состояние — в SQLite-канбане, который можно читать хоть из дашборда,
+хоть `sqlite3` из консоли. Сделано для одиночки, который хочет
+агентную разработку, не отдавая доску, журнал действий и право вето.
 
-> Use this path if Docker is not available. Requires Python 3.11+ and an Anthropic subscription with `claude` CLI.
+## Возможности
 
-### Option A — double-click (Mac / Linux / Windows)
+- **Канбан** — задачи идут TO DO → WIP → NEEDS APPROVAL → REVIEW → DONE;
+  рискованное одобряешь ты, остальное команда делает сама.
+- **Живой лог** — поток работы агентов разбирается в человекочитаемые строки
+  и уходит в браузер по SSE.
+- **Ворота одобрения** — `git push`, `ssh`, `systemctl restart` и прочие
+  опасные операции не выполняются без явного «да» владельца
+  ([approval_gates.md](approval_gates.md)).
+- **Маршрутизатор моделей** — haiku / sonnet / opus подбираются по сложности
+  задачи, токены на маршрутизацию не тратятся.
+- **Вкладка «Настройки»** — язык, режим тимлида и модели меняются прямо в
+  дашборде, без правки файлов.
+- **Вкладка «Статистика»** — поток задач, скорость команды, аналитика по
+  ролям — из того же SQLite.
+- **Два языка** — интерфейс и вывод агентов переключаются между русским и
+  английским одним тумблером.
+- **Режим простого языка** — тимлид объясняет происходящее без жаргона,
+  для нетехнического владельца продукта.
+- **Семь ролей из коробки** — свои роли добавляются markdown-файлом в
+  [`roles/`](roles/).
 
-```text
-Запустить devboard.command   # macOS / Linux (double-click in Finder)
-Запустить devboard.bat       # Windows       (double-click in Explorer)
-```
+## Мультикомандный режим (v2.0)
 
-The launcher installs dependencies on first run, starts the Flask dashboard, and opens `http://127.0.0.1:4999` in your browser.
-
-### Option B — shell
-
-```bash
-git clone https://github.com/rdm9x/devboard.git
-cd devboard
-python3 setup.py            # one-time: creates venvs, installs deps
-./commands/devboard-start.sh
-open http://127.0.0.1:4999
-```
-
----
-
-## Why
-
-Most coding agents run as a single loop in your terminal. `devboard` runs as a **small org**: a Team Lead splits work, delegates to specialists, reviews their results, and only escalates to you when it actually matters. Everything lives in a SQLite kanban you can read with `sqlite3` and see in a Flask dashboard.
-
-Built for solo developers who want agent-driven delivery without giving up the board, the audit trail, or the approval gates.
-
-## Features
-
-- **Kanban board** — tasks move through TO DO → WIP → NEEDS APPROVAL → REVIEW → DONE. You approve risky operations; agents handle the rest.
-- **Live log** — stream-json from the Claude session is parsed into human-readable lines and pushed to the browser via SSE.
-- **Approval gates** — `git push`, `ssh`, `systemctl restart`, and other risky operations require explicit user approval before any agent runs them.
-- **Model router** — picks `haiku`, `sonnet`, or `opus` based on task complexity. No tokens wasted on routing.
-- **Settings tab** — configure language, teamlead mode, and model preferences in-dashboard. No manual `.env` edits needed for common options.
-- **Statistics tab** — task throughput, team velocity, and role performance analytics, all from the same SQLite data.
-- **Dual-language i18n** — both the dashboard UI and agent output switch between RU and EN. One toggle covers everything.
-- **Plain-language mode** — the Team Lead simplifies its output for non-technical product owners. Toggle in Settings; no prompt editing required.
-- **Multi-role team** — Team Lead, Backend, QA, Architect, Frontend, DevOps, and Tech Writer ship by default; custom roles are drop-in markdown files.
-
-## Multi-team mode (v2.0)
-
-Devboard v2.0 turns the single-team kanban into a **multi-department platform**. One instance can host several departments — `Dev`, `Marketing`, `Design`, `Sales`, `Support`, `Operations` — each with its own kanban, its own roles, and its own per-department chat. The current department is stored in `localStorage` and sent on every request via the `X-Department` header; legacy `/api/tasks` and `/api/chat` calls fall back to `dev` so v1.x clients keep working.
-
-A new global **HR role** spawns new departments through a chat-driven pipeline. HR picks the closest of five built-in YAML templates (`marketing-v1`, `design-v1`, `sales-v1`, `support-v1`, `operations-v1`), customises it for you in a 1–5 turn edit loop, and writes the role files only after you approve. All audit lives in `extras.hr_meta` of each generated role and in the `hr_sessions` table.
-
-Departments coordinate through a strict **Lead-to-Lead inter-department workflow**. Only a department Lead (or owner) can post a cross-department task via `POST /api/departments/<target>/tasks`. The receiving Lead may take the task into queue or counter-propose — there is no *Decline*. `P1`/`P2` cross-tasks and anything labelled `requires_budget` escalate to the owner's Inbox. A global append-only `inter-department` channel records every cross-task event.
+Одна установка devboard может держать несколько **отделов** — разработка,
+маркетинг, дизайн, продажи, поддержка, операции — у каждого свой канбан,
+свои роли и свой чат. Глобальная **HR-роль** создаёт новые отделы через
+диалог: подбирает ближайший из пяти YAML-шаблонов, дорабатывает его с тобой
+за 1–5 реплик и пишет файлы ролей только после твоего одобрения. Отделы
+общаются строго «лид-к-лиду»: чужой лид может взять кросс-задачу в очередь
+или предложить встречные условия, а всё межотдельное пишется в общий
+журнал, который читает владелец.
 
 ```mermaid
 graph TB
-  owner((Owner<br/>global))
-  hr[HR Role<br/>department_id = NULL<br/>creates departments]
-  dev_dept[Department: dev<br/>Team Lead, Backend, QA,<br/>Architect, Frontend,<br/>DevOps, Tech Writer]
-  mkt_dept[Department: marketing<br/>Marketing Lead, Content Writer,<br/>SEO Researcher, SMM]
-  design_dept[Department: design<br/>Design Lead, UI, Visual, UX]
-  ops_dept[Department: operations<br/>Ops Lead, Analyst, Automation]
-  inter_chat{{Inter-department channel<br/>department_id = NULL<br/>append-only audit log}}
+  owner((Владелец))
+  hr[HR-роль<br/>создаёт отделы]
+  dev[Отдел: разработка<br/>лид, бэкенд, QA, архитектор,<br/>фронтенд, девопс, техписатель]
+  mkt[Отдел: маркетинг<br/>лид, контент, SEO, SMM]
+  des[Отдел: дизайн<br/>лид, UI, визуал, UX]
+  inter{{Межотдельный журнал<br/>только добавление}}
 
-  owner -- creates --> hr
-  hr -- spawns --> mkt_dept
-  hr -- spawns --> design_dept
-  hr -- spawns --> ops_dept
-  owner -. owns .-> dev_dept
-  owner -. owns .-> mkt_dept
-  owner -. owns .-> design_dept
-  owner -. owns .-> ops_dept
-
-  dev_dept -- Lead-to-Lead --> mkt_dept
-  mkt_dept -- Lead-to-Lead --> design_dept
-  design_dept -- Lead-to-Lead --> dev_dept
-
-  dev_dept -.events.-> inter_chat
-  mkt_dept -.events.-> inter_chat
-  design_dept -.events.-> inter_chat
-  ops_dept -.events.-> inter_chat
-  inter_chat -.read by.-> owner
+  owner -- создаёт --> hr
+  hr -- разворачивает --> mkt
+  hr -- разворачивает --> des
+  owner -. владеет .-> dev
+  owner -. владеет .-> mkt
+  owner -. владеет .-> des
+  dev -- лид-к-лиду --> mkt
+  mkt -- лид-к-лиду --> des
+  dev -.события.-> inter
+  mkt -.события.-> inter
+  des -.события.-> inter
+  inter -.читает.-> owner
 ```
 
-Design rationale lives in three ADRs: [ADR-003](docs/adr/0003-departments.md) (data model), [ADR-004](docs/adr/0004-hr-role.md) (HR role), [ADR-005](docs/adr/0005-inter-department.md) (cross-department workflow).
+Обоснование решений — в ADR: [модель данных](docs/adr/0003-departments.md),
+[HR-роль](docs/adr/0004-hr-role.md),
+[межотдельный поток](docs/adr/0005-inter-department.md).
+Переезд с v1.x — [автоматическая миграция](docs/migration-v2.md).
 
-Upgrading from v1.x? See the **[v2 migration guide](docs/migration-v2.md)** — the migration is automatic, idempotent, and preserves every existing task, role, and chat message under `department_id = 'dev'`.
+## Роли
 
-## Screenshots
+Каждая роль — системный промпт в [`roles/`](roles/):
 
-<p align="center">
-  <img src="docs/screenshots/01-kanban.png" alt="Kanban board with TODO / WIP / NEEDS APPROVAL / REVIEW / DONE columns" width="49%"/>
-  <img src="docs/screenshots/02-chat.png" alt="Chat panel — direct messaging with the Team Lead" width="49%"/>
-</p>
-<p align="center">
-  <img src="docs/screenshots/03-approval-gate.png" alt="Approval gate modal for destructive operations" width="49%"/>
-  <img src="docs/screenshots/04-new-task.png" alt="New task form" width="49%"/>
-</p>
-
-## Roles
-
-Each role lives as a system prompt in [`roles/`](roles/):
-
-| File | Role | Tools |
+| Файл | Роль | Инструменты |
 |---|---|---|
-| `roles/dev/lead.md` | Dev Lead — plans, decomposes, reviews, escalates | MCP `devboard-tasks` + Task (subagents) + Read / Bash / Edit |
-| `roles/бэкенд.md` | Backend — writes code, unit tests | Read / Write / Edit, Bash, MCP `devboard-tasks` (read + comment + submit) |
-| `roles/qa.md` | QA — runs tests, finds regressions, writes new tests | Read, Bash, MCP `devboard-tasks` |
-| `roles/архитектор.md` | Architect (optional) | Read, MCP `devboard-tasks` |
-| `roles/frontend.md` | Frontend (optional) | Read / Write / Edit, Bash |
-| `roles/devops.md` | DevOps (optional) | Read, Bash, approval-gated shell |
-| `roles/техписатель.md` | Tech Writer (optional) | Read / Write / Edit on docs only |
+| `roles/dev/lead.md` | Лид — планирует, раскладывает, проверяет, эскалирует | MCP `devboard-tasks` + субагенты + Read / Bash / Edit |
+| `roles/бэкенд.md` | Бэкенд — пишет код и юнит-тесты | Read / Write / Edit, Bash, MCP |
+| `roles/qa.md` | QA — гоняет тесты, ищет регрессии, пишет новые | Read, Bash, MCP |
+| `roles/архитектор.md` | Архитектор | Read, MCP |
+| `roles/frontend.md` | Фронтенд | Read / Write / Edit, Bash |
+| `roles/devops.md` | Девопс | Read, Bash за воротами одобрения |
+| `roles/техписатель.md` | Техписатель | Read / Write / Edit только по докам |
 
-Architecture details live in [ARCHITECTURE.md](ARCHITECTURE.md) (added in **E4.3**).
+Подробная архитектура — [ARCHITECTURE.md](ARCHITECTURE.md).
 
-## Configuration
+## Настройка
 
-Language, teamlead mode, and model preference can be changed in the **Settings tab** inside the dashboard — no file editing needed for common options.
+Обычные опции (язык, режим тимлида, модель) меняются во вкладке «Настройки».
+Низкоуровневое — в `.env`:
 
-For lower-level setup, set these in `.env` or your shell before launching.
-
-| Variable | Required | Default | Purpose |
+| Переменная | Обязательна | По умолчанию | Зачем |
 |---|---|---|---|
-| `ANTHROPIC_API_KEY` | yes | — | Auth for the Team Lead and subagents. Subscription tokens via `claude` CLI also work. |
-| `DEVBOARD_DASHBOARD_PORT` | no | `4999` | Flask dashboard port. |
-| `DEVBOARD_DB_PATH` | no | `data/tasks.db` | SQLite kanban location. |
-| `OPENAI_API_KEY` | no | — | Optional fallback model for cost-sensitive subtasks. |
-| `OLLAMA_URL` | no | — | Optional local model endpoint, e.g. `http://localhost:11434`. |
-| `CLAUDE_MODEL` | no | `opus` | Model for the Team Lead. |
+| `ANTHROPIC_API_KEY` | да | — | доступ тимлида и субагентов (работает и подписка через CLI `claude`) |
+| `DEVBOARD_DASHBOARD_PORT` | нет | `4999` | порт дашборда |
+| `DEVBOARD_DB_PATH` | нет | `data/tasks.db` | где лежит SQLite-канбан |
+| `OPENAI_API_KEY` | нет | — | запасная модель для дешёвых подзадач |
+| `OLLAMA_URL` | нет | — | локальная модель, например `http://localhost:11434` |
+| `CLAUDE_MODEL` | нет | `opus` | модель тимлида |
 
-## Architecture at a glance
+## Архитектура одним взглядом
 
 ```text
-You ── kanban form ──► Flask dashboard ── SQLite (tasks.db) ◄── MCP `devboard-tasks`
+Ты ── форма канбана ──► Flask-дашборд ── SQLite (tasks.db) ◄── MCP `devboard-tasks`
                                               ▲
-                                              │ live log (SSE)
+                                              │ живой лог (SSE)
                                               │
-                            claude -p  ──► Team Lead
-                                              │ Task tool
-                                              ├──► Backend subagent
-                                              └──► QA subagent
+                            claude -p  ──► Тимлид
+                                              │ субагенты
+                                              ├──► Бэкенд
+                                              └──► QA
 ```
 
-- **Atomic writes:** `fcntl` lock + SQLite `BEGIN IMMEDIATE`. Eight concurrent writers tested.
-- **MCP server** runs as a stdio process inside the Claude session, configured via `.mcp.json`.
-- **Approval gates** (`git push`, `ssh`, `systemctl restart`, etc.) require explicit user approval — see [approval_gates.md](approval_gates.md).
+- **Атомарные записи:** файловая блокировка + SQLite `BEGIN IMMEDIATE`;
+  проверено восемью конкурентными писателями.
+- **MCP-сервер** — stdio-процесс внутри Claude-сессии (`.mcp.json`).
 
-## Roadmap
+PR приветствуются — [CONTRIBUTING.md](CONTRIBUTING.md).
 
-- **E1** — MCP server `devboard-tasks` (done)
-- **E2** — Flask dashboard + live log (done)
-- **E3** — Approval-gate workflow (done)
-- **E4** — Documentation pass (in progress — this README is **E4.1**)
-- **E5** — `docker-compose` packaging
-- **E6** — CI / GitHub Actions
-- **E7** — Multi-model fallback (OpenAI, Ollama)
-- **E8** — External CRM/PM bridge (connector plugin) → `devboard-dev-department`
-- **E9** — Video demo + landing page
+---
 
-## Contributing
+## devboard (EN)
 
-PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) (added in **E4.2**).
-
-## License
+An AI dev team in your kanban. Seven role-bots — Team Lead, Backend, QA,
+Architect, Frontend, DevOps, Tech Writer — share one local SQLite kanban and
+ship real code while you watch the board. You write a task; the Lead
+decomposes it, delegates to specialists, reviews results, and escalates to
+you only through approval gates (`git push`, `ssh`, service restarts).
+Flask dashboard with live SSE log, model router (haiku/sonnet/opus),
+RU/EN i18n, and a v2.0 multi-department mode with an HR role that spawns new
+departments from YAML templates. Quick start: `cp .env.example .env`,
+set `ANTHROPIC_API_KEY`, `docker compose up`, open `http://localhost:4999`.
+Architecture: [ARCHITECTURE.md](ARCHITECTURE.md); deployment:
+[DEPLOYMENT.md](DEPLOYMENT.md).
 
 [MIT](LICENSE) © 2026 Dmitry Rudich.

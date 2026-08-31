@@ -96,7 +96,7 @@ After owner approves this draft, create a separate task with the following shape
 
 ```
 title: "Publish Show HN submission"
-assignee: дмитрий
+assignee: owner
 status: needs_approval
 labels: ["destructive", "public-launch", "showhn"]
 description: |

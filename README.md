@@ -2,20 +2,16 @@
 
 > An AI dev team in your kanban.
 
-[![CI](https://img.shields.io/badge/CI-pending-lightgrey)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Stars](https://img.shields.io/github/stars/devboard/devboard?style=social)](#)
+[![Stars](https://img.shields.io/github/stars/rdm9x/devboard?style=social)](https://github.com/rdm9x/devboard)
 
-Three role-bots — **Team Lead**, **Backend**, **QA** — share one local kanban and ship real code while you watch the board. You write the task; they pick it up, decompose it, write the code, run the tests, and hand it back for approval.
-
-<!-- video demo will go here after E9 -->
-<img alt="devboard demo (placeholder — replaced after E9)" src="docs/screenshots/demo.gif" width="720" onerror="this.style.display='none'"/>
+Seven role-bots — **Team Lead**, **Backend**, **QA**, **Architect**, **Frontend**, **DevOps**, **Tech Writer** — share one local kanban and ship real code while you watch the board. You write the task; they pick it up, decompose it, write the code, run the tests, and hand it back for approval.
 
 ## Quick Start (recommended)
 
 ```bash
-git clone https://github.com/your-org/devboard.git
+git clone https://github.com/rdm9x/devboard.git
 cd devboard
 cp .env.example .env
 # Open .env and set ANTHROPIC_API_KEY
@@ -54,7 +50,7 @@ The launcher installs dependencies on first run, starts the Flask dashboard, and
 ### Option B — shell
 
 ```bash
-git clone https://github.com/your-org/devboard.git
+git clone https://github.com/rdm9x/devboard.git
 cd devboard
 python3 setup.py            # one-time: creates venvs, installs deps
 ./commands/devboard-start.sh
@@ -79,7 +75,7 @@ Built for solo developers who want agent-driven delivery without giving up the b
 - **Statistics tab** — task throughput, team velocity, and role performance analytics, all from the same SQLite data.
 - **Dual-language i18n** — both the dashboard UI and agent output switch between RU and EN. One toggle covers everything.
 - **Plain-language mode** — the Team Lead simplifies its output for non-technical product owners. Toggle in Settings; no prompt editing required.
-- **Multi-role team** — Team Lead, Backend, QA ship by default. Architect, Frontend, DevOps, and Tech Writer roles are drop-in extras.
+- **Multi-role team** — Team Lead, Backend, QA, Architect, Frontend, DevOps, and Tech Writer ship by default; custom roles are drop-in markdown files.
 
 ## Multi-team mode (v2.0)
 
@@ -200,4 +196,4 @@ PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) (added in **E4.2**).
 
 ## License
 
-[MIT](LICENSE) © 2026 owner.
+[MIT](LICENSE) © 2026 Dmitry Rudich.
